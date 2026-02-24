@@ -279,26 +279,32 @@ function DataDictionaryTab() {
   const sourceLabel = dict.tableName.includes("CALL") ? "FDIC BankFind Suite API" :
     dict.tableName.includes("UBPR") ? "FFIEC Central Data Repository" : "Federal Reserve NIC";
   const totalRecords = dataDictionaries.reduce((sum, d) => sum + d.recordCount, 0);
+  const totalFields = dataDictionaries.reduce((sum, d) => sum + d.quality.totalFields, 0);
+  const totalAutoMapped = dataDictionaries.reduce((sum, d) => sum + d.quality.autoMapped, 0);
+  const overallQuality = ((totalAutoMapped / totalFields) * 100).toFixed(1);
+  const q = dict.quality;
+  const autoMappedPct = ((q.autoMapped / q.totalFields) * 100).toFixed(1);
+  const manualReviewPct = ((q.manualReview / q.totalFields) * 100).toFixed(1);
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
         <Card data-testid="card-data-sources">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">3</p>
-            <p className="text-xs text-muted-foreground">Federal Portals</p>
+            <p className="text-2xl font-bold">{totalRecords}</p>
+            <p className="text-xs text-muted-foreground">Records Ingested</p>
           </CardContent>
         </Card>
         <Card data-testid="card-data-tables">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">3</p>
-            <p className="text-xs text-muted-foreground">Ingested Report Types</p>
+            <p className="text-2xl font-bold">{totalFields.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total Data Fields</p>
           </CardContent>
         </Card>
-        <Card data-testid="card-data-records">
+        <Card data-testid="card-data-quality">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{totalRecords}</p>
-            <p className="text-xs text-muted-foreground">Records Ingested</p>
+            <p className="text-2xl font-bold text-emerald-500">{overallQuality}%</p>
+            <p className="text-xs text-muted-foreground">Auto-Mapped Rate</p>
           </CardContent>
         </Card>
       </div>
@@ -330,11 +336,45 @@ function DataDictionaryTab() {
           <div className="flex items-center gap-2 mt-1">
             <span className="text-xs font-mono text-muted-foreground">{dict.tableName}</span>
             <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">{sourceLabel}</Badge>
-            <Badge variant="outline" className="text-[10px]">{dict.recordCount.toLocaleString()} records</Badge>
+            <Badge variant="outline" className="text-[10px]">{dict.recordCount} records · {dict.columns.length} columns</Badge>
             <Badge variant="secondary" className="text-[10px]">Ingested: {dict.lastUpdated}</Badge>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-5 gap-3">
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-score">
+              <p className={`text-lg font-bold ${q.qualityScore >= 95 ? "text-emerald-500" : q.qualityScore >= 90 ? "text-amber-500" : "text-red-500"}`}>{q.qualityScore}%</p>
+              <p className="text-[10px] text-muted-foreground">Quality Score</p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-auto-mapped">
+              <p className="text-lg font-bold text-emerald-500">{autoMappedPct}%</p>
+              <p className="text-[10px] text-muted-foreground">Auto-Mapped</p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-manual-review">
+              <p className="text-lg font-bold text-amber-500">{manualReviewPct}%</p>
+              <p className="text-[10px] text-muted-foreground">Manual Review</p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-null-rate">
+              <p className="text-lg font-bold text-muted-foreground">{q.nullRate}%</p>
+              <p className="text-[10px] text-muted-foreground">Null Rate</p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-flagged">
+              <p className={`text-lg font-bold ${q.flaggedRecords > 0 ? "text-amber-500" : "text-emerald-500"}`}>{q.flaggedRecords}</p>
+              <p className="text-[10px] text-muted-foreground">Flagged Records</p>
+            </div>
+          </div>
+
+          <div className="w-full h-2 rounded-full bg-muted overflow-hidden" data-testid="quality-bar">
+            <div className="h-full flex">
+              <div className="bg-emerald-500 transition-all" style={{ width: `${autoMappedPct}%` }} />
+              <div className="bg-amber-500 transition-all" style={{ width: `${manualReviewPct}%` }} />
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />{q.autoMapped} fields auto-mapped</div>
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-500" />{q.manualReview} fields require manual review</div>
+          </div>
+
           <Table>
             <TableHeader>
               <TableRow>

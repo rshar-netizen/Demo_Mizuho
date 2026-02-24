@@ -16,11 +16,21 @@ export interface DataColumn {
   description: string;
 }
 
+export interface DataQuality {
+  totalFields: number;
+  autoMapped: number;
+  manualReview: number;
+  qualityScore: number;
+  nullRate: number;
+  flaggedRecords: number;
+}
+
 export interface DataDictionary {
   tableName: string;
   columns: DataColumn[];
   recordCount: number;
   lastUpdated: string;
+  quality: DataQuality;
 }
 
 export interface AnomalyRecord {
@@ -221,8 +231,16 @@ export const dataDictionaries: DataDictionary[] = [
       { name: "P3ASSET", type: "DECIMAL(18,0)", source: "Schedule RC-N", nullable: true, description: "Past-due 90+ days and nonaccrual assets (thousands USD)" },
       { name: "EEFFR", type: "DECIMAL(6,2)", source: "FDIC Derived", nullable: true, description: "Efficiency ratio (%)" },
     ],
-    recordCount: 48,
-    lastUpdated: "2025-01-15"
+    recordCount: 56,
+    lastUpdated: "2025-01-15",
+    quality: {
+      totalFields: 728,
+      autoMapped: 694,
+      manualReview: 34,
+      qualityScore: 95.3,
+      nullRate: 1.8,
+      flaggedRecords: 4,
+    },
   },
   {
     tableName: "FFIEC_UBPR_RATIOS",
@@ -240,7 +258,15 @@ export const dataDictionaries: DataDictionary[] = [
       { name: "LOAN_TO_DEPOSIT", type: "DECIMAL(6,2)", source: "UBPR Page 6", nullable: true, description: "Loan-to-deposit ratio (%)" },
     ],
     recordCount: 56,
-    lastUpdated: "2025-01-15"
+    lastUpdated: "2025-01-15",
+    quality: {
+      totalFields: 504,
+      autoMapped: 489,
+      manualReview: 15,
+      qualityScore: 97.0,
+      nullRate: 0.6,
+      flaggedRecords: 2,
+    },
   },
   {
     tableName: "FR_Y9C_BHC_DATA",
@@ -257,8 +283,16 @@ export const dataDictionaries: DataDictionary[] = [
       { name: "BHCK7206", type: "DECIMAL(6,2)", source: "Schedule HC-R", nullable: true, description: "Tier 1 capital ratio (%)" },
       { name: "BHCK7205", type: "DECIMAL(6,2)", source: "Schedule HC-R", nullable: true, description: "Total risk-based capital ratio (%)" },
     ],
-    recordCount: 8,
-    lastUpdated: "2025-01-15"
+    recordCount: 56,
+    lastUpdated: "2025-01-15",
+    quality: {
+      totalFields: 616,
+      autoMapped: 582,
+      manualReview: 34,
+      qualityScore: 94.5,
+      nullRate: 2.4,
+      flaggedRecords: 6,
+    },
   }
 ];
 
