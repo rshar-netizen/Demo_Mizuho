@@ -177,70 +177,83 @@ export const reportingInstructions: ReportingInstruction[] = [
 
 export const dataDictionaries: DataDictionary[] = [
   {
-    tableName: "GL_BALANCES",
+    tableName: "FFIEC_031_CALL_REPORT",
     columns: [
-      { name: "ENTITY_ID", type: "VARCHAR(20)", source: "Core Banking", nullable: false, description: "Legal entity identifier" },
-      { name: "GL_ACCOUNT", type: "VARCHAR(15)", source: "Core Banking", nullable: false, description: "General ledger account number" },
-      { name: "ACCOUNT_DESC", type: "VARCHAR(100)", source: "Core Banking", nullable: true, description: "Account description" },
-      { name: "CURRENCY_CODE", type: "CHAR(3)", source: "Core Banking", nullable: false, description: "ISO 4217 currency code" },
-      { name: "BALANCE_USD", type: "DECIMAL(18,2)", source: "Derived", nullable: false, description: "Balance in USD equivalent" },
-      { name: "BALANCE_LOCAL", type: "DECIMAL(18,2)", source: "Core Banking", nullable: false, description: "Balance in local currency" },
-      { name: "REPORTING_DATE", type: "DATE", source: "System", nullable: false, description: "As-of reporting date" },
-      { name: "COST_CENTER", type: "VARCHAR(10)", source: "HR System", nullable: true, description: "Cost center code" },
+      { name: "CERT", type: "INTEGER", source: "FDIC BankFind Suite", nullable: false, description: "FDIC Certificate Number — unique institution identifier" },
+      { name: "REPDTE", type: "DATE", source: "FDIC BankFind Suite", nullable: false, description: "Report date (quarter-end, e.g. 20241231)" },
+      { name: "ASSET", type: "DECIMAL(18,0)", source: "Schedule RC", nullable: false, description: "Total assets (thousands USD)" },
+      { name: "DEP", type: "DECIMAL(18,0)", source: "Schedule RC-E", nullable: false, description: "Total deposits (thousands USD)" },
+      { name: "LNLSNET", type: "DECIMAL(18,0)", source: "Schedule RC-C", nullable: false, description: "Total loans and leases, net of unearned income (thousands USD)" },
+      { name: "NETINC", type: "DECIMAL(18,0)", source: "Schedule RI", nullable: false, description: "Net income (thousands USD)" },
+      { name: "INTINC", type: "DECIMAL(18,0)", source: "Schedule RI", nullable: false, description: "Total interest income (thousands USD)" },
+      { name: "EINTEXP", type: "DECIMAL(18,0)", source: "Schedule RI", nullable: false, description: "Total interest expense (thousands USD)" },
+      { name: "ROE", type: "DECIMAL(6,2)", source: "FDIC Derived", nullable: true, description: "Return on equity (%)" },
+      { name: "ROA", type: "DECIMAL(6,2)", source: "FDIC Derived", nullable: true, description: "Return on assets (%)" },
+      { name: "IDT1RWA", type: "DECIMAL(6,2)", source: "Schedule RC-R", nullable: true, description: "Tier 1 risk-based capital ratio (%)" },
+      { name: "P3ASSET", type: "DECIMAL(18,0)", source: "Schedule RC-N", nullable: true, description: "Past-due 90+ days and nonaccrual assets (thousands USD)" },
+      { name: "EEFFR", type: "DECIMAL(6,2)", source: "FDIC Derived", nullable: true, description: "Efficiency ratio (%)" },
     ],
-    recordCount: 2847563,
-    lastUpdated: "2024-12-31"
+    recordCount: 48,
+    lastUpdated: "2025-01-15"
   },
   {
-    tableName: "LOAN_PORTFOLIO",
+    tableName: "FFIEC_UBPR_RATIOS",
     columns: [
-      { name: "LOAN_ID", type: "VARCHAR(20)", source: "Loan System", nullable: false, description: "Unique loan identifier" },
-      { name: "BORROWER_ID", type: "VARCHAR(20)", source: "CRM", nullable: false, description: "Borrower entity ID" },
-      { name: "LOAN_TYPE", type: "VARCHAR(5)", source: "Loan System", nullable: false, description: "FFIEC loan classification code" },
-      { name: "OUTSTANDING_BAL", type: "DECIMAL(18,2)", source: "Loan System", nullable: false, description: "Current outstanding balance" },
-      { name: "ORIGINAL_BAL", type: "DECIMAL(18,2)", source: "Loan System", nullable: false, description: "Original loan amount" },
-      { name: "RISK_RATING", type: "INTEGER", source: "Credit Risk", nullable: false, description: "Internal risk rating (1-10)" },
-      { name: "COLLATERAL_VALUE", type: "DECIMAL(18,2)", source: "Appraisal", nullable: true, description: "Current collateral valuation" },
-      { name: "MATURITY_DATE", type: "DATE", source: "Loan System", nullable: false, description: "Loan maturity date" },
+      { name: "RSSD_ID", type: "VARCHAR(10)", source: "FFIEC CDR", nullable: false, description: "Federal Reserve RSSD identifier" },
+      { name: "REPORTING_PERIOD", type: "DATE", source: "FFIEC CDR", nullable: false, description: "UBPR reporting period" },
+      { name: "NET_INTEREST_MARGIN", type: "DECIMAL(6,2)", source: "UBPR Page 1", nullable: true, description: "Net interest margin (%)" },
+      { name: "RETURN_ON_ASSETS", type: "DECIMAL(6,2)", source: "UBPR Page 1", nullable: true, description: "Return on average assets (%)" },
+      { name: "RETURN_ON_EQUITY", type: "DECIMAL(6,2)", source: "UBPR Page 1", nullable: true, description: "Return on average equity (%)" },
+      { name: "EFFICIENCY_RATIO", type: "DECIMAL(6,2)", source: "UBPR Page 7", nullable: true, description: "Operating efficiency ratio (%)" },
+      { name: "TIER1_LEVERAGE", type: "DECIMAL(6,2)", source: "UBPR Page 11", nullable: true, description: "Tier 1 leverage ratio (%)" },
+      { name: "RISK_BASED_CAPITAL", type: "DECIMAL(6,2)", source: "UBPR Page 11", nullable: true, description: "Total risk-based capital ratio (%)" },
+      { name: "NET_CHARGEOFFS", type: "DECIMAL(6,2)", source: "UBPR Page 4", nullable: true, description: "Net charge-offs to average loans (%)" },
+      { name: "NPA_TO_ASSETS", type: "DECIMAL(6,2)", source: "UBPR Page 4", nullable: true, description: "Nonperforming assets to total assets (%)" },
+      { name: "LOAN_TO_DEPOSIT", type: "DECIMAL(6,2)", source: "UBPR Page 6", nullable: true, description: "Loan-to-deposit ratio (%)" },
     ],
-    recordCount: 156892,
-    lastUpdated: "2024-12-31"
+    recordCount: 56,
+    lastUpdated: "2025-01-15"
   },
   {
-    tableName: "SECURITIES_POSITION",
+    tableName: "FR_Y9C_BHC_DATA",
     columns: [
-      { name: "CUSIP", type: "CHAR(9)", source: "Trading System", nullable: false, description: "CUSIP identifier" },
-      { name: "SECURITY_TYPE", type: "VARCHAR(10)", source: "Trading System", nullable: false, description: "Security classification" },
-      { name: "PAR_VALUE", type: "DECIMAL(18,2)", source: "Trading System", nullable: false, description: "Par/face value" },
-      { name: "FAIR_VALUE", type: "DECIMAL(18,2)", source: "Pricing Service", nullable: false, description: "Current fair market value" },
-      { name: "BOOK_VALUE", type: "DECIMAL(18,2)", source: "Accounting", nullable: false, description: "Amortized cost / book value" },
-      { name: "PORTFOLIO_TYPE", type: "VARCHAR(5)", source: "Accounting", nullable: false, description: "HTM, AFS, or Trading" },
+      { name: "RSSD_ID", type: "VARCHAR(10)", source: "Federal Reserve NIC", nullable: false, description: "Federal Reserve RSSD identifier" },
+      { name: "REPORTING_PERIOD", type: "DATE", source: "Federal Reserve", nullable: false, description: "FR Y-9C reporting quarter" },
+      { name: "BHCK2170", type: "DECIMAL(18,0)", source: "Schedule HC", nullable: false, description: "Total consolidated assets (thousands USD)" },
+      { name: "BHDM5367", type: "DECIMAL(18,0)", source: "Schedule HC-E", nullable: true, description: "Total deposits (thousands USD)" },
+      { name: "BHCK4340", type: "DECIMAL(18,0)", source: "Schedule HI", nullable: true, description: "Net income (thousands USD)" },
+      { name: "BHCK4074", type: "DECIMAL(18,0)", source: "Schedule HI", nullable: true, description: "Total interest income (thousands USD)" },
+      { name: "BHCK3210", type: "DECIMAL(18,0)", source: "Schedule HC", nullable: true, description: "Total equity capital (thousands USD)" },
+      { name: "BHCKA223", type: "DECIMAL(18,0)", source: "Schedule HC-R", nullable: true, description: "Common equity tier 1 capital (thousands USD)" },
+      { name: "BHCKA224", type: "DECIMAL(6,2)", source: "Schedule HC-R", nullable: true, description: "CET1 risk-based capital ratio (%)" },
+      { name: "BHCK7206", type: "DECIMAL(6,2)", source: "Schedule HC-R", nullable: true, description: "Tier 1 capital ratio (%)" },
+      { name: "BHCK7205", type: "DECIMAL(6,2)", source: "Schedule HC-R", nullable: true, description: "Total risk-based capital ratio (%)" },
     ],
-    recordCount: 8934,
-    lastUpdated: "2024-12-31"
+    recordCount: 8,
+    lastUpdated: "2025-01-15"
   }
 ];
 
 export const anomalyRecords: AnomalyRecord[] = [
-  { period: "Q4 2024", metric: "C&I Loans Growth", value: 12.3, expected: 4.5, deviation: 7.8, severity: "high", description: "Unusual spike in C&I loan originations; verify large corporate drawdowns" },
-  { period: "Q4 2024", metric: "AOCI Change", value: -2.1, expected: -0.3, deviation: -1.8, severity: "high", description: "Significant unrealized losses on AFS securities portfolio; rate sensitivity impact" },
-  { period: "Q4 2024", metric: "Provision Rate", value: 0.45, expected: 0.28, deviation: 0.17, severity: "medium", description: "Provision for credit losses above historical trend; review CECL model inputs" },
-  { period: "Q3 2024", metric: "Non-Interest Income", value: 892, expected: 1050, deviation: -158, severity: "medium", description: "Trading revenue shortfall vs. prior quarters; market volatility impact" },
-  { period: "Q4 2024", metric: "Efficiency Ratio", value: 62.4, expected: 58.1, deviation: 4.3, severity: "low", description: "Slight increase in operating costs; technology investment cycle" },
-  { period: "Q4 2024", metric: "LCR Ratio", value: 118, expected: 125, deviation: -7, severity: "low", description: "Decrease in HQLA buffer; monitor wholesale funding outflows" },
+  { period: "Q4 2024", metric: "C&I Loans Growth", value: 12.3, expected: 4.5, deviation: 7.8, severity: "high", description: "FDIC LNLSNET shows unusual spike in C&I loan originations vs prior 8 quarters; verify large corporate drawdowns against Call Report RC-C" },
+  { period: "Q4 2024", metric: "AOCI Change", value: -2.1, expected: -0.3, deviation: -1.8, severity: "high", description: "FR Y-9C BHCK3210 equity movement inconsistent with FDIC EQ; AFS mark-to-market AOCI impact flagged per UBPR Page 6" },
+  { period: "Q4 2024", metric: "Provision Rate", value: 0.45, expected: 0.28, deviation: 0.17, severity: "medium", description: "FDIC ELNATR (provision for credit losses) above 8-quarter historical mean; CECL model inputs need review vs UBPR peer benchmarks" },
+  { period: "Q3 2024", metric: "Non-Interest Income", value: 892, expected: 1050, deviation: -158, severity: "medium", description: "Call Report Schedule RI non-interest income below trend; cross-referenced with FR Y-9C BHCK4079 trading revenue shortfall" },
+  { period: "Q4 2024", metric: "Efficiency Ratio", value: 62.4, expected: 58.1, deviation: 4.3, severity: "low", description: "FDIC EEFFR (efficiency ratio) above peer median from UBPR Page 7; technology investment cycle per management commentary" },
+  { period: "Q4 2024", metric: "LCR Ratio", value: 118, expected: 125, deviation: -7, severity: "low", description: "FR 2052a derived LCR below internal buffer target; HQLA reduction visible in FDIC SCAFS + SCHTM quarter-over-quarter decline" },
 ];
 
 export const reportLineItems: ReportLineItem[] = [
-  { id: "RC-1", lineItem: "Cash and Balances Due", schedule: "RC", currentPeriod: 45230000, priorPeriod: 42180000, change: 3050000, changePercent: 7.23, crossCheck: "passed", derivation: "Sum of GL accounts 1000-1099 across all entities" },
-  { id: "RC-2", lineItem: "Securities - HTM", schedule: "RC", currentPeriod: 28450000, priorPeriod: 31200000, change: -2750000, changePercent: -8.81, crossCheck: "passed", derivation: "SECURITIES_POSITION where PORTFOLIO_TYPE = 'HTM' at amortized cost" },
-  { id: "RC-3", lineItem: "Securities - AFS", schedule: "RC", currentPeriod: 18920000, priorPeriod: 21340000, change: -2420000, changePercent: -11.34, crossCheck: "warning", derivation: "SECURITIES_POSITION where PORTFOLIO_TYPE = 'AFS' at fair value; AOCI impact flagged" },
-  { id: "RC-4", lineItem: "Loans and Leases, Net", schedule: "RC-C", currentPeriod: 112500000, priorPeriod: 105800000, change: 6700000, changePercent: 6.33, crossCheck: "passed", derivation: "LOAN_PORTFOLIO aggregate less ALLL reserve of $3,240,000" },
-  { id: "RC-5", lineItem: "Total Assets", schedule: "RC", currentPeriod: 225100000, priorPeriod: 218520000, change: 6580000, changePercent: 3.01, crossCheck: "passed", derivation: "Sum of all asset line items RC-1 through RC-12" },
-  { id: "RC-6", lineItem: "Total Deposits", schedule: "RC-E", currentPeriod: 178400000, priorPeriod: 175200000, change: 3200000, changePercent: 1.83, crossCheck: "passed", derivation: "DEPOSITS table aggregated by product type, reconciled to GL" },
-  { id: "RC-7", lineItem: "Total Liabilities", schedule: "RC", currentPeriod: 205300000, priorPeriod: 200100000, change: 5200000, changePercent: 2.60, crossCheck: "passed", derivation: "Sum of all liability line items including borrowed funds and subordinated debt" },
-  { id: "RC-8", lineItem: "Total Equity Capital", schedule: "RC", currentPeriod: 19800000, priorPeriod: 18420000, change: 1380000, changePercent: 7.49, crossCheck: "passed", derivation: "Common stock + surplus + retained earnings + AOCI" },
-  { id: "RC-R1", lineItem: "CET1 Capital Ratio", schedule: "RC-R", currentPeriod: 12.8, priorPeriod: 12.1, change: 0.7, changePercent: 5.79, crossCheck: "passed", derivation: "CET1 capital / Total RWA; minimum requirement 4.5%" },
-  { id: "RC-R2", lineItem: "Total Capital Ratio", schedule: "RC-R", currentPeriod: 15.2, priorPeriod: 14.8, change: 0.4, changePercent: 2.70, crossCheck: "passed", derivation: "Total capital (Tier 1 + Tier 2) / Total RWA; minimum requirement 8.0%" },
+  { id: "RC-1", lineItem: "Cash and Balances Due", schedule: "RC", currentPeriod: 45230000, priorPeriod: 42180000, change: 3050000, changePercent: 7.23, crossCheck: "passed", derivation: "FDIC Call Report field CASHDUE; cross-validated against FR Y-9C BHCK0081+BHCK0395" },
+  { id: "RC-2", lineItem: "Securities - HTM", schedule: "RC", currentPeriod: 28450000, priorPeriod: 31200000, change: -2750000, changePercent: -8.81, crossCheck: "passed", derivation: "FDIC field SCHTM (held-to-maturity at amortized cost); validated against FR Y-9C BHCK1754" },
+  { id: "RC-3", lineItem: "Securities - AFS", schedule: "RC", currentPeriod: 18920000, priorPeriod: 21340000, change: -2420000, changePercent: -11.34, crossCheck: "warning", derivation: "FDIC field SCAFS (available-for-sale at fair value); AOCI variance flagged vs UBPR Page 6" },
+  { id: "RC-4", lineItem: "Loans and Leases, Net", schedule: "RC-C", currentPeriod: 112500000, priorPeriod: 105800000, change: 6700000, changePercent: 6.33, crossCheck: "passed", derivation: "FDIC field LNLSNET (net loans); reconciled to UBPR loan concentration ratios" },
+  { id: "RC-5", lineItem: "Total Assets", schedule: "RC", currentPeriod: 225100000, priorPeriod: 218520000, change: 6580000, changePercent: 3.01, crossCheck: "passed", derivation: "FDIC field ASSET; cross-checked against FR Y-9C BHCK2170 consolidated total" },
+  { id: "RC-6", lineItem: "Total Deposits", schedule: "RC-E", currentPeriod: 178400000, priorPeriod: 175200000, change: 3200000, changePercent: 1.83, crossCheck: "passed", derivation: "FDIC field DEP; validated against FR Y-9C BHDM6631+BHDM6636 by deposit type" },
+  { id: "RC-7", lineItem: "Total Liabilities", schedule: "RC", currentPeriod: 205300000, priorPeriod: 200100000, change: 5200000, changePercent: 2.60, crossCheck: "passed", derivation: "FDIC derived ASSET minus EQ; reconciled to FR Y-9C Schedule HC" },
+  { id: "RC-8", lineItem: "Total Equity Capital", schedule: "RC", currentPeriod: 19800000, priorPeriod: 18420000, change: 1380000, changePercent: 7.49, crossCheck: "passed", derivation: "FDIC field EQ; cross-checked against FR Y-9C BHCK3210 total equity" },
+  { id: "RC-R1", lineItem: "CET1 Capital Ratio", schedule: "RC-R", currentPeriod: 12.8, priorPeriod: 12.1, change: 0.7, changePercent: 5.79, crossCheck: "passed", derivation: "FR Y-9C BHCKA224 (CET1 ratio); validated against FDIC IDT1RWA and UBPR Page 11" },
+  { id: "RC-R2", lineItem: "Total Capital Ratio", schedule: "RC-R", currentPeriod: 15.2, priorPeriod: 14.8, change: 0.4, changePercent: 2.70, crossCheck: "passed", derivation: "FR Y-9C BHCK7205 (total capital ratio); cross-checked with UBPR risk-based capital" },
 ];
 
 export const periodComparisons: PeriodComparison[] = [
@@ -315,9 +328,9 @@ export const peerTrendCET1: PeerTrendData[] = [
 
 export const chatMessages = [
   { role: "user" as const, content: "What are the key requirements for Schedule RC-R regulatory capital reporting?" },
-  { role: "assistant" as const, content: "Schedule RC-R requires reporting of risk-based capital ratios including:\n\n1. **CET1 Capital Ratio** - Common Equity Tier 1 capital divided by total risk-weighted assets. Minimum requirement is 4.5% plus a capital conservation buffer of 2.5%.\n\n2. **Tier 1 Capital Ratio** - Tier 1 capital (CET1 + AT1) divided by total RWA. Minimum 6.0%.\n\n3. **Total Capital Ratio** - Total capital (Tier 1 + Tier 2) divided by total RWA. Minimum 8.0%.\n\n4. **Risk-Weighted Assets** must be calculated using standardized or advanced approaches, applying prescribed risk weights to each asset category.\n\nFor your current filing, CET1 stands at 12.8% (well above the 7.0% minimum with buffer), with total RWA of $154.7B." },
-  { role: "user" as const, content: "Show me the reconciliation between GL balances and the reported loan figures on RC-C." },
-  { role: "assistant" as const, content: "Here's the reconciliation of GL balances to Schedule RC-C reported loans:\n\n| Component | Amount ($M) |\n|-----------|------------|\n| Gross Loans per GL | $115,740 |\n| Less: Unearned Income | ($1,240) |\n| Less: ALLL Reserve | ($3,240) |\n| Plus: Fair Value Adjustments | $1,240 |\n| **Net Loans per RC-C** | **$112,500** |\n\nThe $112.5B ties to Schedule RC line 4.a. The ALLL reserve of $3.24B represents 2.88% coverage ratio, consistent with CECL methodology applied to the portfolio.\n\n**Cross-check:** Total loans on RC-C Part I ($112.5B) reconciles to the sum of individual loan categories on RC-C Part II within a $0 variance." },
+  { role: "assistant" as const, content: "Schedule RC-R requires reporting of risk-based capital ratios including:\n\n1. **CET1 Capital Ratio** - Common Equity Tier 1 capital divided by total risk-weighted assets. Minimum requirement is 4.5% plus a capital conservation buffer of 2.5%.\n\n2. **Tier 1 Capital Ratio** - Tier 1 capital (CET1 + AT1) divided by total RWA. Minimum 6.0%.\n\n3. **Total Capital Ratio** - Total capital (Tier 1 + Tier 2) divided by total RWA. Minimum 8.0%.\n\n4. **Risk-Weighted Assets** must be calculated using standardized or advanced approaches, applying prescribed risk weights to each asset category.\n\nFrom the ingested FDIC Call Report, your current IDT1RWA (Tier 1 ratio) stands at 12.8%, and FR Y-9C field BHCKA224 confirms CET1 at the same level — well above the 7.0% minimum with buffer." },
+  { role: "user" as const, content: "Show me the reconciliation between the ingested Call Report loan data and FR Y-9C." },
+  { role: "assistant" as const, content: "Here's the cross-source reconciliation of loan data from the ingested reports:\n\n| Source | Field | Amount ($K) |\n|--------|-------|------------|\n| FDIC Call Report | LNLSNET | $112,500,000 |\n| FR Y-9C | BHCK2122 (Loans & Leases) | $112,480,000 |\n| UBPR | Total Loans (Page 6) | $112,500,000 |\n| **Variance** | **FDIC vs Y-9C** | **$20,000 (0.02%)** |\n\nThe $20M variance is within acceptable threshold and stems from consolidation timing differences. FDIC LNLSNET includes all domestic and foreign office loans net of unearned income.\n\n**Cross-check:** UBPR loan-to-deposit ratio of 63.1% is consistent with FDIC DEP ($178.4B) and LNLSNET ($112.5B)." },
 ];
 
 export function formatCurrency(value: number, decimals: number = 0): string {

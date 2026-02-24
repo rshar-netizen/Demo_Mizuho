@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
   ArrowDownRight,
   Minus,
   Send,
+  Wifi,
 } from "lucide-react";
 import {
   reportingInstructions,
@@ -36,7 +38,8 @@ import {
   anomalyRecords,
   reportLineItems,
   periodComparisons,
-  trendData,
+  trendData as demoTrendData,
+  type TrendDataPoint,
   chatMessages,
   formatCurrency,
   formatPercent,
@@ -190,25 +193,28 @@ function DataDictionaryTab() {
       <div className="grid grid-cols-3 gap-3">
         <Card data-testid="card-data-sources">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">7</p>
-            <p className="text-xs text-muted-foreground">Source Systems</p>
+            <p className="text-2xl font-bold">3</p>
+            <p className="text-xs text-muted-foreground">Federal Portals</p>
           </CardContent>
         </Card>
         <Card data-testid="card-data-tables">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">42</p>
-            <p className="text-xs text-muted-foreground">Mapped Tables</p>
+            <p className="text-2xl font-bold">3</p>
+            <p className="text-xs text-muted-foreground">Ingested Report Types</p>
           </CardContent>
         </Card>
         <Card data-testid="card-data-records">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">3.01M</p>
-            <p className="text-xs text-muted-foreground">Total Records</p>
+            <p className="text-2xl font-bold">112</p>
+            <p className="text-xs text-muted-foreground">Records Ingested</p>
           </CardContent>
         </Card>
       </div>
 
-      {dataDictionaries.map((dict, idx) => (
+      {dataDictionaries.map((dict, idx) => {
+        const sourceLabel = dict.tableName.includes("CALL") ? "FDIC BankFind Suite API" :
+          dict.tableName.includes("UBPR") ? "FFIEC Central Data Repository" : "Federal Reserve NIC";
+        return (
         <Card key={idx} data-testid={`card-dictionary-${idx}`}>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -217,8 +223,9 @@ function DataDictionaryTab() {
                 <CardTitle className="text-sm font-mono">{dict.tableName}</CardTitle>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs">{dict.recordCount.toLocaleString()} rows</Badge>
-                <Badge variant="secondary" className="text-xs">Updated: {dict.lastUpdated}</Badge>
+                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-xs">{sourceLabel}</Badge>
+                <Badge variant="outline" className="text-xs">{dict.recordCount.toLocaleString()} records</Badge>
+                <Badge variant="secondary" className="text-xs">Ingested: {dict.lastUpdated}</Badge>
               </div>
             </div>
           </CardHeader>
@@ -255,7 +262,8 @@ function DataDictionaryTab() {
             </Table>
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -525,9 +533,50 @@ function PeriodComparisonTab() {
   );
 }
 
+function useLiveTrendData() {
+  const { data, isLoading } = useQuery<{ data: Array<{ historicalData?: Array<{ period: string; totalAssets: number; totalDeposits: number; totalLoans: number; netIncome: number; tier1Ratio: number }> }> }>({
+    queryKey: ["/api/data-sources/peer-data"],
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  if (isLoading || !data?.data?.length) return { trendData: demoTrendData, isLive: false };
+
+  const mizuhoProxy = data.data[0];
+  if (!mizuhoProxy?.historicalData?.length) return { trendData: demoTrendData, isLive: false };
+
+  const liveTrend: TrendDataPoint[] = [...mizuhoProxy.historicalData]
+    .sort((a, b) => {
+      const [qa, ya] = a.period.replace("Q", "").split(" ");
+      const [qb, yb] = b.period.replace("Q", "").split(" ");
+      return (parseInt(ya) * 4 + parseInt(qa)) - (parseInt(yb) * 4 + parseInt(qb));
+    })
+    .map(h => ({
+      period: h.period,
+      totalAssets: Math.round(h.totalAssets / 1000),
+      totalLoans: Math.round(h.totalLoans / 1000),
+      totalDeposits: Math.round(h.totalDeposits / 1000),
+      netIncome: Math.round(h.netIncome / 1000),
+      tier1Capital: parseFloat(h.tier1Ratio.toFixed(2)),
+    }));
+
+  return { trendData: liveTrend, isLive: true };
+}
+
 function TrendAnalysisTab() {
+  const { trendData, isLive } = useLiveTrendData();
+
   return (
     <div className="space-y-4">
+      {isLive && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
+            <Wifi className="w-3 h-3 mr-1" />
+            Live FDIC Data
+          </Badge>
+          <span className="text-xs text-muted-foreground">Trends from ingested Call Report data (MUFG Americas proxy)</span>
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card data-testid="card-trend-assets">
           <CardHeader className="pb-2">
@@ -624,7 +673,7 @@ function TrendAnalysisTab() {
                 <AreaChart data={trendData}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                   <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                  <YAxis tick={{ fontSize: 11 }} domain={[9, 14]} />
+                  <YAxis tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
