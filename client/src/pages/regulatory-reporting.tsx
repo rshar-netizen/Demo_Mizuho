@@ -39,6 +39,11 @@ import {
   Check,
   SendHorizontal,
   Clock,
+  BarChart3,
+  LineChart as LineChartIcon,
+  AreaChart as AreaChartIcon,
+  Target,
+  Zap,
 } from "lucide-react";
 import {
   reportingInstructions,
@@ -867,8 +872,202 @@ function useLiveTrendData() {
   return { trendData: liveTrend, isLive: true };
 }
 
+type TrendMetric = "totalAssets" | "loansDeposits" | "netIncome" | "tier1Capital";
+type ChartType = "area" | "line" | "bar";
+
+const trendMetrics: { id: TrendMetric; label: string; unit: string }[] = [
+  { id: "totalAssets", label: "Total Assets", unit: "$M" },
+  { id: "loansDeposits", label: "Loans vs Deposits", unit: "$M" },
+  { id: "netIncome", label: "Net Income", unit: "$M" },
+  { id: "tier1Capital", label: "Tier 1 Capital Ratio", unit: "%" },
+];
+
+const chartTypes: { id: ChartType; label: string; icon: typeof AreaChartIcon }[] = [
+  { id: "area", label: "Area", icon: AreaChartIcon },
+  { id: "line", label: "Line", icon: LineChartIcon },
+  { id: "bar", label: "Bar", icon: BarChart3 },
+];
+
+function getTrendNarrative(metric: TrendMetric, data: TrendDataPoint[]): string {
+  if (!data.length) return "";
+  const first = data[0];
+  const last = data[data.length - 1];
+  switch (metric) {
+    case "totalAssets": {
+      const change = ((last.totalAssets - first.totalAssets) / first.totalAssets * 100).toFixed(1);
+      const dir = parseFloat(change) >= 0 ? "grown" : "contracted";
+      return `Total assets have ${dir} ${Math.abs(parseFloat(change))}% from $${first.totalAssets.toLocaleString()}M in ${first.period} to $${last.totalAssets.toLocaleString()}M in ${last.period}. The trajectory shows ${parseFloat(change) > 3 ? "strong balance sheet expansion driven by lending growth and securities acquisitions" : parseFloat(change) > 0 ? "moderate growth consistent with peer bank averages" : "deleveraging activity, potentially reflecting strategic portfolio optimization"}. The most recent quarter ${last.totalAssets > data[data.length - 2]?.totalAssets ? "continued the upward trend" : "saw a slight pullback"}, which should be monitored against the institution's growth targets.`;
+    }
+    case "loansDeposits": {
+      const loanChange = ((last.totalLoans - first.totalLoans) / first.totalLoans * 100).toFixed(1);
+      const depChange = ((last.totalDeposits - first.totalDeposits) / first.totalDeposits * 100).toFixed(1);
+      const ldrFirst = (first.totalLoans / first.totalDeposits * 100).toFixed(1);
+      const ldrLast = (last.totalLoans / last.totalDeposits * 100).toFixed(1);
+      return `Loans grew ${loanChange}% while deposits grew ${depChange}% over the observed period. The loan-to-deposit ratio moved from ${ldrFirst}% to ${ldrLast}%, ${parseFloat(ldrLast) > parseFloat(ldrFirst) ? "indicating increased reliance on wholesale funding for loan growth" : "reflecting improved deposit funding of the loan book"}. The divergence between loan and deposit growth rates ${Math.abs(parseFloat(loanChange) - parseFloat(depChange)) > 5 ? "warrants attention from a liquidity management perspective" : "remains within normal operating parameters"}.`;
+    }
+    case "netIncome": {
+      const incomeFirst = first.netIncome;
+      const incomeLast = last.netIncome;
+      const change = ((incomeLast - incomeFirst) / Math.abs(incomeFirst) * 100).toFixed(1);
+      const maxIncome = Math.max(...data.map(d => d.netIncome));
+      const maxPeriod = data.find(d => d.netIncome === maxIncome)?.period;
+      return `Net income ${parseFloat(change) >= 0 ? "increased" : "decreased"} ${Math.abs(parseFloat(change))}% across the period, from $${incomeFirst.toLocaleString()}M to $${incomeLast.toLocaleString()}M. Peak earnings of $${maxIncome.toLocaleString()}M were recorded in ${maxPeriod}. ${parseFloat(change) > 10 ? "The strong earnings trajectory reflects improving net interest margins and disciplined expense management." : parseFloat(change) > 0 ? "Modest earnings growth is consistent with the current rate environment." : "The earnings pressure should be evaluated against provision build activity and non-interest income trends."}`;
+    }
+    case "tier1Capital": {
+      const capFirst = first.tier1Capital;
+      const capLast = last.tier1Capital;
+      const change = (capLast - capFirst).toFixed(2);
+      return `Tier 1 capital ratio moved from ${capFirst}% to ${capLast}% (${parseFloat(change) >= 0 ? "+" : ""}${change}pp). The ratio remains ${capLast > 10 ? "well above" : capLast > 8 ? "above" : "near"} the 6% well-capitalized threshold. ${parseFloat(change) > 0.5 ? "Capital accretion reflects retained earnings growth outpacing risk-weighted asset expansion." : parseFloat(change) > 0 ? "The stable capital position provides adequate buffer for planned growth initiatives." : "The modest decline warrants review of RWA growth relative to capital generation capacity, particularly given the current lending trajectory."}`;
+    }
+  }
+}
+
+function getInflectionPoints(data: TrendDataPoint[]): { period: string; metric: string; description: string; severity: "high" | "medium" | "low"; value: string }[] {
+  if (data.length < 3) return [];
+  const points: { period: string; metric: string; description: string; severity: "high" | "medium" | "low"; value: string }[] = [];
+
+  for (let i = 1; i < data.length - 1; i++) {
+    const prev = data[i - 1];
+    const curr = data[i];
+    const next = data[i + 1];
+
+    const assetDelta1 = (curr.totalAssets - prev.totalAssets) / prev.totalAssets;
+    const assetDelta2 = (next.totalAssets - curr.totalAssets) / curr.totalAssets;
+    if (Math.sign(assetDelta1) !== Math.sign(assetDelta2) && Math.abs(assetDelta1) > 0.01) {
+      points.push({
+        period: curr.period,
+        metric: "Total Assets",
+        description: assetDelta1 > 0 ? "Growth peaked — trend reversed to contraction" : "Contraction bottomed — recovery began",
+        severity: Math.abs(assetDelta1) > 0.03 ? "high" : "medium",
+        value: `$${curr.totalAssets.toLocaleString()}M`,
+      });
+    }
+
+    const incomeDelta1 = curr.netIncome - prev.netIncome;
+    const incomeDelta2 = next.netIncome - curr.netIncome;
+    if (Math.sign(incomeDelta1) !== Math.sign(incomeDelta2) && Math.abs(incomeDelta1) > 50) {
+      points.push({
+        period: curr.period,
+        metric: "Net Income",
+        description: incomeDelta1 > 0 ? "Earnings peaked — began declining" : "Earnings troughed — recovery initiated",
+        severity: Math.abs(incomeDelta1) > 200 ? "high" : "medium",
+        value: `$${curr.netIncome.toLocaleString()}M`,
+      });
+    }
+
+    const capDelta1 = curr.tier1Capital - prev.tier1Capital;
+    const capDelta2 = next.tier1Capital - curr.tier1Capital;
+    if (Math.sign(capDelta1) !== Math.sign(capDelta2) && Math.abs(capDelta1) > 0.1) {
+      points.push({
+        period: curr.period,
+        metric: "Tier 1 Capital",
+        description: capDelta1 > 0 ? "Capital ratio peaked — began trending down" : "Capital ratio bottomed — started rebuilding",
+        severity: Math.abs(capDelta1) > 0.3 ? "high" : "low",
+        value: `${curr.tier1Capital}%`,
+      });
+    }
+
+    const ldr1 = curr.totalLoans / curr.totalDeposits;
+    const ldr0 = prev.totalLoans / prev.totalDeposits;
+    const ldr2 = next.totalLoans / next.totalDeposits;
+    const ldrDelta1 = ldr1 - ldr0;
+    const ldrDelta2 = ldr2 - ldr1;
+    if (Math.sign(ldrDelta1) !== Math.sign(ldrDelta2) && Math.abs(ldrDelta1) > 0.005) {
+      points.push({
+        period: curr.period,
+        metric: "Loan-to-Deposit Ratio",
+        description: ldrDelta1 > 0 ? "LDR peaked — liquidity position began improving" : "LDR troughed — lending activity accelerated relative to deposits",
+        severity: "low",
+        value: `${(ldr1 * 100).toFixed(1)}%`,
+      });
+    }
+  }
+
+  return points.slice(0, 8);
+}
+
 function TrendAnalysisTab() {
   const { trendData, isLive } = useLiveTrendData();
+  const [activeMetric, setActiveMetric] = useState<TrendMetric>("totalAssets");
+  const [chartType, setChartType] = useState<ChartType>("area");
+
+  const inflectionPoints = getInflectionPoints(trendData);
+
+  const tooltipStyle = {
+    backgroundColor: "hsl(var(--card))",
+    border: "1px solid hsl(var(--border))",
+    borderRadius: "6px",
+    fontSize: "12px",
+  };
+
+  const isPercent = activeMetric === "tier1Capital";
+  const formatValue = (value: number) => isPercent ? `${value}%` : `$${value.toLocaleString()}M`;
+
+  const renderChart = () => {
+    const commonProps = { data: trendData };
+    const xAxis = <XAxis dataKey="period" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={55} />;
+    const yAxis = <YAxis tick={{ fontSize: 11 }} domain={isPercent ? ["auto", "auto"] : ["dataMin - 2000", "dataMax + 2000"]} />;
+    const grid = <CartesianGrid strokeDasharray="3 3" opacity={0.1} />;
+    const tooltip = <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [formatValue(value), ""]} />;
+
+    if (activeMetric === "loansDeposits") {
+      if (chartType === "bar") {
+        return (
+          <BarChart {...commonProps}>
+            {grid}{xAxis}{yAxis}{tooltip}
+            <Legend wrapperStyle={{ fontSize: "11px" }} />
+            <Bar dataKey="totalLoans" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} name="Total Loans" />
+            <Bar dataKey="totalDeposits" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} name="Total Deposits" />
+          </BarChart>
+        );
+      }
+      if (chartType === "area") {
+        return (
+          <AreaChart {...commonProps}>
+            {grid}{xAxis}{yAxis}{tooltip}
+            <Legend wrapperStyle={{ fontSize: "11px" }} />
+            <Area type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" fillOpacity={0.1} strokeWidth={2} name="Total Loans" />
+            <Area type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.1} strokeWidth={2} name="Total Deposits" />
+          </AreaChart>
+        );
+      }
+      return (
+        <LineChart {...commonProps}>
+          {grid}{xAxis}{yAxis}{tooltip}
+          <Legend wrapperStyle={{ fontSize: "11px" }} />
+          <Line type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 3 }} name="Total Loans" />
+          <Line type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 3 }} name="Total Deposits" />
+        </LineChart>
+      );
+    }
+
+    const dataKey = activeMetric === "totalAssets" ? "totalAssets" : activeMetric === "netIncome" ? "netIncome" : "tier1Capital";
+    const color = activeMetric === "totalAssets" ? "hsl(var(--chart-1))" : activeMetric === "netIncome" ? "hsl(var(--chart-4))" : "hsl(var(--chart-5))";
+    const name = trendMetrics.find(m => m.id === activeMetric)?.label ?? "";
+
+    if (chartType === "bar") {
+      return (
+        <BarChart {...commonProps}>
+          {grid}{xAxis}{yAxis}{tooltip}
+          <Bar dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]} name={name} />
+        </BarChart>
+      );
+    }
+    if (chartType === "line") {
+      return (
+        <LineChart {...commonProps}>
+          {grid}{xAxis}{yAxis}{tooltip}
+          <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={{ r: 3 }} name={name} />
+        </LineChart>
+      );
+    }
+    return (
+      <AreaChart {...commonProps}>
+        {grid}{xAxis}{yAxis}{tooltip}
+        <Area type="monotone" dataKey={dataKey} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={2} name={name} />
+      </AreaChart>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -881,119 +1080,103 @@ function TrendAnalysisTab() {
           <span className="text-xs text-muted-foreground">Trends from ingested Call Report data (Mizuho Americas)</span>
         </div>
       )}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card data-testid="card-trend-assets">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total Assets Trend ($M)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                  <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                  <YAxis tick={{ fontSize: 11 }} domain={["dataMin - 5000", "dataMax + 5000"]} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                    }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}M`, ""]}
-                  />
-                  <Area type="monotone" dataKey="totalAssets" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.15} strokeWidth={2} name="Total Assets" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card data-testid="card-trend-loans-deposits">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Loans vs Deposits ($M)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[220px]">
+      <Card data-testid="card-trend-main">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              {trendMetrics.map(m => (
+                <Button
+                  key={m.id}
+                  variant={activeMetric === m.id ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setActiveMetric(m.id)}
+                  data-testid={`button-metric-${m.id}`}
+                >
+                  {m.label}
+                </Button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 rounded-md border p-0.5" data-testid="chart-type-toggle">
+              {chartTypes.map(ct => {
+                const Icon = ct.icon;
+                return (
+                  <button
+                    key={ct.id}
+                    onClick={() => setChartType(ct.id)}
+                    className={`p-1.5 rounded transition-colors ${chartType === ct.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                    title={ct.label}
+                    data-testid={`button-chart-${ct.id}`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-center">
+            <div className="w-full max-w-[900px] h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                  <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                    }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}M`, ""]}
-                  />
-                  <Legend wrapperStyle={{ fontSize: "11px" }} />
-                  <Line type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 3 }} name="Total Loans" />
-                  <Line type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 3 }} name="Total Deposits" />
-                </LineChart>
+                {renderChart()}
               </ResponsiveContainer>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+          <Separator />
+          <div className="flex items-start gap-2 px-2">
+            <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+            <p className="text-xs text-muted-foreground leading-relaxed" data-testid="text-trend-narrative">
+              {getTrendNarrative(activeMetric, trendData)}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card data-testid="card-trend-income">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Net Income Trend ($M)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                  <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                    }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}M`, ""]}
-                  />
-                  <Bar dataKey="netIncome" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} name="Net Income" />
-                </BarChart>
-              </ResponsiveContainer>
+      <Card data-testid="card-inflection-points">
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-primary" />
+            <CardTitle className="text-sm">Inflection Point Analysis</CardTitle>
+            <Badge variant="secondary" className="text-[10px]">{inflectionPoints.length} detected</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">Algorithmically identified trend reversals and regime changes across key financial metrics</p>
+        </CardHeader>
+        <CardContent>
+          {inflectionPoints.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-8">Insufficient data points to detect inflection points. At least 3 periods required.</p>
+          ) : (
+            <div className="space-y-3">
+              {inflectionPoints.map((pt, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3"
+                  data-testid={`inflection-point-${idx}`}
+                >
+                  <div className={`mt-0.5 rounded-full p-1 shrink-0 ${pt.severity === "high" ? "bg-red-500/10 text-red-500" : pt.severity === "medium" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}>
+                    <Zap className="w-3 h-3" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium">{pt.metric}</span>
+                      <Badge variant="outline" className="text-[10px]">{pt.period}</Badge>
+                      <span className="text-xs font-mono text-muted-foreground">{pt.value}</span>
+                      <Badge
+                        variant="secondary"
+                        className={`text-[10px] border-0 ${pt.severity === "high" ? "bg-red-500/10 text-red-500" : pt.severity === "medium" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}
+                      >
+                        {pt.severity}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{pt.description}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card data-testid="card-trend-capital">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Tier 1 Capital Ratio (%)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                  <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
-                  <YAxis tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                    }}
-                    formatter={(value: number) => [`${value}%`, ""]}
-                  />
-                  <Area type="monotone" dataKey="tier1Capital" stroke="hsl(var(--chart-5))" fill="hsl(var(--chart-5))" fillOpacity={0.15} strokeWidth={2} name="Tier 1 Ratio" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
