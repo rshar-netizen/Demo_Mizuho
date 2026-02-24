@@ -713,7 +713,7 @@ function TrendAnalysisTab() {
             <Wifi className="w-3 h-3 mr-1" />
             Live FDIC Data
           </Badge>
-          <span className="text-xs text-muted-foreground">Trends from ingested Call Report data (MUFG Americas proxy)</span>
+          <span className="text-xs text-muted-foreground">Trends from ingested Call Report data (Mizuho Americas)</span>
         </div>
       )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
