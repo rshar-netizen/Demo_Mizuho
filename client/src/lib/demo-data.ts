@@ -145,34 +145,6 @@ export const reportingInstructions: ReportingInstruction[] = [
       "Report extraordinary items separately"
     ]
   },
-  {
-    id: "FR Y-14Q",
-    section: "Schedule A - Summary",
-    description: "Capital Assessments and Stress Testing: Summary schedule covering BHC-level data on capital composition and RWA",
-    schedule: "A",
-    frequency: "Quarterly",
-    status: "pending",
-    requirements: [
-      "Report pre-provision net revenue components",
-      "Include projected losses by loan category under stress scenarios",
-      "Provide operational risk capital calculations",
-      "Report market risk RWA for trading positions"
-    ]
-  },
-  {
-    id: "FR 2052a",
-    section: "Liquidity Coverage Ratio",
-    description: "Complex institution liquidity monitoring: inflows, outflows, and HQLA for LCR calculation",
-    schedule: "LCR",
-    frequency: "Daily",
-    status: "analyzed",
-    requirements: [
-      "Classify HQLA into Level 1, Level 2A, and Level 2B categories",
-      "Apply haircuts to Level 2 assets per regulatory guidance",
-      "Calculate stressed outflows using prescribed run-off rates",
-      "Maintain LCR above 100% minimum requirement"
-    ]
-  }
 ];
 
 export const dataDictionaries: DataDictionary[] = [
@@ -240,7 +212,7 @@ export const anomalyRecords: AnomalyRecord[] = [
   { period: "Q4 2024", metric: "Provision Rate", value: 0.45, expected: 0.28, deviation: 0.17, severity: "medium", description: "FDIC ELNATR (provision for credit losses) above 8-quarter historical mean; CECL model inputs need review vs UBPR peer benchmarks" },
   { period: "Q3 2024", metric: "Non-Interest Income", value: 892, expected: 1050, deviation: -158, severity: "medium", description: "Call Report Schedule RI non-interest income below trend; cross-referenced with FR Y-9C BHCK4079 trading revenue shortfall" },
   { period: "Q4 2024", metric: "Efficiency Ratio", value: 62.4, expected: 58.1, deviation: 4.3, severity: "low", description: "FDIC EEFFR (efficiency ratio) above peer median from UBPR Page 7; technology investment cycle per management commentary" },
-  { period: "Q4 2024", metric: "LCR Ratio", value: 118, expected: 125, deviation: -7, severity: "low", description: "FR 2052a derived LCR below internal buffer target; HQLA reduction visible in FDIC SCAFS + SCHTM quarter-over-quarter decline" },
+  { period: "Q4 2024", metric: "LCR Ratio", value: 118, expected: 125, deviation: -7, severity: "low", description: "LCR below internal buffer target; HQLA reduction visible in FDIC SCAFS + SCHTM quarter-over-quarter decline" },
 ];
 
 export const reportLineItems: ReportLineItem[] = [
