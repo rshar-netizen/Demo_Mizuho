@@ -31,6 +31,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  Send,
   Wifi,
 } from "lucide-react";
 import {
@@ -182,22 +183,7 @@ function AIResponsePanel({ query }: { query: AIQueryItem | null }) {
 function InstructionsTab() {
   const [selectedQuery, setSelectedQuery] = useState<AIQueryItem | null>(null);
 
-  const scheduleGroups = aiQueries.reduce((acc, q) => {
-    if (!acc[q.schedule]) acc[q.schedule] = [];
-    acc[q.schedule].push(q);
-    return acc;
-  }, {} as Record<string, AIQueryItem[]>);
-
-  const scheduleLabels: Record<string, string> = {
-    "RC": "Balance Sheet",
-    "RC-C": "Loans & Leases",
-    "RC-E": "Deposits",
-    "RC-N": "Past Due & Nonaccrual",
-    "RC-L": "Derivatives & OBS",
-    "RC-R": "Regulatory Capital",
-    "RI": "Income Statement",
-    "HI": "Consolidated Income",
-  };
+  const [customQuery, setCustomQuery] = useState("");
 
   return (
     <div className="space-y-4">
@@ -232,37 +218,40 @@ function InstructionsTab() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="flex border-t">
-            <div className="w-[45%] border-r">
-              <ScrollArea className="h-[380px]">
-                <div className="p-3 space-y-3">
-                  {Object.entries(scheduleGroups).map(([schedule, queries]) => (
-                    <div key={schedule}>
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 px-1">
-                        {schedule} — {scheduleLabels[schedule] || schedule}
-                      </p>
-                      <div className="space-y-1">
-                        {queries.map((q) => (
-                          <button
-                            key={q.id}
-                            onClick={() => setSelectedQuery(q)}
-                            className={`w-full text-left px-2.5 py-2 rounded-md text-xs transition-colors cursor-pointer ${
-                              selectedQuery?.id === q.id
-                                ? "bg-primary/10 text-primary border border-primary/20"
-                                : "hover:bg-muted/50 text-foreground border border-transparent"
-                            }`}
-                            data-testid={`button-query-${q.id}`}
-                          >
-                            <div className="flex items-start gap-2">
-                              <ChevronRight className={`w-3 h-3 mt-0.5 shrink-0 transition-transform ${selectedQuery?.id === q.id ? "rotate-90 text-primary" : "text-muted-foreground"}`} />
-                              <span className="leading-relaxed">{q.question}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+            <div className="w-[45%] border-r flex flex-col">
+              <ScrollArea className="flex-1 h-[330px]">
+                <div className="p-3 space-y-2">
+                  {aiQueries.map((q) => (
+                    <button
+                      key={q.id}
+                      onClick={() => setSelectedQuery(q)}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-xs leading-relaxed transition-all cursor-pointer border ${
+                        selectedQuery?.id === q.id
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-muted/30 hover:bg-muted/60 text-foreground border-border/50 hover:border-border"
+                      }`}
+                      data-testid={`button-query-${q.id}`}
+                    >
+                      {q.question}
+                    </button>
                   ))}
                 </div>
               </ScrollArea>
+              <div className="p-3 border-t">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={customQuery}
+                    onChange={(e) => setCustomQuery(e.target.value)}
+                    placeholder="Ask a question about the reports..."
+                    className="flex-1 h-8 rounded-md border bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    data-testid="input-custom-query"
+                  />
+                  <Button size="icon" className="h-8 w-8 shrink-0" data-testid="button-send-custom-query">
+                    <Send className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <div className="flex-1">
