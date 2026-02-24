@@ -31,7 +31,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
-  Send,
   Wifi,
 } from "lucide-react";
 import {
@@ -42,7 +41,8 @@ import {
   periodComparisons,
   trendData as demoTrendData,
   type TrendDataPoint,
-  chatMessages,
+  aiQueries,
+  type AIQueryItem,
   formatCurrency,
   formatPercent,
 } from "@/lib/demo-data";
@@ -130,106 +130,151 @@ function InstructionCard({ inst, idx }: { inst: typeof reportingInstructions[num
   );
 }
 
-function CollapsibleAnswer({ content, idx }: { content: string; idx: number }) {
-  const [open, setOpen] = useState(false);
-  const previewLength = 120;
-  const isLong = content.length > previewLength;
-  const preview = isLong ? content.slice(0, previewLength).trimEnd() + "..." : content;
+function AIResponsePanel({ query }: { query: AIQueryItem | null }) {
+  if (!query) {
+    return (
+      <div className="h-full flex items-center justify-center text-muted-foreground">
+        <div className="text-center space-y-2">
+          <MessageSquare className="w-8 h-8 mx-auto opacity-40" />
+          <p className="text-sm">Select a query to view AI analysis</p>
+          <p className="text-xs opacity-60">Responses are generated from ingested report data</p>
+        </div>
+      </div>
+    );
+  }
+
+  const paragraphs = query.answer.split("\n\n");
 
   return (
-    <Collapsible.Root open={open} onOpenChange={setOpen}>
-      <div className="max-w-[90%] rounded-lg px-3 py-2 text-xs leading-relaxed bg-muted" data-testid={`chat-message-${idx}`}>
-        <Collapsible.Trigger asChild>
-          <button className="w-full text-left cursor-pointer" data-testid={`button-toggle-answer-${idx}`}>
-            <div className="whitespace-pre-wrap">{open ? content : preview}</div>
-            {isLong && (
-              <div className="flex items-center gap-1 mt-1.5 text-primary text-[10px] font-medium">
-                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
-                {open ? "Show less" : "Show more"}
-              </div>
-            )}
-          </button>
-        </Collapsible.Trigger>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 pb-2 border-b border-border/50">
+        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+          <MessageSquare className="w-3 h-3 text-primary" />
+        </div>
+        <span className="text-xs font-medium text-primary">AI Analysis</span>
+        <Badge variant="outline" className="text-[10px] ml-auto">Schedule {query.schedule}</Badge>
       </div>
-    </Collapsible.Root>
+
+      <div className="space-y-3">
+        {paragraphs.map((p, i) => (
+          <p key={i} className="text-xs leading-relaxed text-foreground whitespace-pre-wrap">{p}</p>
+        ))}
+      </div>
+
+      <div className="pt-3 border-t border-border/50">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Source References</p>
+        <div className="space-y-1.5">
+          {query.sources.map((src, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs" data-testid={`source-ref-${query.id}-${i}`}>
+              <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+              <div>
+                <span className="font-medium text-foreground">{src.label}</span>
+                <span className="text-muted-foreground"> — {src.reference}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
 function InstructionsTab() {
-  const [query, setQuery] = useState("");
+  const [selectedQuery, setSelectedQuery] = useState<AIQueryItem | null>(null);
+
+  const scheduleGroups = aiQueries.reduce((acc, q) => {
+    if (!acc[q.schedule]) acc[q.schedule] = [];
+    acc[q.schedule].push(q);
+    return acc;
+  }, {} as Record<string, AIQueryItem[]>);
+
+  const scheduleLabels: Record<string, string> = {
+    "RC": "Balance Sheet",
+    "RC-C": "Loans & Leases",
+    "RC-E": "Deposits",
+    "RC-N": "Past Due & Nonaccrual",
+    "RC-L": "Derivatives & OBS",
+    "RC-R": "Regulatory Capital",
+    "RI": "Income Statement",
+    "HI": "Consolidated Income",
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-4">
-        <div className="flex-1 space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Regulatory Filing Requirements</CardTitle>
-                <Badge variant="outline" className="text-xs">{reportingInstructions.length} schedules</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[420px]">
-                <div className="space-y-2">
-                  {reportingInstructions.map((inst, idx) => (
-                    <InstructionCard key={idx} inst={inst} idx={idx} />
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">Regulatory Filing Requirements</CardTitle>
+            <Badge variant="outline" className="text-xs">{reportingInstructions.length} schedules</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[280px]">
+            <div className="space-y-2">
+              {reportingInstructions.map((inst, idx) => (
+                <InstructionCard key={idx} inst={inst} idx={idx} />
+              ))}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
 
-        <div className="w-[380px] shrink-0">
-          <Card className="h-[500px] flex flex-col">
-            <CardHeader className="pb-2 border-b">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-primary" />
-                <CardTitle className="text-sm">AI Assistant</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col p-0">
-              <ScrollArea className="flex-1 p-3">
-                <div className="space-y-3">
-                  {chatMessages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      {msg.role === "user" ? (
-                        <div
-                          className="max-w-[90%] rounded-lg px-3 py-2 text-xs leading-relaxed bg-primary text-primary-foreground"
-                          data-testid={`chat-message-${idx}`}
-                        >
-                          <div className="whitespace-pre-wrap">{msg.content}</div>
-                        </div>
-                      ) : (
-                        <CollapsibleAnswer content={msg.content} idx={idx} />
-                      )}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-primary" />
+              <CardTitle className="text-sm">AI Assistant</CardTitle>
+            </div>
+            <Badge variant="outline" className="text-xs">{aiQueries.length} queries available</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Select a question to view AI-generated analysis based on ingested report data</p>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="flex border-t">
+            <div className="w-[45%] border-r">
+              <ScrollArea className="h-[380px]">
+                <div className="p-3 space-y-3">
+                  {Object.entries(scheduleGroups).map(([schedule, queries]) => (
+                    <div key={schedule}>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 px-1">
+                        {schedule} — {scheduleLabels[schedule] || schedule}
+                      </p>
+                      <div className="space-y-1">
+                        {queries.map((q) => (
+                          <button
+                            key={q.id}
+                            onClick={() => setSelectedQuery(q)}
+                            className={`w-full text-left px-2.5 py-2 rounded-md text-xs transition-colors cursor-pointer ${
+                              selectedQuery?.id === q.id
+                                ? "bg-primary/10 text-primary border border-primary/20"
+                                : "hover:bg-muted/50 text-foreground border border-transparent"
+                            }`}
+                            data-testid={`button-query-${q.id}`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <ChevronRight className={`w-3 h-3 mt-0.5 shrink-0 transition-transform ${selectedQuery?.id === q.id ? "rotate-90 text-primary" : "text-muted-foreground"}`} />
+                              <span className="leading-relaxed">{q.question}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
               </ScrollArea>
-              <div className="p-3 border-t">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Ask about reporting requirements..."
-                    className="flex-1 h-9 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    data-testid="input-chat-query"
-                  />
-                  <Button size="icon" data-testid="button-send-query">
-                    <Send className="w-4 h-4" />
-                  </Button>
+            </div>
+
+            <div className="flex-1">
+              <ScrollArea className="h-[380px]">
+                <div className="p-4">
+                  <AIResponsePanel query={selectedQuery} />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </ScrollArea>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
