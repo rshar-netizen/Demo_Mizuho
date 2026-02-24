@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import * as Collapsible from "@radix-ui/react-collapsible";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   GitCompare,
   TrendingUp,
   ChevronRight,
+  ChevronDown,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -90,6 +92,69 @@ function SeverityBadge({ severity }: { severity: string }) {
   return <Badge variant="secondary">Low</Badge>;
 }
 
+function InstructionCard({ inst, idx }: { inst: typeof reportingInstructions[number]; idx: number }) {
+  const [open, setOpen] = useState(idx === 0);
+
+  return (
+    <Collapsible.Root open={open} onOpenChange={setOpen}>
+      <Card className="hover-elevate" data-testid={`card-instruction-${idx}`}>
+        <Collapsible.Trigger asChild>
+          <button className="w-full text-left p-3 flex items-start justify-between gap-2 cursor-pointer" data-testid={`button-toggle-instruction-${idx}`}>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <Badge variant="outline" className="font-mono text-xs">{inst.id}</Badge>
+                <Badge variant="secondary" className="text-xs">{inst.schedule}</Badge>
+                <StatusBadge status={inst.status} />
+                <Badge variant="outline" className="text-xs">{inst.frequency}</Badge>
+              </div>
+              <h4 className="text-sm font-medium">{inst.section}</h4>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 mt-1 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+          </button>
+        </Collapsible.Trigger>
+        <Collapsible.Content>
+          <div className="px-3 pb-3 pt-0 space-y-2 border-t border-border/50">
+            <p className="text-xs text-muted-foreground pt-2">{inst.description}</p>
+            <div className="space-y-1">
+              {inst.requirements.map((req, ridx) => (
+                <div key={ridx} className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <ChevronRight className="w-3 h-3 mt-0.5 shrink-0 text-primary" />
+                  <span>{req}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Collapsible.Content>
+      </Card>
+    </Collapsible.Root>
+  );
+}
+
+function CollapsibleAnswer({ content, idx }: { content: string; idx: number }) {
+  const [open, setOpen] = useState(false);
+  const previewLength = 120;
+  const isLong = content.length > previewLength;
+  const preview = isLong ? content.slice(0, previewLength).trimEnd() + "..." : content;
+
+  return (
+    <Collapsible.Root open={open} onOpenChange={setOpen}>
+      <div className="max-w-[90%] rounded-lg px-3 py-2 text-xs leading-relaxed bg-muted" data-testid={`chat-message-${idx}`}>
+        <Collapsible.Trigger asChild>
+          <button className="w-full text-left cursor-pointer" data-testid={`button-toggle-answer-${idx}`}>
+            <div className="whitespace-pre-wrap">{open ? content : preview}</div>
+            {isLong && (
+              <div className="flex items-center gap-1 mt-1.5 text-primary text-[10px] font-medium">
+                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+                {open ? "Show less" : "Show more"}
+              </div>
+            )}
+          </button>
+        </Collapsible.Trigger>
+      </div>
+    </Collapsible.Root>
+  );
+}
+
 function InstructionsTab() {
   const [query, setQuery] = useState("");
 
@@ -99,34 +164,16 @@ function InstructionsTab() {
         <div className="flex-1 space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Regulatory Filing Requirements</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Regulatory Filing Requirements</CardTitle>
+                <Badge variant="outline" className="text-xs">{reportingInstructions.length} schedules</Badge>
+              </div>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[420px]">
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {reportingInstructions.map((inst, idx) => (
-                    <Card key={idx} className="hover-elevate" data-testid={`card-instruction-${idx}`}>
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="font-mono text-xs">{inst.id}</Badge>
-                            <Badge variant="secondary" className="text-xs">{inst.schedule}</Badge>
-                            <StatusBadge status={inst.status} />
-                          </div>
-                          <Badge variant="outline" className="text-xs shrink-0">{inst.frequency}</Badge>
-                        </div>
-                        <h4 className="text-sm font-medium mb-1">{inst.section}</h4>
-                        <p className="text-xs text-muted-foreground mb-2">{inst.description}</p>
-                        <div className="space-y-1">
-                          {inst.requirements.map((req, ridx) => (
-                            <div key={ridx} className="flex items-start gap-2 text-xs text-muted-foreground">
-                              <ChevronRight className="w-3 h-3 mt-0.5 shrink-0 text-primary" />
-                              <span>{req}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <InstructionCard key={idx} inst={inst} idx={idx} />
                   ))}
                 </div>
               </ScrollArea>
@@ -150,16 +197,16 @@ function InstructionsTab() {
                       key={idx}
                       className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                     >
-                      <div
-                        className={`max-w-[90%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
-                          msg.role === "user"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted"
-                        }`}
-                        data-testid={`chat-message-${idx}`}
-                      >
-                        <div className="whitespace-pre-wrap">{msg.content}</div>
-                      </div>
+                      {msg.role === "user" ? (
+                        <div
+                          className="max-w-[90%] rounded-lg px-3 py-2 text-xs leading-relaxed bg-primary text-primary-foreground"
+                          data-testid={`chat-message-${idx}`}
+                        >
+                          <div className="whitespace-pre-wrap">{msg.content}</div>
+                        </div>
+                      ) : (
+                        <CollapsibleAnswer content={msg.content} idx={idx} />
+                      )}
                     </div>
                   ))}
                 </div>
