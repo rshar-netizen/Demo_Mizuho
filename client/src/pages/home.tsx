@@ -53,17 +53,15 @@ export default function Home() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-6xl mx-auto p-6 space-y-8">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="secondary" data-testid="badge-demo">Demo</Badge>
-            <Badge variant="outline" data-testid="badge-date">March 2025</Badge>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-main-title">
+          <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase" data-testid="badge-demo">Mizuho Financial Group — CFO Demonstration</p>
+          <h1 className="text-3xl font-serif font-semibold tracking-tight" data-testid="text-main-title">
             RegAssist AI Platform
           </h1>
-          <p className="text-muted-foreground text-lg max-w-3xl" data-testid="text-subtitle">
+          <p className="text-muted-foreground text-sm max-w-3xl leading-relaxed" data-testid="text-subtitle">
             Intelligent regulatory reporting and analytics platform demonstrating AI-powered capabilities
             across the full reporting lifecycle and peer analysis.
           </p>
+          <Badge variant="outline" className="text-[10px] font-mono" data-testid="badge-date">March 2025</Badge>
         </div>
 
         <Card className="border-primary/20 bg-primary/5" data-testid="card-data-ingestion">
@@ -183,7 +181,7 @@ export default function Home() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold mb-4" data-testid="text-capabilities-title">Platform Capabilities</h2>
+          <h2 className="text-lg font-serif font-semibold mb-4" data-testid="text-capabilities-title">Platform Capabilities</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {capabilities.map((cap, idx) => (
               <Card key={idx} className="hover-elevate" data-testid={`card-capability-${idx}`}>
@@ -205,7 +203,7 @@ export default function Home() {
 
         <div className="border-t pt-6 pb-4">
           <p className="text-xs text-muted-foreground text-center" data-testid="text-footer">
-            RegAssist AI - Prepared for Mizuho Financial Group - Confidential Demo
+            Mizuho Financial Group — RegAssist AI — Confidential
           </p>
         </div>
       </div>

@@ -62,10 +62,14 @@ Demo application for Mizuho Financial Group CFO presentation (March 2025). Showc
 - KeyBank N.A.: 17534
 - M&T Bank: 57803
 
-## Theme
-- Dark mode by default (professional financial look)
-- Inter font for UI, JetBrains Mono for data/code
-- Blue primary color scheme
+## Theme — Mizuho Brand
+- Light mode by default (Mizuho corporate identity)
+- Navy primary (#183181), Mizuho Red accent (#ED1A3A)
+- EB Garamond serif for page titles, Inter sans for UI, JetBrains Mono for data/code
+- Red eyebrow labels (font-mono, uppercase, tracking-wide) above serif page titles
+- Dark navy sidebar with red gradient accent bar under logo
+- Dark mode still supported via toggle (adapts brand to dark palette)
+- Chart colors: Navy, Red, Green (#0d7c4d), Amber (#b55a00), Navy Light
 
 ## Running
 - `npm run dev` starts the Express + Vite dev server on port 5000

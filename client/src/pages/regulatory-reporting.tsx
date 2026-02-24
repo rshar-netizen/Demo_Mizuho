@@ -1425,10 +1425,8 @@ export default function RegulatoryReporting() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-[1200px] mx-auto p-6 space-y-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Use Case 1</Badge>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-reporting-title">
+          <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Use Case I of II</p>
+          <h1 className="text-2xl font-serif font-semibold tracking-tight" data-testid="text-reporting-title">
             Regulatory Reporting Lifecycle
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -1444,7 +1442,7 @@ export default function RegulatoryReporting() {
               className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
                 activeTab === step.id
                   ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
               data-testid={`button-step-${step.id}`}
             >

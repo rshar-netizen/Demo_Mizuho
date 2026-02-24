@@ -499,8 +499,8 @@ export default function PeerAnalysis() {
       <div className="max-w-[1200px] mx-auto p-6 space-y-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Badge variant="secondary">Use Case 2</Badge>
-            <Badge variant="outline">FRB Dataset</Badge>
+            <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Use Case II of II</p>
+            <Badge variant="outline" className="text-[10px] font-mono">FRB Dataset</Badge>
             {isLive && (
               <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
                 <Wifi className="w-3 h-3 mr-1" />
@@ -513,7 +513,7 @@ export default function PeerAnalysis() {
               </Badge>
             )}
           </div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-peer-title">
+          <h1 className="text-2xl font-serif font-semibold tracking-tight" data-testid="text-peer-title">
             Peer Analysis & Comparison
           </h1>
           <p className="text-sm text-muted-foreground">

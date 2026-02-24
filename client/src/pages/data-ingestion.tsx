@@ -526,12 +526,12 @@ export default function DataIngestion() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">Data Ingestion</Badge>
-              <Badge variant="outline" className={connectedCount === sources.length && sources.length > 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0" : ""}>
-                {connectedCount}/{sources.length} Sources Active
+              <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Data Sources</p>
+              <Badge variant="outline" className="text-[10px] font-mono">
+                {connectedCount}/{sources.length} Active
               </Badge>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight" data-testid="text-ingestion-title">
+            <h1 className="text-2xl font-serif font-semibold tracking-tight" data-testid="text-ingestion-title">
               Federal Data Ingestion
             </h1>
             <p className="text-sm text-muted-foreground">

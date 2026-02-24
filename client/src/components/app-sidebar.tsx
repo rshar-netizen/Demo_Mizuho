@@ -36,14 +36,16 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">RA</span>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-3">
+            <div>
+              <h2 className="font-serif text-lg font-semibold tracking-wide" data-testid="text-app-title">
+                Mizuho
+              </h2>
+              <div className="h-[2px] w-full bg-gradient-to-r from-destructive to-transparent rounded-full" />
+            </div>
           </div>
-          <div>
-            <h2 className="font-semibold text-sm tracking-tight" data-testid="text-app-title">RegAssist AI</h2>
-            <p className="text-xs text-muted-foreground">Regulatory Intelligence</p>
-          </div>
+          <p className="text-[10px] font-mono tracking-widest uppercase opacity-60">RegAssist AI</p>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -70,11 +72,12 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="p-3 border-t border-sidebar-border">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">Mizuho Demo</span>
+          <span className="text-xs opacity-60 font-mono">CFO Demo</span>
           <Button
             size="icon"
             variant="ghost"
             onClick={toggleTheme}
+            className="text-sidebar-foreground hover:bg-sidebar-accent"
             data-testid="button-theme-toggle"
           >
             {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
