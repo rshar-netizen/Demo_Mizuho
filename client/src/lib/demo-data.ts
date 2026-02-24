@@ -380,9 +380,9 @@ export const aiQueries: AIQueryItem[] = [
     question: "What is the current total asset position and how does it reconcile across sources?",
     answer: "Total assets stand at $225.1B as of Q4 2024, representing a 3.01% increase from Q3 2024 ($218.5B).\n\nCross-source reconciliation:\n- FDIC Call Report field ASSET: $225,100,000K\n- FR Y-9C field BHCK2170: $225,100,000K\n- Variance: $0 (0.00%)\n\nThe balance sheet is fully reconciled across both federal data sources. Asset growth was driven primarily by a $6.7B increase in net loans (RC-C) partially offset by a $5.2B reduction in the securities portfolio (HTM + AFS combined).",
     sources: [
-      { label: "FDIC Call Report", reference: "Schedule RC, field ASSET (total assets in thousands)" },
-      { label: "FR Y-9C", reference: "Schedule HC, field BHCK2170 (consolidated total assets)" },
-      { label: "UBPR", reference: "Page 1 — Balance Sheet Summary" },
+      { label: "FDIC Call Report", reference: "Field ASSET" },
+      { label: "FR Y-9C", reference: "Field BHCK2170" },
+      { label: "UBPR", reference: "Page 1" },
     ],
   },
   {
@@ -391,9 +391,9 @@ export const aiQueries: AIQueryItem[] = [
     question: "Are capital ratios above minimum requirements including buffers?",
     answer: "Yes. All risk-based capital ratios exceed both minimum requirements and conservation buffers:\n\n- CET1 Ratio: 12.8% (minimum 4.5% + 2.5% buffer = 7.0%)\n- Total Capital Ratio: 15.2% (minimum 8.0% + 2.5% buffer = 10.5%)\n- Total RWA: $154.7B, up 1.58% QoQ\n\nHowever, CRE risk-weighted assets increased 12.02% QoQ to $38.2B, which warrants review of 150% risk-weight applicability on High Volatility CRE (HVCRE) exposures under the standardized approach. This is flagged for human review.",
     sources: [
-      { label: "FR Y-9C", reference: "Field BHCKA224 (CET1 ratio), BHCK7205 (total capital ratio)" },
-      { label: "FDIC Call Report", reference: "Schedule RC-R Part II, field IDT1RWA (Tier 1 ratio)" },
-      { label: "UBPR", reference: "Page 11 — Risk-Based Capital Ratios" },
+      { label: "FR Y-9C", reference: "Fields BHCKA224, BHCK7205" },
+      { label: "FDIC Call Report", reference: "Schedule RC-R" },
+      { label: "UBPR", reference: "Page 11" },
     ],
   },
   {
@@ -402,8 +402,8 @@ export const aiQueries: AIQueryItem[] = [
     question: "Why is the CRE RWA exposure flagged for review?",
     answer: "Standardized RWA for CRE exposures increased from $34.1B to $38.2B (+12.02% QoQ), which exceeds the 10% quarterly change threshold.\n\nPotential issues:\n1. New CRE originations may qualify as HVCRE under Basel III, requiring a 150% risk weight instead of the standard 100%\n2. Reclassification of existing loans from ADC (Acquisition, Development, Construction) may not have been reflected in risk-weight assignments\n3. CRE concentration risk — the $38.2B CRE RWA represents 24.7% of total RWA ($154.7B)\n\nRecommendation: Verify HVCRE classification criteria are applied consistently and cross-check against RC-C Part I CRE loan detail memo items.",
     sources: [
-      { label: "FDIC Call Report", reference: "Schedule RC-R Part II — Risk-Weighted Assets by category" },
-      { label: "FR Y-9C", reference: "Schedule HC-C — CRE loan concentration data" },
+      { label: "FDIC Call Report", reference: "Schedule RC-R Part II" },
+      { label: "FR Y-9C", reference: "Schedule HC-C" },
     ],
   },
   {
@@ -412,9 +412,9 @@ export const aiQueries: AIQueryItem[] = [
     question: "Why is the provision for credit losses flagged?",
     answer: "Provision for credit losses increased 37.1% QoQ from $310M to $425M, exceeding the 20% quarterly change threshold that triggers automatic review.\n\nContributing factors from ingested data:\n- FDIC field ELNATR shows the elevated provision aligns with increased early-stage delinquencies in Schedule RC-N (30-89 day past dues up 30.3%)\n- Nonaccrual loans rose 15.7%, concentrated in CRE office segment\n- UBPR peer benchmarks show the provision rate (0.45%) is above the peer median (0.28%)\n\nThe increase appears driven by CECL model recalibration for deteriorating CRE office conditions. Reserve adequacy should be assessed against the migration analysis from RC-N delinquency trends.",
     sources: [
-      { label: "FDIC Call Report", reference: "Schedule RI, field ELNATR (provision for credit losses)" },
-      { label: "FR Y-9C", reference: "Field BHCK4230 (provision for credit losses)" },
-      { label: "UBPR", reference: "Page 4 — Provision and charge-off peer comparison" },
+      { label: "FDIC Call Report", reference: "Field ELNATR" },
+      { label: "FR Y-9C", reference: "Field BHCK4230" },
+      { label: "UBPR", reference: "Page 4" },
     ],
   },
   {
@@ -423,9 +423,9 @@ export const aiQueries: AIQueryItem[] = [
     question: "What is driving the increase in past due and nonaccrual loans?",
     answer: "Delinquency metrics deteriorated across multiple categories in Q4 2024:\n\n- 30-89 days past due: $1.85B, up 30.3% from $1.42B (flagged)\n- 90+ days past due: $680M, up 15.3% from $590M\n- Nonaccrual loans: $1.02B, up 15.7% from $885M (flagged)\n\nThe increase is concentrated in CRE office exposures per FR Y-9C field BHCK3506 cross-referenced with FDIC Call Report RC-N. The nonaccrual migration from 30-89 day bucket to nonaccrual suggests credit deterioration rather than seasonal fluctuation.\n\nThe NPL ratio rose to 0.91% from 0.85% QoQ, still below the peer median of 0.95% per UBPR but trending adversely for three consecutive quarters.",
     sources: [
-      { label: "FDIC Call Report", reference: "Schedule RC-N, fields P3ASSET, P9ASSET, NAESSION" },
-      { label: "FR Y-9C", reference: "Fields BHCK5524, BHCK5525, BHCK3506 (delinquency & nonaccrual)" },
-      { label: "UBPR", reference: "Page 8 — Delinquency and Loss Rates vs Peer" },
+      { label: "FDIC Call Report", reference: "Schedule RC-N" },
+      { label: "FR Y-9C", reference: "Fields BHCK5524, BHCK3506" },
+      { label: "UBPR", reference: "Page 8" },
     ],
   },
   {
@@ -434,8 +434,8 @@ export const aiQueries: AIQueryItem[] = [
     question: "Why is the derivative net position flagged for review?",
     answer: "The net derivative fair value position swung from $3.18B to $2.34B, a 26.4% decline that exceeds the 15% quarterly change tolerance.\n\nAnalysis from ingested data:\n- Interest rate derivative notional: $895B, up 6.3% QoQ (within tolerance)\n- Gross positive fair value decreased more than gross negative, suggesting mark-to-market losses on rate hedges\n- The swing may reflect interest rate curve movements affecting hedge effectiveness\n\nThe flag relates to netting agreement classifications — FDIC derivative fair values and FR Y-9C fields BHCK8741/BHCK8742 should be reconciled to ensure master netting agreements and collateral offsets are applied consistently across both reports.",
     sources: [
-      { label: "FDIC Call Report", reference: "Schedule RC-L — Derivatives and Off-Balance Sheet Items" },
-      { label: "FR Y-9C", reference: "Fields BHCK8741 (positive fair value), BHCK8742 (negative fair value)" },
+      { label: "FDIC Call Report", reference: "Schedule RC-L" },
+      { label: "FR Y-9C", reference: "Fields BHCK8741, BHCK8742" },
     ],
   },
   {
@@ -444,9 +444,9 @@ export const aiQueries: AIQueryItem[] = [
     question: "How do loan balances reconcile between FDIC Call Report and FR Y-9C?",
     answer: "Cross-source reconciliation of net loans and leases:\n\n- FDIC Call Report (LNLSNET): $112,500,000K\n- FR Y-9C (BHCK2122): $112,480,000K\n- Variance: $20,000K (0.02%)\n\nThe $20M variance is within the acceptable threshold and stems from consolidation timing differences between the bank-level Call Report and BHC-level FR Y-9C.\n\nLoan growth of 6.33% QoQ ($6.7B) was primarily driven by C&I originations. UBPR loan-to-deposit ratio of 63.1% is consistent with FDIC DEP ($178.4B) and LNLSNET ($112.5B). Loan concentration ratios from UBPR remain within peer benchmarks.",
     sources: [
-      { label: "FDIC Call Report", reference: "Schedule RC-C, field LNLSNET (net loans and leases)" },
-      { label: "FR Y-9C", reference: "Field BHCK2122 (total loans and leases, net)" },
-      { label: "UBPR", reference: "Page 6 — Loan Mix and Concentration Ratios" },
+      { label: "FDIC Call Report", reference: "Field LNLSNET" },
+      { label: "FR Y-9C", reference: "Field BHCK2122" },
+      { label: "UBPR", reference: "Page 6" },
     ],
   },
   {
@@ -455,9 +455,9 @@ export const aiQueries: AIQueryItem[] = [
     question: "What is the deposit composition and how does it compare to peers?",
     answer: "Total deposits stand at $178.4B, up 1.83% QoQ from $175.2B.\n\nDeposit classification from ingested Call Report:\n- Transaction accounts and demand deposits form the core funding base\n- Time deposits by maturity are reported per FDIC field DEP breakdowns\n- Validated against FR Y-9C fields BHDM6631 (domestic) + BHDM6636 (foreign)\n\nThe loan-to-deposit ratio of 63.1% is conservative relative to peers (PNC: 75.9%, Citizens: 81.2%, M&T: 80.3%), indicating strong liquidity and deposit funding capacity. UBPR peer analysis confirms deposit stability metrics are in the top quartile.",
     sources: [
-      { label: "FDIC Call Report", reference: "Schedule RC-E, field DEP (total deposits)" },
-      { label: "FR Y-9C", reference: "Fields BHDM6631, BHDM6636 (deposits by type)" },
-      { label: "UBPR", reference: "Page 3 — Funding and Liquidity Ratios" },
+      { label: "FDIC Call Report", reference: "Field DEP" },
+      { label: "FR Y-9C", reference: "Fields BHDM6631, BHDM6636" },
+      { label: "UBPR", reference: "Page 3" },
     ],
   },
 ];
