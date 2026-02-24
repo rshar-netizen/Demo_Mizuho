@@ -164,14 +164,12 @@ function AIResponsePanel({ query }: { query: AIQueryItem | null }) {
 
       <div className="pt-3 border-t border-border/50">
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Source References</p>
-        <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-2">
           {query.sources.map((src, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs" data-testid={`source-ref-${query.id}-${i}`}>
-              <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-              <div>
-                <span className="font-medium text-foreground">{src.label}</span>
-                <span className="text-muted-foreground"> — {src.reference}</span>
-              </div>
+            <div key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border/60 bg-muted/30 text-xs" data-testid={`source-ref-${query.id}-${i}`}>
+              <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+              <span className="font-medium text-foreground whitespace-nowrap">{src.label}</span>
+              <span className="text-muted-foreground">{src.reference}</span>
             </div>
           ))}
         </div>
