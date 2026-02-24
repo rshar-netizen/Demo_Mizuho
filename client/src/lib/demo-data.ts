@@ -132,9 +132,65 @@ export const reportingInstructions: ReportingInstruction[] = [
     ]
   },
   {
+    id: "FFIEC-031",
+    section: "Schedule RC-E - Deposit Liabilities",
+    description: "Breakdown of deposit liabilities by type, maturity, and insurance status including transaction and non-transaction accounts",
+    schedule: "RC-E",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Classify deposits as transaction or non-transaction accounts",
+      "Report time deposits by remaining maturity buckets",
+      "Separate insured vs uninsured deposits per FDIC coverage rules",
+      "Reconcile total deposits to Schedule RC line 13"
+    ]
+  },
+  {
+    id: "FFIEC-031",
+    section: "Schedule RC-N - Past Due and Nonaccrual",
+    description: "Delinquency and nonaccrual status of loans and leases by category, including 30-89 days past due and 90+ days past due",
+    schedule: "RC-N",
+    frequency: "Quarterly",
+    status: "flagged",
+    requirements: [
+      "Report loans past due 30-89 days separately from 90+ days",
+      "Identify nonaccrual loans by loan category per ASC 326 guidance",
+      "Include restructured loans in appropriate aging buckets",
+      "Cross-reference delinquency totals to Schedule RC-C loan categories"
+    ]
+  },
+  {
+    id: "FFIEC-031",
+    section: "Schedule RC-L - Derivatives and Off-Balance Sheet",
+    description: "Notional amounts and fair values of derivative contracts and off-balance sheet exposures including commitments and guarantees",
+    schedule: "RC-L",
+    frequency: "Quarterly",
+    status: "flagged",
+    requirements: [
+      "Report notional amounts by derivative type (interest rate, FX, credit, equity)",
+      "Separate trading vs hedging derivative positions",
+      "Report gross positive and negative fair values before netting",
+      "Include unused commitments and standby letters of credit"
+    ]
+  },
+  {
+    id: "FFIEC-031",
+    section: "Schedule RI - Income Statement",
+    description: "Income and expense detail for the reporting period including interest income, interest expense, provisions, and non-interest components",
+    schedule: "RI",
+    frequency: "Quarterly",
+    status: "flagged",
+    requirements: [
+      "Report interest income and expense on an accrual basis",
+      "Separate provision for credit losses per CECL from other provisions",
+      "Report realized gains and losses on securities separately",
+      "Reconcile net income to Schedule RC equity changes"
+    ]
+  },
+  {
     id: "FR Y-9C",
-    section: "Schedule HI - Income Statement",
-    description: "Consolidated income statement reporting interest income, non-interest income, provisions, and net income",
+    section: "Schedule HI - Consolidated Income Statement",
+    description: "Consolidated income statement reporting interest income, non-interest income, provisions, and net income for the BHC",
     schedule: "HI",
     frequency: "Quarterly",
     status: "analyzed",
