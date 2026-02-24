@@ -212,6 +212,13 @@ export async function registerRoutes(
             roa: r.ROA,
             nim: computeNIMPercent(r),
             tier1Ratio: r.IDT1CER,
+            efficiencyRatio: r.EEFFR,
+            npaRatio: computeNPAPercent(r),
+            securities: r.SC,
+            loanLossReserve: r.LNATRES,
+            chargeOffRate: r.ELNANTR,
+            totalCapitalRatio: r.IDTRCR,
+            loanToDeposit: computeLoanToDeposit(r),
           })),
         };
       });
