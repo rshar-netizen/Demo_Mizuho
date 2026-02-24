@@ -267,7 +267,19 @@ function InstructionsTab() {
   );
 }
 
+const dictionarySources = [
+  { key: "FFIEC_031_CALL_REPORT", label: "Call Report" },
+  { key: "FFIEC_UBPR_RATIOS", label: "UBPR" },
+  { key: "FR_Y9C_BHC_DATA", label: "FR Y-9C" },
+];
+
 function DataDictionaryTab() {
+  const [activeSource, setActiveSource] = useState(dictionarySources[0].key);
+  const dict = dataDictionaries.find((d) => d.tableName === activeSource)!;
+  const sourceLabel = dict.tableName.includes("CALL") ? "FDIC BankFind Suite API" :
+    dict.tableName.includes("UBPR") ? "FFIEC Central Data Repository" : "Federal Reserve NIC";
+  const totalRecords = dataDictionaries.reduce((sum, d) => sum + d.recordCount, 0);
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
@@ -285,65 +297,76 @@ function DataDictionaryTab() {
         </Card>
         <Card data-testid="card-data-records">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">112</p>
+            <p className="text-2xl font-bold">{totalRecords}</p>
             <p className="text-xs text-muted-foreground">Records Ingested</p>
           </CardContent>
         </Card>
       </div>
 
-      {dataDictionaries.map((dict, idx) => {
-        const sourceLabel = dict.tableName.includes("CALL") ? "FDIC BankFind Suite API" :
-          dict.tableName.includes("UBPR") ? "FFIEC Central Data Repository" : "Federal Reserve NIC";
-        return (
-        <Card key={idx} data-testid={`card-dictionary-${idx}`}>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-primary" />
-                <CardTitle className="text-sm font-mono">{dict.tableName}</CardTitle>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-xs">{sourceLabel}</Badge>
-                <Badge variant="outline" className="text-xs">{dict.recordCount.toLocaleString()} records</Badge>
-                <Badge variant="secondary" className="text-xs">Ingested: {dict.lastUpdated}</Badge>
-              </div>
+      <Card data-testid="card-dictionary-active">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-primary" />
+              <CardTitle className="text-sm">Auto-Generated Data Dictionary</CardTitle>
             </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Column</TableHead>
-                  <TableHead className="text-xs">Type</TableHead>
-                  <TableHead className="text-xs">Source</TableHead>
-                  <TableHead className="text-xs">Nullable</TableHead>
-                  <TableHead className="text-xs">Description</TableHead>
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
+              {dictionarySources.map((src) => (
+                <button
+                  key={src.key}
+                  onClick={() => setActiveSource(src.key)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                    activeSource === src.key
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`button-dict-source-${src.key}`}
+                >
+                  {src.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs font-mono text-muted-foreground">{dict.tableName}</span>
+            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">{sourceLabel}</Badge>
+            <Badge variant="outline" className="text-[10px]">{dict.recordCount.toLocaleString()} records</Badge>
+            <Badge variant="secondary" className="text-[10px]">Ingested: {dict.lastUpdated}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Column</TableHead>
+                <TableHead className="text-xs">Type</TableHead>
+                <TableHead className="text-xs">Source</TableHead>
+                <TableHead className="text-xs">Nullable</TableHead>
+                <TableHead className="text-xs">Description</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dict.columns.map((col, cidx) => (
+                <TableRow key={cidx}>
+                  <TableCell className="font-mono text-xs py-2">{col.name}</TableCell>
+                  <TableCell className="text-xs py-2">
+                    <Badge variant="outline" className="font-mono text-xs">{col.type}</Badge>
+                  </TableCell>
+                  <TableCell className="text-xs py-2">{col.source}</TableCell>
+                  <TableCell className="text-xs py-2">
+                    {col.nullable ? (
+                      <span className="text-muted-foreground">Yes</span>
+                    ) : (
+                      <span className="text-foreground font-medium">No</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs py-2 text-muted-foreground">{col.description}</TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dict.columns.map((col, cidx) => (
-                  <TableRow key={cidx}>
-                    <TableCell className="font-mono text-xs py-2">{col.name}</TableCell>
-                    <TableCell className="text-xs py-2">
-                      <Badge variant="outline" className="font-mono text-xs">{col.type}</Badge>
-                    </TableCell>
-                    <TableCell className="text-xs py-2">{col.source}</TableCell>
-                    <TableCell className="text-xs py-2">
-                      {col.nullable ? (
-                        <span className="text-muted-foreground">Yes</span>
-                      ) : (
-                        <span className="text-foreground font-medium">No</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs py-2 text-muted-foreground">{col.description}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-        );
-      })}
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
