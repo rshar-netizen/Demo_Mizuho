@@ -922,9 +922,19 @@ function getTrendNarrative(metric: TrendMetric, data: TrendDataPoint[]): string 
   }
 }
 
-function getInflectionPoints(data: TrendDataPoint[]): { period: string; metric: string; description: string; severity: "high" | "medium" | "low"; value: string }[] {
+interface InflectionPoint {
+  period: string;
+  metric: string;
+  description: string;
+  insight: string;
+  severity: "high" | "medium" | "low";
+  value: string;
+  changePct: string;
+}
+
+function getInflectionPoints(data: TrendDataPoint[]): InflectionPoint[] {
   if (data.length < 3) return [];
-  const points: { period: string; metric: string; description: string; severity: "high" | "medium" | "low"; value: string }[] = [];
+  const points: InflectionPoint[] = [];
 
   for (let i = 1; i < data.length - 1; i++) {
     const prev = data[i - 1];
@@ -934,36 +944,56 @@ function getInflectionPoints(data: TrendDataPoint[]): { period: string; metric: 
     const assetDelta1 = (curr.totalAssets - prev.totalAssets) / prev.totalAssets;
     const assetDelta2 = (next.totalAssets - curr.totalAssets) / curr.totalAssets;
     if (Math.sign(assetDelta1) !== Math.sign(assetDelta2) && Math.abs(assetDelta1) > 0.01) {
+      const pct = (assetDelta1 * 100).toFixed(1);
+      const loanGrowth = ((curr.totalLoans - prev.totalLoans) / prev.totalLoans * 100).toFixed(1);
+      const depositGrowth = ((curr.totalDeposits - prev.totalDeposits) / prev.totalDeposits * 100).toFixed(1);
       points.push({
         period: curr.period,
         metric: "Total Assets",
         description: assetDelta1 > 0 ? "Growth peaked — trend reversed to contraction" : "Contraction bottomed — recovery began",
+        insight: assetDelta1 > 0
+          ? `Asset growth of ${pct}% coincided with loan growth of ${loanGrowth}% and deposit growth of ${depositGrowth}%. The subsequent reversal likely reflects tightened lending standards in response to rising delinquencies, a deliberate reduction in securities holdings to manage duration risk amid rate volatility, or seasonal balance sheet optimization ahead of quarter-end regulatory reporting.`
+          : `After contracting, assets began recovering with loans at ${loanGrowth}% growth. This inflection typically signals renewed C&I and CRE lending demand, potentially driven by improving borrower credit quality, stabilizing commercial real estate valuations, or management's decision to deploy excess liquidity built up during the contraction phase.`,
         severity: Math.abs(assetDelta1) > 0.03 ? "high" : "medium",
         value: `$${curr.totalAssets.toLocaleString()}M`,
+        changePct: `${parseFloat(pct) >= 0 ? "+" : ""}${pct}%`,
       });
     }
 
     const incomeDelta1 = curr.netIncome - prev.netIncome;
     const incomeDelta2 = next.netIncome - curr.netIncome;
     if (Math.sign(incomeDelta1) !== Math.sign(incomeDelta2) && Math.abs(incomeDelta1) > 50) {
+      const pct = (incomeDelta1 / Math.abs(prev.netIncome) * 100).toFixed(1);
+      const nimChange = prev.tier1Capital !== curr.tier1Capital;
+      const loanDelta = ((curr.totalLoans - prev.totalLoans) / prev.totalLoans * 100).toFixed(1);
       points.push({
         period: curr.period,
         metric: "Net Income",
         description: incomeDelta1 > 0 ? "Earnings peaked — began declining" : "Earnings troughed — recovery initiated",
+        insight: incomeDelta1 > 0
+          ? `Earnings peaked at $${curr.netIncome.toLocaleString()}M after a $${Math.abs(incomeDelta1).toLocaleString()}M QoQ increase. The subsequent decline is consistent with higher provision expense as the CECL model incorporated deteriorating macro forecasts, compression in net interest margin as funding costs caught up with asset repricing, and potentially elevated non-interest expenses from technology and compliance investments.`
+          : `Earnings troughed at $${curr.netIncome.toLocaleString()}M before recovering. The turnaround likely reflects stabilizing credit costs as early-stage delinquencies plateaued, improved fee income from capital markets and advisory activity, and the lagged benefit of prior-quarter asset repricing flowing through to net interest income. Loan growth of ${loanDelta}% in this period supported earning asset expansion.`,
         severity: Math.abs(incomeDelta1) > 200 ? "high" : "medium",
         value: `$${curr.netIncome.toLocaleString()}M`,
+        changePct: `${parseFloat(pct) >= 0 ? "+" : ""}${pct}%`,
       });
     }
 
     const capDelta1 = curr.tier1Capital - prev.tier1Capital;
     const capDelta2 = next.tier1Capital - curr.tier1Capital;
     if (Math.sign(capDelta1) !== Math.sign(capDelta2) && Math.abs(capDelta1) > 0.1) {
+      const rwaGrowth = ((curr.totalLoans - prev.totalLoans) / prev.totalLoans * 100).toFixed(1);
+      const incomeDirection = curr.netIncome > prev.netIncome ? "rising" : "declining";
       points.push({
         period: curr.period,
         metric: "Tier 1 Capital",
         description: capDelta1 > 0 ? "Capital ratio peaked — began trending down" : "Capital ratio bottomed — started rebuilding",
+        insight: capDelta1 > 0
+          ? `Tier 1 ratio peaked at ${curr.tier1Capital}% before declining. This typically occurs when risk-weighted asset growth (loan portfolio grew ${rwaGrowth}%) outpaces capital generation from retained earnings. Contributing factors include accelerated C&I and CRE originations increasing RWA density, AOCI volatility from unrealized AFS securities losses impacting CET1 under the CECL transition, and potential capital return activity (dividends or buybacks) consuming excess capital buffers.`
+          : `Capital ratio bottomed at ${curr.tier1Capital}% with ${incomeDirection} net income. The recovery was likely driven by moderated loan growth reducing RWA expansion, improved retained earnings as provision expense normalized, and potential benefits from the AOCI opt-out or transitional CECL capital relief. Management may have also adjusted the securities portfolio duration to reduce mark-to-market CET1 impact.`,
         severity: Math.abs(capDelta1) > 0.3 ? "high" : "low",
         value: `${curr.tier1Capital}%`,
+        changePct: `${capDelta1 >= 0 ? "+" : ""}${capDelta1.toFixed(2)}pp`,
       });
     }
 
@@ -973,12 +1003,18 @@ function getInflectionPoints(data: TrendDataPoint[]): { period: string; metric: 
     const ldrDelta1 = ldr1 - ldr0;
     const ldrDelta2 = ldr2 - ldr1;
     if (Math.sign(ldrDelta1) !== Math.sign(ldrDelta2) && Math.abs(ldrDelta1) > 0.005) {
+      const loanPct = ((curr.totalLoans - prev.totalLoans) / prev.totalLoans * 100).toFixed(1);
+      const depPct = ((curr.totalDeposits - prev.totalDeposits) / prev.totalDeposits * 100).toFixed(1);
       points.push({
         period: curr.period,
         metric: "Loan-to-Deposit Ratio",
         description: ldrDelta1 > 0 ? "LDR peaked — liquidity position began improving" : "LDR troughed — lending activity accelerated relative to deposits",
-        severity: "low",
+        insight: ldrDelta1 > 0
+          ? `LDR peaked at ${(ldr1 * 100).toFixed(1)}% with loans at ${loanPct}% growth vs deposits at ${depPct}%. The subsequent improvement suggests management pivoted to deposit gathering — likely through promotional rate offerings, treasury management client acquisition, or reduced wholesale funding reliance. This may also reflect seasonal corporate deposit inflows or a strategic decision to slow loan originations as credit spreads tightened.`
+          : `LDR troughed at ${(ldr1 * 100).toFixed(1)}% before lending accelerated. Loan growth of ${loanPct}% outpacing deposit growth of ${depPct}% indicates renewed credit demand, potentially from middle-market C&I borrowers drawing on revolving facilities, CRE construction fundings, or expansion of the consumer lending portfolio. This shift warrants monitoring of the institution's contingent liquidity position and FHLB borrowing capacity.`,
+        severity: Math.abs(ldrDelta1) > 0.015 ? "medium" : "low",
         value: `${(ldr1 * 100).toFixed(1)}%`,
+        changePct: `${ldrDelta1 >= 0 ? "+" : ""}${(ldrDelta1 * 100).toFixed(2)}pp`,
       });
     }
   }
@@ -1151,25 +1187,29 @@ function TrendAnalysisTab() {
               {inflectionPoints.map((pt, idx) => (
                 <div
                   key={idx}
-                  className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3"
+                  className="rounded-lg border border-border/60 bg-muted/20 p-4"
                   data-testid={`inflection-point-${idx}`}
                 >
-                  <div className={`mt-0.5 rounded-full p-1 shrink-0 ${pt.severity === "high" ? "bg-red-500/10 text-red-500" : pt.severity === "medium" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}>
-                    <Zap className="w-3 h-3" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-medium">{pt.metric}</span>
-                      <Badge variant="outline" className="text-[10px]">{pt.period}</Badge>
-                      <span className="text-xs font-mono text-muted-foreground">{pt.value}</span>
-                      <Badge
-                        variant="secondary"
-                        className={`text-[10px] border-0 ${pt.severity === "high" ? "bg-red-500/10 text-red-500" : pt.severity === "medium" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}
-                      >
-                        {pt.severity}
-                      </Badge>
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 rounded-full p-1.5 shrink-0 ${pt.severity === "high" ? "bg-red-500/10 text-red-500" : pt.severity === "medium" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}>
+                      <Zap className="w-3.5 h-3.5" />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{pt.description}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">{pt.metric}</span>
+                        <Badge variant="outline" className="text-[10px]">{pt.period}</Badge>
+                        <span className="text-xs font-mono text-muted-foreground">{pt.value}</span>
+                        <Badge variant="outline" className="text-[10px] font-mono">{pt.changePct}</Badge>
+                        <Badge
+                          variant="secondary"
+                          className={`text-[10px] border-0 ${pt.severity === "high" ? "bg-red-500/10 text-red-500" : pt.severity === "medium" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}
+                        >
+                          {pt.severity}
+                        </Badge>
+                      </div>
+                      <p className="text-xs font-medium text-foreground/80 mt-1.5">{pt.description}</p>
+                      <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{pt.insight}</p>
+                    </div>
                   </div>
                 </div>
               ))}
