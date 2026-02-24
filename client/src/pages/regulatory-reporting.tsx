@@ -33,6 +33,12 @@ import {
   Minus,
   Send,
   Wifi,
+  FileText,
+  Sparkles,
+  Pencil,
+  Check,
+  SendHorizontal,
+  Clock,
 } from "lucide-react";
 import {
   reportingInstructions,
@@ -597,7 +603,61 @@ function ReportReviewTab() {
   );
 }
 
+const defaultMemoContent = `MANAGEMENT REVIEW MEMORANDUM
+Mizuho Americas — Regulatory Reporting Period Review
+Period: FY 2024 (Q1–Q4) | Prepared: January 2025
+
+EXECUTIVE SUMMARY
+
+This memorandum summarizes the key findings from the quarterly regulatory reporting review for Mizuho Americas, covering Call Report (FFIEC 031), FR Y-9C, and UBPR data for the fiscal year 2024. Cross-source reconciliation was performed across all three federal data portals.
+
+Overall, the institution maintains a strong capital position with CET1 at 12.8% and Total Capital Ratio at 15.2%, well above regulatory minimums. Net income for Q4 2024 was $1.52B, with full-year net income of $6.13B (+3.2% YoY).
+
+KEY FINDINGS & FLAGGED ITEMS
+
+1. Loan Growth Acceleration (High Priority)
+Net loans increased 6.33% QoQ to $112.5B, more than double the 8-quarter average of 2.5%. The acceleration is concentrated in C&I lending. Schedule RC-C concentration limits should be reviewed.
+
+2. AFS Securities Portfolio Decline (High Priority)
+Available-for-sale securities declined 11.34% QoQ from $21.3B to $18.9B. The AOCI variance between FDIC SCAFS and UBPR Page 6 has been flagged. Unrealized loss impact on equity requires assessment.
+
+3. Provision for Credit Losses (Medium Priority)
+Provisions rose 37.1% QoQ to $425M, exceeding the 20% quarterly change threshold. This aligns with increased delinquencies in Schedule RC-N (30-89 day past dues up 30.3%). CECL model assumptions should be reviewed against current macro conditions.
+
+4. CRE Risk-Weighted Assets (Medium Priority)
+Standardized RWA for CRE exposures increased 12.02% to $38.2B. HVCRE classification criteria and 150% risk-weight applicability should be verified against Schedule RC-R Part II.
+
+5. Derivative Netting (Low Priority)
+Net derivative fair value declined 26.4% QoQ. Schedule RC-L netting agreement classifications should be reconciled between FDIC and FR Y-9C reporting.
+
+DATA QUALITY
+
+Cross-source reconciliation across FDIC Call Report, FR Y-9C, and UBPR yielded a 95.3% auto-mapping rate for Call Report fields, 97.0% for UBPR, and 94.5% for FR Y-9C. Total flagged records requiring manual review: 12 out of 168 ingested records.
+
+RECOMMENDATION
+
+Items 1–3 above require management discussion prior to filing. Items 4–5 are informational and can be addressed in the normal review cycle. The overall regulatory filing is recommended for submission pending resolution of the flagged cross-checks on Schedules RC-N, RC-L, and RC-R.`;
+
 function PeriodComparisonTab() {
+  const [memoContent, setMemoContent] = useState(defaultMemoContent);
+  const [isEditing, setIsEditing] = useState(false);
+  const [memoStatus, setMemoStatus] = useState<"draft" | "sent" | "approved">("draft");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerate = () => {
+    setIsGenerating(true);
+    setTimeout(() => {
+      setMemoContent(defaultMemoContent);
+      setIsGenerating(false);
+      setMemoStatus("draft");
+    }, 1500);
+  };
+
+  const handleSendForApproval = () => {
+    setMemoStatus("sent");
+    setIsEditing(false);
+  };
+
   return (
     <div className="space-y-4">
       <Card data-testid="card-period-chart">
@@ -670,6 +730,107 @@ function PeriodComparisonTab() {
               </TableBody>
             </Table>
           </ScrollArea>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-memo">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              <CardTitle className="text-sm">Management Review Memorandum</CardTitle>
+              {memoStatus === "draft" && (
+                <Badge variant="outline" className="text-[10px]">
+                  <Pencil className="w-2.5 h-2.5 mr-1" />Draft
+                </Badge>
+              )}
+              {memoStatus === "sent" && (
+                <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0 text-[10px]">
+                  <Clock className="w-2.5 h-2.5 mr-1" />Pending CFO Approval
+                </Badge>
+              )}
+              {memoStatus === "approved" && (
+                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
+                  <Check className="w-2.5 h-2.5 mr-1" />Approved
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                data-testid="button-generate-memo"
+              >
+                <Sparkles className="w-3 h-3 mr-1" />
+                {isGenerating ? "Generating..." : "Generate Draft"}
+              </Button>
+              {memoStatus === "draft" && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setIsEditing(!isEditing)}
+                    data-testid="button-edit-memo"
+                  >
+                    <Pencil className="w-3 h-3 mr-1" />
+                    {isEditing ? "Done Editing" : "Edit"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={handleSendForApproval}
+                    data-testid="button-send-approval"
+                  >
+                    <SendHorizontal className="w-3 h-3 mr-1" />
+                    Send for CFO Approval
+                  </Button>
+                </>
+              )}
+              {memoStatus === "sent" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setMemoStatus("approved")}
+                  data-testid="button-approve-memo"
+                >
+                  <Check className="w-3 h-3 mr-1" />
+                  Simulate Approval
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isEditing ? (
+            <textarea
+              value={memoContent}
+              onChange={(e) => setMemoContent(e.target.value)}
+              className="w-full h-[500px] rounded-md border bg-background px-4 py-3 text-xs font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+              data-testid="textarea-memo"
+            />
+          ) : (
+            <ScrollArea className="h-[500px]">
+              <div className="px-1 space-y-2">
+                {memoContent.split("\n").map((line, i) => {
+                  if (line === line.toUpperCase() && line.trim().length > 0 && !/^\d/.test(line.trim())) {
+                    return <p key={i} className="text-xs font-bold text-foreground pt-2">{line}</p>;
+                  }
+                  if (/^\d+\./.test(line.trim())) {
+                    return <p key={i} className="text-xs font-medium text-foreground">{line}</p>;
+                  }
+                  if (line.trim() === "") {
+                    return <div key={i} className="h-2" />;
+                  }
+                  return <p key={i} className="text-xs text-muted-foreground leading-relaxed">{line}</p>;
+                })}
+              </div>
+            </ScrollArea>
+          )}
         </CardContent>
       </Card>
     </div>
