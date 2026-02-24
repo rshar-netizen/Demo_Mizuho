@@ -341,13 +341,9 @@ function DataDictionaryTab() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-5 gap-3">
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-score">
-              <p className={`text-lg font-bold ${q.qualityScore >= 95 ? "text-emerald-500" : q.qualityScore >= 90 ? "text-amber-500" : "text-red-500"}`}>{q.qualityScore}%</p>
-              <p className="text-[10px] text-muted-foreground">Quality Score</p>
-            </div>
+          <div className="grid grid-cols-4 gap-3">
             <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-auto-mapped">
-              <p className="text-lg font-bold text-emerald-500">{autoMappedPct}%</p>
+              <p className={`text-lg font-bold ${parseFloat(autoMappedPct) >= 95 ? "text-emerald-500" : parseFloat(autoMappedPct) >= 90 ? "text-amber-500" : "text-red-500"}`}>{autoMappedPct}%</p>
               <p className="text-[10px] text-muted-foreground">Auto-Mapped</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-manual-review">
