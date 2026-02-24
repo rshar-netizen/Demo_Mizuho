@@ -297,12 +297,12 @@ export const dataDictionaries: DataDictionary[] = [
 ];
 
 export const anomalyRecords: AnomalyRecord[] = [
-  { period: "Q4 2024", metric: "C&I Loans Growth", value: 12.3, expected: 4.5, deviation: 7.8, severity: "high", description: "FDIC LNLSNET shows unusual spike in C&I loan originations vs prior 8 quarters; verify large corporate drawdowns against Call Report RC-C" },
-  { period: "Q4 2024", metric: "AOCI Change", value: -2.1, expected: -0.3, deviation: -1.8, severity: "high", description: "FR Y-9C BHCK3210 equity movement inconsistent with FDIC EQ; AFS mark-to-market AOCI impact flagged per UBPR Page 6" },
-  { period: "Q4 2024", metric: "Provision Rate", value: 0.45, expected: 0.28, deviation: 0.17, severity: "medium", description: "FDIC ELNATR (provision for credit losses) above 8-quarter historical mean; CECL model inputs need review vs UBPR peer benchmarks" },
-  { period: "Q3 2024", metric: "Non-Interest Income", value: 892, expected: 1050, deviation: -158, severity: "medium", description: "Call Report Schedule RI non-interest income below trend; cross-referenced with FR Y-9C BHCK4079 trading revenue shortfall" },
-  { period: "Q4 2024", metric: "Efficiency Ratio", value: 62.4, expected: 58.1, deviation: 4.3, severity: "low", description: "FDIC EEFFR (efficiency ratio) above peer median from UBPR Page 7; technology investment cycle per management commentary" },
-  { period: "Q4 2024", metric: "LCR Ratio", value: 118, expected: 125, deviation: -7, severity: "low", description: "LCR below internal buffer target; HQLA reduction visible in FDIC SCAFS + SCHTM quarter-over-quarter decline" },
+  { period: "Q4 2024", metric: "Net Loans QoQ Growth", value: 6.33, expected: 2.5, deviation: 3.83, severity: "high", description: "FDIC LNLSNET increased from $105.8B to $112.5B (+6.33% QoQ), more than double the 8-quarter average growth rate of 2.5%; Schedule RC-C concentration review recommended" },
+  { period: "Q4 2024", metric: "AFS Securities Decline", value: -11.34, expected: -3.0, deviation: -8.34, severity: "high", description: "FDIC SCAFS dropped from $21.3B to $18.9B (−11.34% QoQ); AOCI variance flagged in cross-check with UBPR Page 6 — unrealized loss impact on equity needs review" },
+  { period: "Q4 2024", metric: "Provision for Credit Losses", value: 425, expected: 306, deviation: 119, severity: "medium", description: "Schedule RI provisions rose 37.1% QoQ from $310M to $425M, exceeding 20% threshold; 8-quarter average is $306M — elevated reserves linked to RC-N delinquency increases" },
+  { period: "Q4 2024", metric: "Past Due 30-89 Days", value: 1850, expected: 1420, deviation: 430, severity: "medium", description: "Schedule RC-N early-stage delinquencies increased 30.3% QoQ from $1.42B to $1.85B; migration risk to nonaccrual status warrants enhanced monitoring" },
+  { period: "Q4 2024", metric: "Efficiency Ratio", value: 62.4, expected: 58.1, deviation: 4.3, severity: "low", description: "FDIC EEFFR at 62.4% vs UBPR Page 7 peer median of 58.1%; deterioration from Q1 2024 (57.2%) driven by technology investment cycle per period comparison" },
+  { period: "Q4 2024", metric: "Derivative Net Fair Value", value: -26.42, expected: -5.0, deviation: -21.42, severity: "low", description: "Schedule RC-L net derivative position declined 26.4% QoQ from $3.18B to $2.34B; netting agreement classification review flagged in Report Review cross-check" },
 ];
 
 export const reportLineItems: ReportLineItem[] = [

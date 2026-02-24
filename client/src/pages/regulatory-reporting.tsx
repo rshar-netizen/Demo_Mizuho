@@ -408,6 +408,10 @@ function DataDictionaryTab() {
 }
 
 function AnomaliesTab() {
+  const highCount = anomalyRecords.filter(a => a.severity === "high").length;
+  const medCount = anomalyRecords.filter(a => a.severity === "medium").length;
+  const lowCount = anomalyRecords.filter(a => a.severity === "low").length;
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
@@ -415,7 +419,7 @@ function AnomaliesTab() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-2xl font-bold text-red-500">2</p>
+                <p className="text-2xl font-bold text-red-500">{highCount}</p>
                 <p className="text-xs text-muted-foreground">High Severity</p>
               </div>
               <AlertTriangle className="w-5 h-5 text-red-500" />
@@ -426,7 +430,7 @@ function AnomaliesTab() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-2xl font-bold text-amber-500">2</p>
+                <p className="text-2xl font-bold text-amber-500">{medCount}</p>
                 <p className="text-xs text-muted-foreground">Medium Severity</p>
               </div>
               <AlertCircle className="w-5 h-5 text-amber-500" />
@@ -437,7 +441,7 @@ function AnomaliesTab() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-2xl font-bold text-muted-foreground">2</p>
+                <p className="text-2xl font-bold text-muted-foreground">{lowCount}</p>
                 <p className="text-xs text-muted-foreground">Low Severity</p>
               </div>
               <CheckCircle2 className="w-5 h-5 text-muted-foreground" />
