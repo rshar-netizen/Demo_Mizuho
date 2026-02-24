@@ -12,6 +12,7 @@ import {
   Database,
   Search,
   GitCompare,
+  Globe,
 } from "lucide-react";
 
 const capabilities = [
@@ -64,6 +65,38 @@ export default function Home() {
             across the full reporting lifecycle and peer analysis.
           </p>
         </div>
+
+        <Card className="border-primary/20 bg-primary/5" data-testid="card-data-ingestion">
+          <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                <Globe className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Federal Data Ingestion</CardTitle>
+                <p className="text-sm text-muted-foreground mt-0.5">Real-time API linkages to FDIC, FFIEC, and Federal Reserve</p>
+              </div>
+            </div>
+            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Live</Badge>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Real-time data ingestion from federal regulatory portals including Call Reports, UBPR, and FR Y-9C
+              filings for Mizuho Americas LLC and peer institutions.
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <Badge variant="outline" className="text-xs">FDIC BankFind Suite</Badge>
+              <Badge variant="outline" className="text-xs">FFIEC CDR</Badge>
+              <Badge variant="outline" className="text-xs">Federal Reserve NIC</Badge>
+            </div>
+            <Link href="/data-ingestion">
+              <Button variant="secondary" className="w-full mt-1" data-testid="button-explore-ingestion">
+                View Data Sources
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="group" data-testid="card-use-case-1">

@@ -10,11 +10,13 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import RegulatoryReporting from "@/pages/regulatory-reporting";
 import PeerAnalysis from "@/pages/peer-analysis";
+import DataIngestion from "@/pages/data-ingestion";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/data-ingestion" component={DataIngestion} />
       <Route path="/regulatory-reporting" component={RegulatoryReporting} />
       <Route path="/peer-analysis" component={PeerAnalysis} />
       <Route component={NotFound} />
