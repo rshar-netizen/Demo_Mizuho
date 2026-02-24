@@ -1,0 +1,701 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import {
+  Search,
+  Database,
+  AlertTriangle,
+  FileCheck,
+  GitCompare,
+  TrendingUp,
+  ChevronRight,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  MessageSquare,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+  Send,
+} from "lucide-react";
+import {
+  reportingInstructions,
+  dataDictionaries,
+  anomalyRecords,
+  reportLineItems,
+  periodComparisons,
+  trendData,
+  chatMessages,
+  formatCurrency,
+  formatPercent,
+} from "@/lib/demo-data";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend,
+  AreaChart,
+  Area,
+} from "recharts";
+
+const steps = [
+  { id: "instructions", label: "Instructions Analysis", icon: Search, step: 1 },
+  { id: "data", label: "Data & Dictionary", icon: Database, step: 2 },
+  { id: "anomalies", label: "Pattern Detection", icon: AlertTriangle, step: 3 },
+  { id: "review", label: "Report Review", icon: FileCheck, step: 4 },
+  { id: "comparison", label: "Period Comparison", icon: GitCompare, step: 5 },
+  { id: "trends", label: "Trend Analysis", icon: TrendingUp, step: 6 },
+];
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "passed") return <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0"><CheckCircle2 className="w-3 h-3 mr-1" />Passed</Badge>;
+  if (status === "failed") return <Badge variant="secondary" className="bg-red-500/10 text-red-600 dark:text-red-400 border-0"><XCircle className="w-3 h-3 mr-1" />Failed</Badge>;
+  if (status === "warning") return <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0"><AlertCircle className="w-3 h-3 mr-1" />Warning</Badge>;
+  if (status === "analyzed") return <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Analyzed</Badge>;
+  if (status === "pending") return <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">Pending</Badge>;
+  if (status === "flagged") return <Badge variant="destructive">Flagged</Badge>;
+  return <Badge variant="outline">{status}</Badge>;
+}
+
+function TrendIcon({ trend }: { trend: string }) {
+  if (trend === "up") return <ArrowUpRight className="w-4 h-4 text-emerald-500" />;
+  if (trend === "down") return <ArrowDownRight className="w-4 h-4 text-red-500" />;
+  return <Minus className="w-4 h-4 text-muted-foreground" />;
+}
+
+function SeverityBadge({ severity }: { severity: string }) {
+  if (severity === "high") return <Badge variant="destructive">High</Badge>;
+  if (severity === "medium") return <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">Medium</Badge>;
+  return <Badge variant="secondary">Low</Badge>;
+}
+
+function InstructionsTab() {
+  const [query, setQuery] = useState("");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-4">
+        <div className="flex-1 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Regulatory Filing Requirements</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[420px]">
+                <div className="space-y-3">
+                  {reportingInstructions.map((inst, idx) => (
+                    <Card key={idx} className="hover-elevate" data-testid={`card-instruction-${idx}`}>
+                      <CardContent className="p-3">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="font-mono text-xs">{inst.id}</Badge>
+                            <Badge variant="secondary" className="text-xs">{inst.schedule}</Badge>
+                            <StatusBadge status={inst.status} />
+                          </div>
+                          <Badge variant="outline" className="text-xs shrink-0">{inst.frequency}</Badge>
+                        </div>
+                        <h4 className="text-sm font-medium mb-1">{inst.section}</h4>
+                        <p className="text-xs text-muted-foreground mb-2">{inst.description}</p>
+                        <div className="space-y-1">
+                          {inst.requirements.map((req, ridx) => (
+                            <div key={ridx} className="flex items-start gap-2 text-xs text-muted-foreground">
+                              <ChevronRight className="w-3 h-3 mt-0.5 shrink-0 text-primary" />
+                              <span>{req}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="w-[380px] shrink-0">
+          <Card className="h-[500px] flex flex-col">
+            <CardHeader className="pb-2 border-b">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-primary" />
+                <CardTitle className="text-sm">AI Assistant</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col p-0">
+              <ScrollArea className="flex-1 p-3">
+                <div className="space-y-3">
+                  {chatMessages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[90%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                        data-testid={`chat-message-${idx}`}
+                      >
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              <div className="p-3 border-t">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Ask about reporting requirements..."
+                    className="flex-1 h-9 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    data-testid="input-chat-query"
+                  />
+                  <Button size="icon" data-testid="button-send-query">
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DataDictionaryTab() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Card data-testid="card-data-sources">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold">7</p>
+            <p className="text-xs text-muted-foreground">Source Systems</p>
+          </CardContent>
+        </Card>
+        <Card data-testid="card-data-tables">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold">42</p>
+            <p className="text-xs text-muted-foreground">Mapped Tables</p>
+          </CardContent>
+        </Card>
+        <Card data-testid="card-data-records">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold">3.01M</p>
+            <p className="text-xs text-muted-foreground">Total Records</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {dataDictionaries.map((dict, idx) => (
+        <Card key={idx} data-testid={`card-dictionary-${idx}`}>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-primary" />
+                <CardTitle className="text-sm font-mono">{dict.tableName}</CardTitle>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">{dict.recordCount.toLocaleString()} rows</Badge>
+                <Badge variant="secondary" className="text-xs">Updated: {dict.lastUpdated}</Badge>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Column</TableHead>
+                  <TableHead className="text-xs">Type</TableHead>
+                  <TableHead className="text-xs">Source</TableHead>
+                  <TableHead className="text-xs">Nullable</TableHead>
+                  <TableHead className="text-xs">Description</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {dict.columns.map((col, cidx) => (
+                  <TableRow key={cidx}>
+                    <TableCell className="font-mono text-xs py-2">{col.name}</TableCell>
+                    <TableCell className="text-xs py-2">
+                      <Badge variant="outline" className="font-mono text-xs">{col.type}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs py-2">{col.source}</TableCell>
+                    <TableCell className="text-xs py-2">
+                      {col.nullable ? (
+                        <span className="text-muted-foreground">Yes</span>
+                      ) : (
+                        <span className="text-foreground font-medium">No</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs py-2 text-muted-foreground">{col.description}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function AnomaliesTab() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Card data-testid="card-anomaly-high">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-2xl font-bold text-red-500">2</p>
+                <p className="text-xs text-muted-foreground">High Severity</p>
+              </div>
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card data-testid="card-anomaly-medium">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-2xl font-bold text-amber-500">2</p>
+                <p className="text-xs text-muted-foreground">Medium Severity</p>
+              </div>
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card data-testid="card-anomaly-low">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-2xl font-bold text-muted-foreground">2</p>
+                <p className="text-xs text-muted-foreground">Low Severity</p>
+              </div>
+              <CheckCircle2 className="w-5 h-5 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card data-testid="card-anomaly-chart">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Deviation Analysis</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={anomalyRecords} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis
+                  dataKey="metric"
+                  type="category"
+                  width={140}
+                  tick={{ fontSize: 11 }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                  }}
+                />
+                <Bar dataKey="deviation" fill="hsl(var(--chart-1))" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-anomaly-list">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Detected Anomalies</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {anomalyRecords.map((anomaly, idx) => (
+              <div key={idx} className="flex items-start gap-3 p-3 rounded-md bg-muted/50">
+                <SeverityBadge severity={anomaly.severity} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-sm font-medium">{anomaly.metric}</span>
+                    <Badge variant="outline" className="text-xs">{anomaly.period}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{anomaly.description}</p>
+                  <div className="flex items-center gap-4 mt-2 text-xs">
+                    <span>Actual: <span className="font-medium">{anomaly.value}</span></span>
+                    <span>Expected: <span className="font-medium">{anomaly.expected}</span></span>
+                    <span>Deviation: <span className={`font-medium ${anomaly.deviation > 0 ? "text-red-500" : "text-amber-500"}`}>{anomaly.deviation > 0 ? "+" : ""}{anomaly.deviation}</span></span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ReportReviewTab() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-emerald-500">8</p>
+            <p className="text-xs text-muted-foreground">Checks Passed</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-amber-500">1</p>
+            <p className="text-xs text-muted-foreground">Warnings</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-red-500">0</p>
+            <p className="text-xs text-muted-foreground">Failures</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold">Q4 2024</p>
+            <p className="text-xs text-muted-foreground">Reporting Period</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card data-testid="card-report-review-table">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-sm">Schedule RC - Balance Sheet Review</CardTitle>
+            <Badge variant="secondary">As of Dec 31, 2024</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="w-full">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Line</TableHead>
+                  <TableHead className="text-xs">Item</TableHead>
+                  <TableHead className="text-xs">Schedule</TableHead>
+                  <TableHead className="text-xs text-right">Current ($K)</TableHead>
+                  <TableHead className="text-xs text-right">Prior ($K)</TableHead>
+                  <TableHead className="text-xs text-right">Change %</TableHead>
+                  <TableHead className="text-xs">Cross-Check</TableHead>
+                  <TableHead className="text-xs">Derivation</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {reportLineItems.map((item, idx) => (
+                  <TableRow key={idx} data-testid={`row-report-${idx}`}>
+                    <TableCell className="text-xs font-mono py-2">{item.id}</TableCell>
+                    <TableCell className="text-xs py-2 font-medium">{item.lineItem}</TableCell>
+                    <TableCell className="text-xs py-2">
+                      <Badge variant="outline" className="text-xs">{item.schedule}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs py-2 text-right font-mono">
+                      {item.currentPeriod > 100 ? item.currentPeriod.toLocaleString() : formatPercent(item.currentPeriod)}
+                    </TableCell>
+                    <TableCell className="text-xs py-2 text-right font-mono">
+                      {item.priorPeriod > 100 ? item.priorPeriod.toLocaleString() : formatPercent(item.priorPeriod)}
+                    </TableCell>
+                    <TableCell className={`text-xs py-2 text-right font-mono ${item.changePercent >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                      {item.changePercent >= 0 ? "+" : ""}{item.changePercent.toFixed(2)}%
+                    </TableCell>
+                    <TableCell className="text-xs py-2">
+                      <StatusBadge status={item.crossCheck} />
+                    </TableCell>
+                    <TableCell className="text-xs py-2 text-muted-foreground max-w-[200px] truncate">
+                      {item.derivation}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function PeriodComparisonTab() {
+  return (
+    <div className="space-y-4">
+      <Card data-testid="card-period-chart">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Key Metrics - Quarterly Progression</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[250px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={periodComparisons.slice(0, 4)}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                <XAxis dataKey="metric" tick={{ fontSize: 10 }} angle={-15} textAnchor="end" height={60} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Bar dataKey="q1_2024" name="Q1 2024" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="q2_2024" name="Q2 2024" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="q3_2024" name="Q3 2024" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="q4_2024" name="Q4 2024" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-period-table">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-sm">Period Over Period Analysis with Commentary</CardTitle>
+            <Badge variant="secondary">FY 2024</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="w-full">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Metric</TableHead>
+                  <TableHead className="text-xs text-right">Q1 2024</TableHead>
+                  <TableHead className="text-xs text-right">Q2 2024</TableHead>
+                  <TableHead className="text-xs text-right">Q3 2024</TableHead>
+                  <TableHead className="text-xs text-right">Q4 2024</TableHead>
+                  <TableHead className="text-xs">Trend</TableHead>
+                  <TableHead className="text-xs">AI Commentary</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {periodComparisons.map((comp, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="text-xs py-3 font-medium">{comp.metric}</TableCell>
+                    <TableCell className="text-xs py-3 text-right font-mono">{comp.q1_2024.toLocaleString()}</TableCell>
+                    <TableCell className="text-xs py-3 text-right font-mono">{comp.q2_2024.toLocaleString()}</TableCell>
+                    <TableCell className="text-xs py-3 text-right font-mono">{comp.q3_2024.toLocaleString()}</TableCell>
+                    <TableCell className="text-xs py-3 text-right font-mono">{comp.q4_2024.toLocaleString()}</TableCell>
+                    <TableCell className="text-xs py-3">
+                      <TrendIcon trend={comp.trend} />
+                    </TableCell>
+                    <TableCell className="text-xs py-3 text-muted-foreground max-w-[300px]">
+                      {comp.commentary}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function TrendAnalysisTab() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card data-testid="card-trend-assets">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Total Assets Trend ($M)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
+                  <YAxis tick={{ fontSize: 11 }} domain={["dataMin - 5000", "dataMax + 5000"]} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value: number) => [`$${value.toLocaleString()}M`, ""]}
+                  />
+                  <Area type="monotone" dataKey="totalAssets" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.15} strokeWidth={2} name="Total Assets" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-trend-loans-deposits">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Loans vs Deposits ($M)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value: number) => [`$${value.toLocaleString()}M`, ""]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <Line type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 3 }} name="Total Loans" />
+                  <Line type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 3 }} name="Total Deposits" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card data-testid="card-trend-income">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Net Income Trend ($M)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value: number) => [`$${value.toLocaleString()}M`, ""]}
+                  />
+                  <Bar dataKey="netIncome" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} name="Net Income" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-trend-capital">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Tier 1 Capital Ratio (%)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis dataKey="period" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
+                  <YAxis tick={{ fontSize: 11 }} domain={[9, 14]} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value: number) => [`${value}%`, ""]}
+                  />
+                  <Area type="monotone" dataKey="tier1Capital" stroke="hsl(var(--chart-5))" fill="hsl(var(--chart-5))" fillOpacity={0.15} strokeWidth={2} name="Tier 1 Ratio" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+export default function RegulatoryReporting() {
+  const [activeTab, setActiveTab] = useState("instructions");
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-[1200px] mx-auto p-6 space-y-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">Use Case 1</Badge>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-reporting-title">
+            Regulatory Reporting Lifecycle
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            AI-powered capabilities supporting each stage of the regulatory reporting process
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1 overflow-x-auto pb-2">
+          {steps.map((step, idx) => (
+            <button
+              key={step.id}
+              onClick={() => setActiveTab(step.id)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                activeTab === step.id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              }`}
+              data-testid={`button-step-${step.id}`}
+            >
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border border-current/20">
+                {step.step}
+              </div>
+              <step.icon className="w-3.5 h-3.5" />
+              {step.label}
+              {idx < steps.length - 1 && activeTab !== step.id && (
+                <ChevronRight className="w-3 h-3 ml-1 opacity-40" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <Separator />
+
+        {activeTab === "instructions" && <InstructionsTab />}
+        {activeTab === "data" && <DataDictionaryTab />}
+        {activeTab === "anomalies" && <AnomaliesTab />}
+        {activeTab === "review" && <ReportReviewTab />}
+        {activeTab === "comparison" && <PeriodComparisonTab />}
+        {activeTab === "trends" && <TrendAnalysisTab />}
+      </div>
+    </div>
+  );
+}
