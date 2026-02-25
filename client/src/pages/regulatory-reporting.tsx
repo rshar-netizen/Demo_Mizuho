@@ -75,7 +75,7 @@ import {
 } from "recharts";
 
 const steps = [
-  { id: "instructions", label: "Instructions Analysis", icon: Search, step: 1 },
+  { id: "instructions", label: "Regulatory Instructions", icon: Search, step: 1 },
   { id: "data", label: "Data & Dictionary", icon: Database, step: 2 },
   { id: "anomalies", label: "Pattern Detection", icon: AlertTriangle, step: 3 },
   { id: "review", label: "Report Review", icon: FileCheck, step: 4 },
@@ -193,16 +193,40 @@ function AIResponsePanel({ query }: { query: AIQueryItem | null }) {
 
 function InstructionsTab() {
   const [selectedQuery, setSelectedQuery] = useState<AIQueryItem | null>(null);
-
   const [customQuery, setCustomQuery] = useState("");
 
   return (
     <div className="space-y-4">
+      <div>
+        <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase mb-1">Act I of VI</p>
+        <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-instructions-title">Reviewing Regulatory Instructions</h2>
+        <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
+          AI-assisted interpretation of reporting requirements. Regulatory instructions are ingested and made interactively queryable, reducing reliance on manual review of primary source documentation.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { value: "312", label: "Instruction Pages Indexed", sub: "FR Y-9C & FFIEC 031" },
+          { value: "3", label: "Reports Ingested", sub: "Call Report, UBPR, FR Y-9C" },
+          { value: "< 2s", label: "Avg Response Latency", sub: "Per query" },
+          { value: "97.2%", label: "Regulatory Alignment", sub: "vs. FFIEC primary source" },
+        ].map((m, i) => (
+          <Card key={i} data-testid={`card-instr-metric-${i}`}>
+            <CardContent className="p-4">
+              <p className="text-2xl font-mono font-normal text-foreground">{m.value}</p>
+              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">{m.label}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{m.sub}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm">Regulatory Filing Requirements</CardTitle>
-            <Badge variant="outline" className="text-xs">{reportingInstructions.length} schedules</Badge>
+            <Badge variant="outline" className="text-xs font-mono">{reportingInstructions.length} schedules</Badge>
           </div>
         </CardHeader>
         <CardContent>
@@ -223,7 +247,7 @@ function InstructionsTab() {
               <MessageSquare className="w-4 h-4 text-primary" />
               <CardTitle className="text-sm">AI Assistant</CardTitle>
             </div>
-            <Badge variant="outline" className="text-xs">{aiQueries.length} queries available</Badge>
+            <Badge variant="outline" className="text-xs font-mono">{aiQueries.length} queries available</Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">Select a question to view AI-generated analysis based on ingested report data</p>
         </CardHeader>
