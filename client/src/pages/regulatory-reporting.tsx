@@ -195,10 +195,16 @@ function InstructionsTab() {
   const [selectedQuery, setSelectedQuery] = useState<AIQueryItem | null>(null);
   const [customQuery, setCustomQuery] = useState("");
 
+  const totalRecords = dataDictionaries.reduce((sum, d) => sum + d.recordCount, 0);
+  const totalFields = dataDictionaries.reduce((sum, d) => sum + d.quality.totalFields, 0);
+  const totalAutoMapped = dataDictionaries.reduce((sum, d) => sum + d.quality.autoMapped, 0);
+  const overallAlignment = ((totalAutoMapped / totalFields) * 100).toFixed(1);
+  const schedulesIndexed = reportingInstructions.length;
+
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase mb-1">Act I of VI</p>
+        <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase mb-1">Step I of VI</p>
         <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-instructions-title">Reviewing Regulatory Instructions</h2>
         <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
           AI-assisted interpretation of reporting requirements. Regulatory instructions are ingested and made interactively queryable, reducing reliance on manual review of primary source documentation.
@@ -207,10 +213,10 @@ function InstructionsTab() {
 
       <div className="grid grid-cols-4 gap-3">
         {[
-          { value: "312", label: "Instruction Pages Indexed", sub: "FR Y-9C & FFIEC 031" },
-          { value: "3", label: "Reports Ingested", sub: "Call Report, UBPR, FR Y-9C" },
-          { value: "< 2s", label: "Avg Response Latency", sub: "Per query" },
-          { value: "97.2%", label: "Regulatory Alignment", sub: "vs. FFIEC primary source" },
+          { value: schedulesIndexed.toString(), label: "Schedules Indexed", sub: `${reportingInstructions.filter(r => r.id === "FFIEC-031").length} FFIEC 031 + ${reportingInstructions.filter(r => r.id === "FR Y-9C").length} FR Y-9C` },
+          { value: dataDictionaries.length.toString(), label: "Reports Ingested", sub: "Call Report, UBPR, FR Y-9C" },
+          { value: totalFields.toLocaleString(), label: "Data Fields Mapped", sub: `${totalRecords} records across ${dataDictionaries.length} sources` },
+          { value: `${overallAlignment}%`, label: "Auto-Mapped Accuracy", sub: `${totalAutoMapped.toLocaleString()} of ${totalFields.toLocaleString()} fields` },
         ].map((m, i) => (
           <Card key={i} data-testid={`card-instr-metric-${i}`}>
             <CardContent className="p-4">
