@@ -204,7 +204,6 @@ function InstructionsTab() {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase mb-1">Step I of VI</p>
         <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-instructions-title">Reviewing Regulatory Instructions</h2>
         <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
           AI-assisted interpretation of reporting requirements. Regulatory instructions are ingested and made interactively queryable, reducing reliance on manual review of primary source documentation.
