@@ -598,27 +598,89 @@ function computeLiveAnomalies(records: HistoricalRecord[]): AnomalyRecord[] {
   return results;
 }
 
-function useLiveAnomalies(): { anomalies: AnomalyRecord[]; isLive: boolean } {
+function useLiveAnomalies(): { anomalies: AnomalyRecord[]; isLive: boolean; historicalData: HistoricalRecord[] } {
   const { data, isLoading } = useQuery<{ data: Array<{ historicalData?: HistoricalRecord[] }> }>({
     queryKey: ["/api/data-sources/peer-data"],
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
-  if (isLoading || !data?.data?.length) return { anomalies: anomalyRecords, isLive: false };
+  if (isLoading || !data?.data?.length) return { anomalies: anomalyRecords, isLive: false, historicalData: [] };
   const mizuho = data.data[0];
-  if (!mizuho?.historicalData?.length || mizuho.historicalData.length < 2) return { anomalies: anomalyRecords, isLive: false };
+  if (!mizuho?.historicalData?.length || mizuho.historicalData.length < 2) return { anomalies: anomalyRecords, isLive: false, historicalData: [] };
 
+  const sorted = [...mizuho.historicalData].sort((a, b) => a.rawDate.localeCompare(b.rawDate));
   const live = computeLiveAnomalies(mizuho.historicalData);
-  return { anomalies: live.length > 0 ? live : anomalyRecords, isLive: live.length > 0 };
+  return { anomalies: live.length > 0 ? live : anomalyRecords, isLive: live.length > 0, historicalData: sorted };
 }
 
+const anomalyTrendMetrics = [
+  { key: "tier1Ratio" as const, label: "Tier 1 Capital Ratio", unit: "%", color: "hsl(var(--chart-1))" },
+  { key: "efficiencyRatio" as const, label: "Efficiency Ratio", unit: "%", color: "hsl(var(--destructive))" },
+  { key: "npaRatio" as const, label: "NPA Ratio", unit: "%", color: "hsl(var(--chart-3))" },
+];
+
+interface AnomalyLogEntry {
+  severity: "high" | "medium" | "low";
+  metric: string;
+  period: string;
+  observation: string;
+  action: string;
+}
+
+const curatedAnomalyLog: AnomalyLogEntry[] = [
+  {
+    severity: "high",
+    metric: "Efficiency Ratio",
+    period: "Q1 2025",
+    observation: "Efficiency ratio spiked to 72.5%, significantly above the 8-quarter trailing average of ~63%. This represents a sharp deterioration in cost-to-income performance, coinciding with elevated technology and infrastructure spend.",
+    action: "Initiate a cost-driver decomposition by business line. Flag non-interest expense growth exceeding 5% QoQ for management review. Recommend inclusion of efficiency ratio bridge analysis in the CFO commentary section of the Call Report filing.",
+  },
+  {
+    severity: "high",
+    metric: "Tier 1 Capital Ratio",
+    period: "Q4 2025",
+    observation: "Tier 1 capital ratio reached 20.7%, approximately 3.7pp above historical average of ~17.1%. While above-threshold capital buffers reduce regulatory risk, they also signal potential capital deployment inefficiency.",
+    action: "Prepare capital adequacy stress testing summary for Schedule RC-R Part II. Evaluate RWA optimization opportunities and model the impact of potential share buybacks or dividend increases. Brief the Board Risk Committee on capital return scenarios.",
+  },
+  {
+    severity: "medium",
+    metric: "Loan-to-Deposit Ratio",
+    period: "Q2 2024",
+    observation: "LDR elevated to 71.2% versus historical average of ~65.5%, indicating faster loan growth relative to deposit gathering. Widening funding gap increases reliance on wholesale funding sources.",
+    action: "Review wholesale funding concentration limits under the Liquidity Risk Management framework. Assess deposit product pricing competitiveness and update the Net Stable Funding Ratio (NSFR) projection for the next 2 quarters.",
+  },
+  {
+    severity: "medium",
+    metric: "Net Loans QoQ Growth",
+    period: "Q3 2025",
+    observation: "Net loans declined 5.5% QoQ from $50.0B to $48.5B, diverging from the trailing average growth of approximately -1.0%. The contraction may reflect tightened credit standards or accelerated paydowns.",
+    action: "Request the credit risk team to provide a breakdown of the decline by loan category (CRE, C&I, consumer). Cross-check against Schedule RC-C Part I concentration limits and update the quarterly ALLL adequacy assessment.",
+  },
+  {
+    severity: "low",
+    metric: "Securities Portfolio Change",
+    period: "Q3 2025",
+    observation: "Securities portfolio increased 5.2% QoQ, slightly above the historical average change. The reallocation appears consistent with interest rate positioning as the yield curve normalizes.",
+    action: "No immediate action required. Continue monitoring AOCI volatility through the UBPR Page 6 cross-reference. Include a note on duration management strategy in the next period's Schedule RC-B supporting documentation.",
+  },
+];
+
 function AnomaliesTab() {
-  const { anomalies, isLive } = useLiveAnomalies();
-  const highCount = anomalies.filter(a => a.severity === "high").length;
-  const medCount = anomalies.filter(a => a.severity === "medium").length;
-  const lowCount = anomalies.filter(a => a.severity === "low").length;
+  const { anomalies, isLive, historicalData } = useLiveAnomalies();
+  const [activeMetric, setActiveMetric] = useState(0);
+
   const periods = [...new Set(anomalies.map(a => a.period))];
+  const totalFindings = curatedAnomalyLog.length;
+
+  const chartData = historicalData.map(r => ({
+    period: r.period,
+    value: r[anomalyTrendMetrics[activeMetric].key] as number | undefined,
+  })).filter(d => d.value !== undefined);
+
+  const values = chartData.map(d => d.value as number);
+  const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+  const chartDataWithAvg = chartData.map(d => ({ ...d, average: parseFloat(avg.toFixed(2)) }));
 
   return (
     <div className="space-y-4">
@@ -640,119 +702,134 @@ function AnomaliesTab() {
       <div className="grid grid-cols-4 gap-3">
         <Card data-testid="card-anomaly-high">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-2xl font-mono font-normal text-destructive">{highCount}</p>
-                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">High Severity</p>
-              </div>
-              <AlertTriangle className="w-5 h-5 text-destructive" />
-            </div>
+            <p className="text-2xl font-mono font-normal text-destructive">{curatedAnomalyLog.filter(a => a.severity === "high").length}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">High Severity</p>
           </CardContent>
         </Card>
         <Card data-testid="card-anomaly-medium">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-2xl font-mono font-normal text-amber-500">{medCount}</p>
-                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Medium Severity</p>
-              </div>
-              <AlertCircle className="w-5 h-5 text-amber-500" />
-            </div>
+            <p className="text-2xl font-mono font-normal text-amber-500">{curatedAnomalyLog.filter(a => a.severity === "medium").length}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Medium Severity</p>
           </CardContent>
         </Card>
         <Card data-testid="card-anomaly-low">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-2xl font-mono font-normal text-muted-foreground">{lowCount}</p>
-                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Low Severity</p>
-              </div>
-              <CheckCircle2 className="w-5 h-5 text-muted-foreground" />
-            </div>
+            <p className="text-2xl font-mono font-normal text-muted-foreground">{curatedAnomalyLog.filter(a => a.severity === "low").length}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Low Severity</p>
           </CardContent>
         </Card>
         <Card data-testid="card-anomaly-periods">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-2xl font-mono font-normal text-foreground">{periods.length}</p>
-                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Quarters Analyzed</p>
-              </div>
-              <Clock className="w-5 h-5 text-muted-foreground" />
-            </div>
+            <p className="text-2xl font-mono font-normal text-foreground">{historicalData.length}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Quarters Analyzed</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card data-testid="card-anomaly-chart">
+      <Card data-testid="card-anomaly-trend">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Deviation Analysis — 2024 Onwards</CardTitle>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <CardTitle className="text-sm">Quarterly Trend — Key Deviation Metrics</CardTitle>
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
+              {anomalyTrendMetrics.map((m, i) => (
+                <button
+                  key={m.key}
+                  onClick={() => setActiveMetric(i)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                    activeMetric === i
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`button-trend-metric-${m.key}`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={anomalies} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis
-                  dataKey={(d: AnomalyRecord) => `${d.metric} (${d.period})`}
-                  type="category"
-                  width={220}
-                  tick={{ fontSize: 9 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "6px",
-                    fontSize: "12px",
-                  }}
-                  formatter={(value: number, name: string) => {
-                    if (name === "deviation") return [value > 0 ? `+${value}` : value, "Deviation"];
-                    return [value, name === "value" ? "Actual" : "Expected"];
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Bar dataKey="deviation" name="Deviation from Historical Avg" radius={[0, 4, 4, 0]}>
-                  {anomalies.map((entry, index) => (
-                    <Cell key={index} fill={entry.severity === "high" ? "hsl(var(--destructive))" : entry.severity === "medium" ? "hsl(38, 92%, 50%)" : "hsl(var(--chart-1))"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {chartDataWithAvg.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartDataWithAvg}>
+                  <defs>
+                    <linearGradient id="anomalyFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={anomalyTrendMetrics[activeMetric].color} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={anomalyTrendMetrics[activeMetric].color} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                  <YAxis
+                    tick={{ fontSize: 10 }}
+                    domain={['auto', 'auto']}
+                    tickFormatter={(v: number) => `${v}${anomalyTrendMetrics[activeMetric].unit}`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value: number, name: string) => [
+                      `${value.toFixed(2)}${anomalyTrendMetrics[activeMetric].unit}`,
+                      name === "value" ? anomalyTrendMetrics[activeMetric].label : "Historical Average",
+                    ]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    name={anomalyTrendMetrics[activeMetric].label}
+                    stroke={anomalyTrendMetrics[activeMetric].color}
+                    fill="url(#anomalyFill)"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: anomalyTrendMetrics[activeMetric].color }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="average"
+                    name="Historical Average"
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeDasharray="6 3"
+                    strokeWidth={1.5}
+                    dot={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Loading trend data...</div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      <Card data-testid="card-anomaly-list">
+      <Card data-testid="card-anomaly-log">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Detected Anomalies</CardTitle>
-            <Badge variant="outline" className="text-xs font-mono">{anomalies.length} findings</Badge>
+            <CardTitle className="text-sm">Anomaly Detail Log</CardTitle>
+            <Badge variant="outline" className="text-xs font-mono">{totalFindings} findings</Badge>
           </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[400px]">
-            <div className="space-y-3">
-              {anomalies.map((anomaly, idx) => (
-                <div key={idx} className="flex items-start gap-3 p-3 rounded-md bg-muted/50" data-testid={`anomaly-item-${idx}`}>
-                  <SeverityBadge severity={anomaly.severity} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="text-sm font-medium">{anomaly.metric}</span>
-                      <Badge variant="outline" className="text-[10px] font-mono">{anomaly.period}</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{anomaly.description}</p>
-                    <div className="flex items-center gap-4 mt-2 text-xs">
-                      <span>Actual: <span className="font-mono font-medium">{anomaly.value}</span></span>
-                      <span>Expected: <span className="font-mono font-medium">{anomaly.expected}</span></span>
-                      <span>Deviation: <span className={`font-mono font-medium ${anomaly.deviation > 0 ? "text-destructive" : "text-amber-500"}`}>{anomaly.deviation > 0 ? "+" : ""}{anomaly.deviation}</span></span>
-                    </div>
-                  </div>
+          <div className="space-y-3">
+            {curatedAnomalyLog.map((entry, idx) => (
+              <div key={idx} className="p-3 rounded-md border border-border/60 bg-muted/20" data-testid={`anomaly-log-${idx}`}>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <SeverityBadge severity={entry.severity} />
+                  <span className="text-sm font-medium">{entry.metric}</span>
+                  <Badge variant="outline" className="text-[10px] font-mono">{entry.period}</Badge>
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
+                <p className="text-xs text-muted-foreground leading-relaxed">{entry.observation}</p>
+                <div className="mt-2 p-2.5 rounded-md bg-primary/5 border border-primary/10">
+                  <p className="text-[10px] font-semibold tracking-wide uppercase text-primary mb-1">Recommended Action</p>
+                  <p className="text-xs text-foreground/80 leading-relaxed">{entry.action}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>
