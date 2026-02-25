@@ -323,10 +323,6 @@ function DataDictionaryTab() {
   const totalFields = dataDictionaries.reduce((sum, d) => sum + d.quality.totalFields, 0);
   const totalAutoMapped = dataDictionaries.reduce((sum, d) => sum + d.quality.autoMapped, 0);
   const overallQuality = ((totalAutoMapped / totalFields) * 100).toFixed(1);
-  const q = dict.quality;
-  const autoMappedPct = ((q.autoMapped / q.totalFields) * 100).toFixed(1);
-  const manualReviewPct = ((q.manualReview / q.totalFields) * 100).toFixed(1);
-
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
@@ -382,36 +378,6 @@ function DataDictionaryTab() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-4 gap-3">
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-auto-mapped">
-              <p className={`text-lg font-bold ${parseFloat(autoMappedPct) >= 95 ? "text-emerald-500" : parseFloat(autoMappedPct) >= 90 ? "text-amber-500" : "text-red-500"}`}>{autoMappedPct}%</p>
-              <p className="text-[10px] text-muted-foreground">Auto-Mapped</p>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-manual-review">
-              <p className="text-lg font-bold text-amber-500">{manualReviewPct}%</p>
-              <p className="text-[10px] text-muted-foreground">Manual Review</p>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-null-rate">
-              <p className="text-lg font-bold text-muted-foreground">{q.nullRate}%</p>
-              <p className="text-[10px] text-muted-foreground">Null Rate</p>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center" data-testid="quality-flagged">
-              <p className={`text-lg font-bold ${q.flaggedRecords > 0 ? "text-amber-500" : "text-emerald-500"}`}>{q.flaggedRecords}</p>
-              <p className="text-[10px] text-muted-foreground">Flagged Records</p>
-            </div>
-          </div>
-
-          <div className="w-full h-2 rounded-full bg-muted overflow-hidden" data-testid="quality-bar">
-            <div className="h-full flex">
-              <div className="bg-emerald-500 transition-all" style={{ width: `${autoMappedPct}%` }} />
-              <div className="bg-amber-500 transition-all" style={{ width: `${manualReviewPct}%` }} />
-            </div>
-          </div>
-          <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
-            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />{q.autoMapped} fields auto-mapped</div>
-            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-500" />{q.manualReview} fields require manual review</div>
-          </div>
-
           <Table>
             <TableHeader>
               <TableRow>
