@@ -441,37 +441,35 @@ interface HistoricalRecord {
   loanToDeposit?: number;
 }
 
-function computeLiveAnomalies(records: HistoricalRecord[]): AnomalyRecord[] {
-  if (records.length < 2) return [];
-  const sorted = [...records].sort((a, b) => b.rawDate.localeCompare(a.rawDate));
-  const latest = sorted[0];
-  const prior = sorted[1];
-  const period = latest.period;
-  const older = sorted.slice(1);
+function computeQoQAnomaly(
+  current: HistoricalRecord,
+  prior: HistoricalRecord,
+  allRecords: HistoricalRecord[],
+): AnomalyRecord[] {
+  const period = current.period;
+  const older = allRecords.filter(r => r.rawDate < current.rawDate);
   const results: AnomalyRecord[] = [];
 
-  const loanGrowth = ((latest.totalLoans - prior.totalLoans) / prior.totalLoans) * 100;
+  const loanGrowth = ((current.totalLoans - prior.totalLoans) / prior.totalLoans) * 100;
   const avgLoanGrowths = older.length > 1 ? older.slice(0, -1).map((r, i) => ((r.totalLoans - older[i + 1].totalLoans) / older[i + 1].totalLoans) * 100) : [];
   const avgLoanGrowth = avgLoanGrowths.length > 0 ? avgLoanGrowths.reduce((a, b) => a + b, 0) / avgLoanGrowths.length : 2.0;
   const loanDev = parseFloat((loanGrowth - avgLoanGrowth).toFixed(2));
   if (Math.abs(loanDev) > 1.5) {
-    const severity: "high" | "medium" | "low" = Math.abs(loanDev) > 3 ? "high" : Math.abs(loanDev) > 2 ? "medium" : "low";
     results.push({
       period,
       metric: "Net Loans QoQ Growth",
       value: parseFloat(loanGrowth.toFixed(2)),
       expected: parseFloat(avgLoanGrowth.toFixed(2)),
       deviation: loanDev,
-      severity,
-      description: `FDIC LNLSNET moved from $${(prior.totalLoans / 1000).toFixed(1)}B to $${(latest.totalLoans / 1000).toFixed(1)}B (${loanGrowth >= 0 ? "+" : ""}${loanGrowth.toFixed(2)}% QoQ) vs ${older.length}-quarter avg of ${avgLoanGrowth.toFixed(1)}%; Schedule RC-C concentration review ${Math.abs(loanDev) > 3 ? "recommended" : "advisable"}`,
+      severity: Math.abs(loanDev) > 3 ? "high" : Math.abs(loanDev) > 2 ? "medium" : "low",
+      description: `FDIC LNLSNET moved from $${(prior.totalLoans / 1000).toFixed(1)}B to $${(current.totalLoans / 1000).toFixed(1)}B (${loanGrowth >= 0 ? "+" : ""}${loanGrowth.toFixed(2)}% QoQ) vs historical avg of ${avgLoanGrowth.toFixed(1)}%`,
     });
   }
 
-  if (latest.securities !== undefined && prior.securities !== undefined && prior.securities > 0) {
-    const secChange = ((latest.securities - prior.securities) / prior.securities) * 100;
+  if (current.securities !== undefined && prior.securities !== undefined && prior.securities > 0) {
+    const secChange = ((current.securities - prior.securities) / prior.securities) * 100;
     const avgSecChanges = older.length > 1 ? older.slice(0, -1).map((r, i) => {
-      const s1 = r.securities ?? 0;
-      const s2 = older[i + 1].securities ?? 0;
+      const s1 = r.securities ?? 0; const s2 = older[i + 1].securities ?? 0;
       return s2 > 0 ? ((s1 - s2) / s2) * 100 : 0;
     }).filter(v => v !== 0) : [];
     const avgSecChange = avgSecChanges.length > 0 ? avgSecChanges.reduce((a, b) => a + b, 0) / avgSecChanges.length : -2.0;
@@ -484,12 +482,12 @@ function computeLiveAnomalies(records: HistoricalRecord[]): AnomalyRecord[] {
         expected: parseFloat(avgSecChange.toFixed(2)),
         deviation: secDev,
         severity: Math.abs(secDev) > 8 ? "high" : "medium",
-        description: `FDIC SC moved from $${(prior.securities! / 1000).toFixed(1)}B to $${(latest.securities! / 1000).toFixed(1)}B (${secChange >= 0 ? "+" : ""}${secChange.toFixed(2)}% QoQ); AOCI impact on equity should be cross-checked with UBPR Page 6`,
+        description: `Securities moved from $${(prior.securities! / 1000).toFixed(1)}B to $${(current.securities! / 1000).toFixed(1)}B (${secChange >= 0 ? "+" : ""}${secChange.toFixed(2)}% QoQ); AOCI impact should be cross-checked`,
       });
     }
   }
 
-  const assetGrowth = ((latest.totalAssets - prior.totalAssets) / prior.totalAssets) * 100;
+  const assetGrowth = ((current.totalAssets - prior.totalAssets) / prior.totalAssets) * 100;
   const avgAssetGrowths = older.length > 1 ? older.slice(0, -1).map((r, i) => ((r.totalAssets - older[i + 1].totalAssets) / older[i + 1].totalAssets) * 100) : [];
   const avgAssetGrowth = avgAssetGrowths.length > 0 ? avgAssetGrowths.reduce((a, b) => a + b, 0) / avgAssetGrowths.length : 1.5;
   const assetDev = parseFloat((assetGrowth - avgAssetGrowth).toFixed(2));
@@ -501,83 +499,100 @@ function computeLiveAnomalies(records: HistoricalRecord[]): AnomalyRecord[] {
       expected: parseFloat(avgAssetGrowth.toFixed(2)),
       deviation: assetDev,
       severity: Math.abs(assetDev) > 4 ? "high" : "medium",
-      description: `FDIC ASSET moved from $${(prior.totalAssets / 1000).toFixed(1)}B to $${(latest.totalAssets / 1000).toFixed(1)}B (${assetGrowth >= 0 ? "+" : ""}${assetGrowth.toFixed(2)}% QoQ) vs ${older.length}-quarter avg of ${avgAssetGrowth.toFixed(1)}%; balance sheet expansion ${assetDev > 0 ? "exceeds" : "lags"} historical norm`,
+      description: `Total assets moved from $${(prior.totalAssets / 1000).toFixed(1)}B to $${(current.totalAssets / 1000).toFixed(1)}B (${assetGrowth >= 0 ? "+" : ""}${assetGrowth.toFixed(2)}% QoQ) vs historical avg of ${avgAssetGrowth.toFixed(1)}%`,
     });
   }
 
-  if (latest.efficiencyRatio !== undefined && prior.efficiencyRatio !== undefined) {
-    const effChange = latest.efficiencyRatio - prior.efficiencyRatio;
+  if (current.efficiencyRatio !== undefined && prior.efficiencyRatio !== undefined) {
+    const effChange = current.efficiencyRatio - prior.efficiencyRatio;
     const avgEffs = older.filter(r => r.efficiencyRatio !== undefined).map(r => r.efficiencyRatio!);
     const avgEff = avgEffs.length > 0 ? avgEffs.reduce((a, b) => a + b, 0) / avgEffs.length : 58;
-    const effDev = parseFloat((latest.efficiencyRatio - avgEff).toFixed(2));
+    const effDev = parseFloat((current.efficiencyRatio - avgEff).toFixed(2));
     if (Math.abs(effDev) > 2) {
       results.push({
         period,
         metric: "Efficiency Ratio",
-        value: parseFloat(latest.efficiencyRatio.toFixed(1)),
+        value: parseFloat(current.efficiencyRatio.toFixed(1)),
         expected: parseFloat(avgEff.toFixed(1)),
         deviation: effDev,
         severity: Math.abs(effDev) > 5 ? "high" : Math.abs(effDev) > 3 ? "medium" : "low",
-        description: `FDIC EEFFR at ${latest.efficiencyRatio.toFixed(1)}% vs ${older.length}-quarter avg of ${avgEff.toFixed(1)}% (${effChange >= 0 ? "+" : ""}${effChange.toFixed(1)}pp QoQ); ${effDev > 0 ? "cost management deterioration warrants review" : "improved operating leverage noted"}`,
+        description: `Efficiency ratio at ${current.efficiencyRatio.toFixed(1)}% vs historical avg of ${avgEff.toFixed(1)}% (${effChange >= 0 ? "+" : ""}${effChange.toFixed(1)}pp QoQ)`,
       });
     }
   }
 
-  if (latest.npaRatio !== undefined && prior.npaRatio !== undefined) {
-    const npaChange = latest.npaRatio - prior.npaRatio;
+  if (current.npaRatio !== undefined && prior.npaRatio !== undefined) {
+    const npaChange = current.npaRatio - prior.npaRatio;
     const avgNpas = older.filter(r => r.npaRatio !== undefined).map(r => r.npaRatio!);
     const avgNpa = avgNpas.length > 0 ? avgNpas.reduce((a, b) => a + b, 0) / avgNpas.length : 0.3;
-    const npaDev = parseFloat((latest.npaRatio - avgNpa).toFixed(4));
+    const npaDev = parseFloat((current.npaRatio - avgNpa).toFixed(4));
     if (Math.abs(npaDev) > 0.05) {
       results.push({
         period,
         metric: "Non-Performing Assets Ratio",
-        value: parseFloat(latest.npaRatio.toFixed(3)),
+        value: parseFloat(current.npaRatio.toFixed(3)),
         expected: parseFloat(avgNpa.toFixed(3)),
         deviation: parseFloat(npaDev.toFixed(3)),
         severity: Math.abs(npaDev) > 0.15 ? "high" : Math.abs(npaDev) > 0.08 ? "medium" : "low",
-        description: `NPA ratio at ${latest.npaRatio.toFixed(3)}% vs ${older.length}-quarter avg of ${avgNpa.toFixed(3)}% (${npaChange >= 0 ? "+" : ""}${npaChange.toFixed(3)}pp QoQ); Schedule RC-N delinquency migration ${npaDev > 0 ? "warrants enhanced monitoring" : "shows improving credit quality"}`,
+        description: `NPA ratio at ${current.npaRatio.toFixed(3)}% vs historical avg of ${avgNpa.toFixed(3)}% (${npaChange >= 0 ? "+" : ""}${npaChange.toFixed(3)}pp QoQ)`,
       });
     }
   }
 
-  const capChange = latest.tier1Ratio - prior.tier1Ratio;
+  const capChange = current.tier1Ratio - prior.tier1Ratio;
   const avgCaps = older.map(r => r.tier1Ratio);
   const avgCap = avgCaps.length > 0 ? avgCaps.reduce((a, b) => a + b, 0) / avgCaps.length : 12;
-  const capDev = parseFloat((latest.tier1Ratio - avgCap).toFixed(2));
+  const capDev = parseFloat((current.tier1Ratio - avgCap).toFixed(2));
   if (Math.abs(capDev) > 0.5) {
     results.push({
       period,
       metric: "Tier 1 Capital Ratio",
-      value: parseFloat(latest.tier1Ratio.toFixed(2)),
+      value: parseFloat(current.tier1Ratio.toFixed(2)),
       expected: parseFloat(avgCap.toFixed(2)),
       deviation: capDev,
       severity: Math.abs(capDev) > 1.5 ? "high" : Math.abs(capDev) > 0.8 ? "medium" : "low",
-      description: `Tier 1 at ${latest.tier1Ratio.toFixed(2)}% vs ${older.length}-quarter avg of ${avgCap.toFixed(2)}% (${capChange >= 0 ? "+" : ""}${capChange.toFixed(2)}pp QoQ); ${capDev > 0 ? "capital accretion above trend — potential for increased capital return" : "RWA growth outpacing capital generation — monitor Schedule RC-R Part II"}`,
+      description: `Tier 1 at ${current.tier1Ratio.toFixed(2)}% vs historical avg of ${avgCap.toFixed(2)}% (${capChange >= 0 ? "+" : ""}${capChange.toFixed(2)}pp QoQ)`,
     });
   }
 
-  if (latest.loanToDeposit !== undefined && prior.loanToDeposit !== undefined) {
-    const ldrChange = latest.loanToDeposit - prior.loanToDeposit;
+  if (current.loanToDeposit !== undefined && prior.loanToDeposit !== undefined) {
+    const ldrChange = current.loanToDeposit - prior.loanToDeposit;
     const avgLdrs = older.filter(r => r.loanToDeposit !== undefined).map(r => r.loanToDeposit!);
     const avgLdr = avgLdrs.length > 0 ? avgLdrs.reduce((a, b) => a + b, 0) / avgLdrs.length : 65;
-    const ldrDev = parseFloat((latest.loanToDeposit - avgLdr).toFixed(2));
+    const ldrDev = parseFloat((current.loanToDeposit - avgLdr).toFixed(2));
     if (Math.abs(ldrDev) > 2) {
       results.push({
         period,
         metric: "Loan-to-Deposit Ratio",
-        value: parseFloat(latest.loanToDeposit.toFixed(1)),
+        value: parseFloat(current.loanToDeposit.toFixed(1)),
         expected: parseFloat(avgLdr.toFixed(1)),
         deviation: ldrDev,
         severity: Math.abs(ldrDev) > 5 ? "high" : Math.abs(ldrDev) > 3 ? "medium" : "low",
-        description: `LDR at ${latest.loanToDeposit.toFixed(1)}% vs ${older.length}-quarter avg of ${avgLdr.toFixed(1)}% (${ldrChange >= 0 ? "+" : ""}${ldrChange.toFixed(1)}pp QoQ); ${ldrDev > 0 ? "funding gap widening — wholesale funding reliance review recommended" : "improved deposit funding of loan book"}`,
+        description: `LDR at ${current.loanToDeposit.toFixed(1)}% vs historical avg of ${avgLdr.toFixed(1)}% (${ldrChange >= 0 ? "+" : ""}${ldrChange.toFixed(1)}pp QoQ)`,
       });
     }
   }
 
+  return results;
+}
+
+function computeLiveAnomalies(records: HistoricalRecord[]): AnomalyRecord[] {
+  if (records.length < 2) return [];
+  const sorted = [...records].sort((a, b) => b.rawDate.localeCompare(a.rawDate));
+  const from2024 = sorted.filter(r => r.rawDate >= "20240101");
+  if (from2024.length < 2) return [];
+
+  const results: AnomalyRecord[] = [];
+  for (let i = 0; i < from2024.length - 1; i++) {
+    const current = from2024[i];
+    const prior = from2024[i + 1];
+    results.push(...computeQoQAnomaly(current, prior, sorted));
+  }
+
   results.sort((a, b) => {
     const sev = { high: 0, medium: 1, low: 2 };
-    return sev[a.severity] - sev[b.severity] || Math.abs(b.deviation) - Math.abs(a.deviation);
+    if (sev[a.severity] !== sev[b.severity]) return sev[a.severity] - sev[b.severity];
+    return b.period.localeCompare(a.period) || Math.abs(b.deviation) - Math.abs(a.deviation);
   });
 
   return results;
@@ -603,27 +618,34 @@ function AnomaliesTab() {
   const highCount = anomalies.filter(a => a.severity === "high").length;
   const medCount = anomalies.filter(a => a.severity === "medium").length;
   const lowCount = anomalies.filter(a => a.severity === "low").length;
+  const periods = [...new Set(anomalies.map(a => a.period))];
 
   return (
     <div className="space-y-4">
-      {isLive && (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-serif font-semibold tracking-tight">Anomaly Detection</h2>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
+            Source data is analyzed for statistical anomalies, pattern breaks, and data integrity issues before any figures are processed into the regulatory report.
+          </p>
+        </div>
+        {isLive && (
+          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 shrink-0">
             <Wifi className="w-3 h-3 mr-1" />
             Live FDIC Data
           </Badge>
-          <span className="text-xs text-muted-foreground">Anomalies computed from ingested Call Report data (Mizuho Americas)</span>
-        </div>
-      )}
-      <div className="grid grid-cols-3 gap-3">
+        )}
+      </div>
+
+      <div className="grid grid-cols-4 gap-3">
         <Card data-testid="card-anomaly-high">
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-2xl font-bold text-red-500">{highCount}</p>
-                <p className="text-xs text-muted-foreground">High Severity</p>
+                <p className="text-2xl font-mono font-normal text-destructive">{highCount}</p>
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">High Severity</p>
               </div>
-              <AlertTriangle className="w-5 h-5 text-red-500" />
+              <AlertTriangle className="w-5 h-5 text-destructive" />
             </div>
           </CardContent>
         </Card>
@@ -631,8 +653,8 @@ function AnomaliesTab() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-2xl font-bold text-amber-500">{medCount}</p>
-                <p className="text-xs text-muted-foreground">Medium Severity</p>
+                <p className="text-2xl font-mono font-normal text-amber-500">{medCount}</p>
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Medium Severity</p>
               </div>
               <AlertCircle className="w-5 h-5 text-amber-500" />
             </div>
@@ -642,10 +664,21 @@ function AnomaliesTab() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-2xl font-bold text-muted-foreground">{lowCount}</p>
-                <p className="text-xs text-muted-foreground">Low Severity</p>
+                <p className="text-2xl font-mono font-normal text-muted-foreground">{lowCount}</p>
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Low Severity</p>
               </div>
               <CheckCircle2 className="w-5 h-5 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card data-testid="card-anomaly-periods">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-2xl font-mono font-normal text-foreground">{periods.length}</p>
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Quarters Analyzed</p>
+              </div>
+              <Clock className="w-5 h-5 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -653,19 +686,19 @@ function AnomaliesTab() {
 
       <Card data-testid="card-anomaly-chart">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Deviation Analysis</CardTitle>
+          <CardTitle className="text-sm">Deviation Analysis — 2024 Onwards</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[220px]">
+          <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={anomalies} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis
-                  dataKey="metric"
+                  dataKey={(d: AnomalyRecord) => `${d.metric} (${d.period})`}
                   type="category"
-                  width={170}
-                  tick={{ fontSize: 10 }}
+                  width={220}
+                  tick={{ fontSize: 9 }}
                 />
                 <Tooltip
                   contentStyle={{
@@ -680,7 +713,7 @@ function AnomaliesTab() {
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Bar dataKey="deviation" name="Deviation from Avg" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="deviation" name="Deviation from Historical Avg" radius={[0, 4, 4, 0]}>
                   {anomalies.map((entry, index) => (
                     <Cell key={index} fill={entry.severity === "high" ? "hsl(var(--destructive))" : entry.severity === "medium" ? "hsl(38, 92%, 50%)" : "hsl(var(--chart-1))"} />
                   ))}
@@ -693,28 +726,33 @@ function AnomaliesTab() {
 
       <Card data-testid="card-anomaly-list">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Detected Anomalies</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">Detected Anomalies</CardTitle>
+            <Badge variant="outline" className="text-xs font-mono">{anomalies.length} findings</Badge>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {anomalies.map((anomaly, idx) => (
-              <div key={idx} className="flex items-start gap-3 p-3 rounded-md bg-muted/50">
-                <SeverityBadge severity={anomaly.severity} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-sm font-medium">{anomaly.metric}</span>
-                    <Badge variant="outline" className="text-xs">{anomaly.period}</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{anomaly.description}</p>
-                  <div className="flex items-center gap-4 mt-2 text-xs">
-                    <span>Actual: <span className="font-medium">{anomaly.value}</span></span>
-                    <span>Expected: <span className="font-medium">{anomaly.expected}</span></span>
-                    <span>Deviation: <span className={`font-medium ${anomaly.deviation > 0 ? "text-red-500" : "text-amber-500"}`}>{anomaly.deviation > 0 ? "+" : ""}{anomaly.deviation}</span></span>
+          <ScrollArea className="h-[400px]">
+            <div className="space-y-3">
+              {anomalies.map((anomaly, idx) => (
+                <div key={idx} className="flex items-start gap-3 p-3 rounded-md bg-muted/50" data-testid={`anomaly-item-${idx}`}>
+                  <SeverityBadge severity={anomaly.severity} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-sm font-medium">{anomaly.metric}</span>
+                      <Badge variant="outline" className="text-[10px] font-mono">{anomaly.period}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{anomaly.description}</p>
+                    <div className="flex items-center gap-4 mt-2 text-xs">
+                      <span>Actual: <span className="font-mono font-medium">{anomaly.value}</span></span>
+                      <span>Expected: <span className="font-mono font-medium">{anomaly.expected}</span></span>
+                      <span>Deviation: <span className={`font-mono font-medium ${anomaly.deviation > 0 ? "text-destructive" : "text-amber-500"}`}>{anomaly.deviation > 0 ? "+" : ""}{anomaly.deviation}</span></span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>
