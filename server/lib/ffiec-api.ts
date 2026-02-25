@@ -39,9 +39,7 @@ const ubprCache = new Map<string, CacheEntry<UBPRData>>();
 const CACHE_TTL = 30 * 60 * 1000;
 
 export const PEER_RSSD_IDS: Record<string, string> = {
-  "Mizuho Americas": "3819869",
-  "MUFG Americas": "1378434",
-  "SMBC Americas": "4881894",
+  "Mizuho Americas": "1378434",
   "PNC Financial": "817824",
   "U.S. Bancorp": "1119794",
   "Citizens Financial": "1132449",

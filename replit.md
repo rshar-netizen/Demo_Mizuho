@@ -58,7 +58,7 @@ Demo application for Mizuho Financial Group CFO presentation (March 2025). Showc
 - `POST /api/data-sources/refresh` - Clear cache and re-fetch all data
 
 ## Peer Bank CERT Numbers (FDIC)
-- MUFG Bank, N.A.: 29950
+- Mizuho Americas (proxy via CERT 29950): 29950
 - PNC Bank, N.A.: 6384
 - U.S. Bank N.A.: 6548
 - Citizens Bank, N.A.: 57957

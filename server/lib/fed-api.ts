@@ -42,8 +42,7 @@ const fry9cCache = new Map<string, CacheEntry<FRY9CData>>();
 const CACHE_TTL = 30 * 60 * 1000;
 
 export const BHC_RSSD_IDS: Record<string, string> = {
-  "Mizuho Americas": "3819869",
-  "MUFG Americas": "1378434",
+  "Mizuho Americas": "1378434",
   "PNC Financial": "817824",
   "U.S. Bancorp": "1119794",
   "Citizens Financial": "1132449",

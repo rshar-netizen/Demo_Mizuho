@@ -64,7 +64,7 @@ interface PeerConfig {
 }
 
 const DEFAULT_PEERS: PeerConfig[] = [
-  { name: "MUFG Bank, N.A.", rssd: "1378434", cert: 29950 },
+  { name: "Mizuho Americas", rssd: "1378434", cert: 29950 },
   { name: "PNC Bank, N.A.", rssd: "817824", cert: 6384 },
   { name: "U.S. Bank N.A.", rssd: "1119794", cert: 6548 },
   { name: "Citizens Bank, N.A.", rssd: "1132449", cert: 57957 },
@@ -73,7 +73,7 @@ const DEFAULT_PEERS: PeerConfig[] = [
 ];
 
 const PEER_DISPLAY_MAP: Record<number, string> = {
-  29950: "MUFG Americas",
+  29950: "Mizuho Americas",
   6384: "PNC Financial",
   6548: "U.S. Bancorp",
   57957: "Citizens Financial",
@@ -83,8 +83,6 @@ const PEER_DISPLAY_MAP: Record<number, string> = {
 
 const tickerMap: Record<string, string> = {
   "Mizuho Americas": "MFG",
-  "MUFG Americas": "MUFG",
-  "SMBC Americas": "SMFG",
   "PNC Financial": "PNC",
   "U.S. Bancorp": "USB",
   "Citizens Financial": "CFG",
@@ -178,7 +176,6 @@ const chartColors = [
 function getBankColor(name: string, idx: number): string {
   const fixed: Record<string, string> = {
     "Mizuho Americas": "hsl(var(--chart-1))",
-    "MUFG Americas": "hsl(var(--chart-2))",
     "PNC Financial": "hsl(var(--chart-4))",
     "U.S. Bancorp": "hsl(var(--chart-5))",
     "Citizens Financial": "#7c3aed",
@@ -647,9 +644,7 @@ export default function PeerAnalysis() {
     if (!isLive) return demoPeerBanks;
     const mapped = liveEntries.map(mapLiveToPeerBank).filter((b): b is PeerBank => b !== null);
     if (mapped.length < 2) return demoPeerBanks;
-    const mizuhoEntry = demoPeerBanks[0];
-    const hasMizuho = mapped.some(b => b.name === "Mizuho Americas");
-    return hasMizuho ? mapped : [mizuhoEntry, ...mapped];
+    return mapped;
   })();
 
   const peerTrendROE = isLive ? buildLiveTrend(liveEntries, "roe") : demoPeerTrendROE;

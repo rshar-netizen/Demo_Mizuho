@@ -357,8 +357,6 @@ export const trendData: TrendDataPoint[] = [
 
 export const peerBanks: PeerBank[] = [
   { name: "Mizuho Americas", ticker: "MFG", totalAssets: 225100, totalLoans: 112500, totalDeposits: 178400, netIncome: 1520, roe: 7.68, roa: 0.68, nim: 2.42, tier1Ratio: 12.8, cet1Ratio: 12.8, leverageRatio: 8.2, efficiencyRatio: 62.4, npaRatio: 0.91, loanToDeposit: 63.1, chargeOffRate: 0.35 },
-  { name: "MUFG Americas", ticker: "MUFG", totalAssets: 312400, totalLoans: 148200, totalDeposits: 245800, netIncome: 2180, roe: 8.12, roa: 0.70, nim: 2.58, tier1Ratio: 13.2, cet1Ratio: 12.9, leverageRatio: 8.5, efficiencyRatio: 59.8, npaRatio: 0.78, loanToDeposit: 60.3, chargeOffRate: 0.31 },
-  { name: "SMBC Americas", ticker: "SMFG", totalAssets: 198500, totalLoans: 95800, totalDeposits: 158200, netIncome: 1280, roe: 7.45, roa: 0.65, nim: 2.35, tier1Ratio: 13.5, cet1Ratio: 13.1, leverageRatio: 8.8, efficiencyRatio: 61.2, npaRatio: 0.72, loanToDeposit: 60.6, chargeOffRate: 0.28 },
   { name: "PNC Financial", ticker: "PNC", totalAssets: 557300, totalLoans: 321400, totalDeposits: 423500, netIncome: 5840, roe: 12.85, roa: 1.05, nim: 2.78, tier1Ratio: 10.4, cet1Ratio: 10.1, leverageRatio: 7.8, efficiencyRatio: 56.2, npaRatio: 0.65, loanToDeposit: 75.9, chargeOffRate: 0.42 },
   { name: "U.S. Bancorp", ticker: "USB", totalAssets: 668200, totalLoans: 374800, totalDeposits: 512600, netIncome: 6420, roe: 13.52, roa: 0.96, nim: 2.85, tier1Ratio: 10.2, cet1Ratio: 9.8, leverageRatio: 7.5, efficiencyRatio: 58.4, npaRatio: 0.58, loanToDeposit: 73.1, chargeOffRate: 0.48 },
   { name: "Citizens Financial", ticker: "CFG", totalAssets: 221800, totalLoans: 145200, totalDeposits: 178900, netIncome: 1680, roe: 9.24, roa: 0.76, nim: 3.12, tier1Ratio: 11.1, cet1Ratio: 10.6, leverageRatio: 7.9, efficiencyRatio: 60.5, npaRatio: 0.82, loanToDeposit: 81.2, chargeOffRate: 0.52 },
@@ -367,36 +365,36 @@ export const peerBanks: PeerBank[] = [
 ];
 
 export const peerTrendROE: PeerTrendData[] = [
-  { period: "Q1 2023", "Mizuho Americas": 6.8, "MUFG Americas": 7.5, "SMBC Americas": 6.9, "PNC Financial": 11.2, "U.S. Bancorp": 12.1 },
-  { period: "Q2 2023", "Mizuho Americas": 7.1, "MUFG Americas": 7.8, "SMBC Americas": 7.2, "PNC Financial": 11.8, "U.S. Bancorp": 12.5 },
-  { period: "Q3 2023", "Mizuho Americas": 7.3, "MUFG Americas": 7.6, "SMBC Americas": 7.0, "PNC Financial": 12.1, "U.S. Bancorp": 12.8 },
-  { period: "Q4 2023", "Mizuho Americas": 7.0, "MUFG Americas": 7.4, "SMBC Americas": 6.8, "PNC Financial": 11.5, "U.S. Bancorp": 13.0 },
-  { period: "Q1 2024", "Mizuho Americas": 7.2, "MUFG Americas": 7.9, "SMBC Americas": 7.1, "PNC Financial": 12.4, "U.S. Bancorp": 13.2 },
-  { period: "Q2 2024", "Mizuho Americas": 7.5, "MUFG Americas": 8.0, "SMBC Americas": 7.3, "PNC Financial": 12.6, "U.S. Bancorp": 13.4 },
-  { period: "Q3 2024", "Mizuho Americas": 7.1, "MUFG Americas": 7.7, "SMBC Americas": 7.0, "PNC Financial": 12.2, "U.S. Bancorp": 13.1 },
-  { period: "Q4 2024", "Mizuho Americas": 7.68, "MUFG Americas": 8.12, "SMBC Americas": 7.45, "PNC Financial": 12.85, "U.S. Bancorp": 13.52 },
+  { period: "Q1 2023", "Mizuho Americas": 6.8, "PNC Financial": 11.2, "U.S. Bancorp": 12.1 },
+  { period: "Q2 2023", "Mizuho Americas": 7.1, "PNC Financial": 11.8, "U.S. Bancorp": 12.5 },
+  { period: "Q3 2023", "Mizuho Americas": 7.3, "PNC Financial": 12.1, "U.S. Bancorp": 12.8 },
+  { period: "Q4 2023", "Mizuho Americas": 7.0, "PNC Financial": 11.5, "U.S. Bancorp": 13.0 },
+  { period: "Q1 2024", "Mizuho Americas": 7.2, "PNC Financial": 12.4, "U.S. Bancorp": 13.2 },
+  { period: "Q2 2024", "Mizuho Americas": 7.5, "PNC Financial": 12.6, "U.S. Bancorp": 13.4 },
+  { period: "Q3 2024", "Mizuho Americas": 7.1, "PNC Financial": 12.2, "U.S. Bancorp": 13.1 },
+  { period: "Q4 2024", "Mizuho Americas": 7.68, "PNC Financial": 12.85, "U.S. Bancorp": 13.52 },
 ];
 
 export const peerTrendNIM: PeerTrendData[] = [
-  { period: "Q1 2023", "Mizuho Americas": 2.15, "MUFG Americas": 2.32, "SMBC Americas": 2.10, "PNC Financial": 2.55, "U.S. Bancorp": 2.62 },
-  { period: "Q2 2023", "Mizuho Americas": 2.20, "MUFG Americas": 2.38, "SMBC Americas": 2.15, "PNC Financial": 2.60, "U.S. Bancorp": 2.68 },
-  { period: "Q3 2023", "Mizuho Americas": 2.28, "MUFG Americas": 2.42, "SMBC Americas": 2.20, "PNC Financial": 2.65, "U.S. Bancorp": 2.72 },
-  { period: "Q4 2023", "Mizuho Americas": 2.32, "MUFG Americas": 2.48, "SMBC Americas": 2.25, "PNC Financial": 2.70, "U.S. Bancorp": 2.78 },
-  { period: "Q1 2024", "Mizuho Americas": 2.35, "MUFG Americas": 2.50, "SMBC Americas": 2.28, "PNC Financial": 2.72, "U.S. Bancorp": 2.80 },
-  { period: "Q2 2024", "Mizuho Americas": 2.38, "MUFG Americas": 2.52, "SMBC Americas": 2.30, "PNC Financial": 2.75, "U.S. Bancorp": 2.82 },
-  { period: "Q3 2024", "Mizuho Americas": 2.40, "MUFG Americas": 2.55, "SMBC Americas": 2.32, "PNC Financial": 2.76, "U.S. Bancorp": 2.84 },
-  { period: "Q4 2024", "Mizuho Americas": 2.42, "MUFG Americas": 2.58, "SMBC Americas": 2.35, "PNC Financial": 2.78, "U.S. Bancorp": 2.85 },
+  { period: "Q1 2023", "Mizuho Americas": 2.15, "PNC Financial": 2.55, "U.S. Bancorp": 2.62 },
+  { period: "Q2 2023", "Mizuho Americas": 2.20, "PNC Financial": 2.60, "U.S. Bancorp": 2.68 },
+  { period: "Q3 2023", "Mizuho Americas": 2.28, "PNC Financial": 2.65, "U.S. Bancorp": 2.72 },
+  { period: "Q4 2023", "Mizuho Americas": 2.32, "PNC Financial": 2.70, "U.S. Bancorp": 2.78 },
+  { period: "Q1 2024", "Mizuho Americas": 2.35, "PNC Financial": 2.72, "U.S. Bancorp": 2.80 },
+  { period: "Q2 2024", "Mizuho Americas": 2.38, "PNC Financial": 2.75, "U.S. Bancorp": 2.82 },
+  { period: "Q3 2024", "Mizuho Americas": 2.40, "PNC Financial": 2.76, "U.S. Bancorp": 2.84 },
+  { period: "Q4 2024", "Mizuho Americas": 2.42, "PNC Financial": 2.78, "U.S. Bancorp": 2.85 },
 ];
 
 export const peerTrendCET1: PeerTrendData[] = [
-  { period: "Q1 2023", "Mizuho Americas": 11.4, "MUFG Americas": 12.5, "SMBC Americas": 12.8, "PNC Financial": 9.8, "U.S. Bancorp": 9.2 },
-  { period: "Q2 2023", "Mizuho Americas": 11.5, "MUFG Americas": 12.6, "SMBC Americas": 12.9, "PNC Financial": 9.9, "U.S. Bancorp": 9.3 },
-  { period: "Q3 2023", "Mizuho Americas": 11.7, "MUFG Americas": 12.7, "SMBC Americas": 13.0, "PNC Financial": 9.9, "U.S. Bancorp": 9.4 },
-  { period: "Q4 2023", "Mizuho Americas": 11.9, "MUFG Americas": 12.8, "SMBC Americas": 13.0, "PNC Financial": 10.0, "U.S. Bancorp": 9.5 },
-  { period: "Q1 2024", "Mizuho Americas": 12.1, "MUFG Americas": 12.8, "SMBC Americas": 13.0, "PNC Financial": 10.0, "U.S. Bancorp": 9.6 },
-  { period: "Q2 2024", "Mizuho Americas": 12.3, "MUFG Americas": 12.9, "SMBC Americas": 13.0, "PNC Financial": 10.0, "U.S. Bancorp": 9.7 },
-  { period: "Q3 2024", "Mizuho Americas": 12.5, "MUFG Americas": 12.9, "SMBC Americas": 13.1, "PNC Financial": 10.1, "U.S. Bancorp": 9.7 },
-  { period: "Q4 2024", "Mizuho Americas": 12.8, "MUFG Americas": 12.9, "SMBC Americas": 13.1, "PNC Financial": 10.1, "U.S. Bancorp": 9.8 },
+  { period: "Q1 2023", "Mizuho Americas": 11.4, "PNC Financial": 9.8, "U.S. Bancorp": 9.2 },
+  { period: "Q2 2023", "Mizuho Americas": 11.5, "PNC Financial": 9.9, "U.S. Bancorp": 9.3 },
+  { period: "Q3 2023", "Mizuho Americas": 11.7, "PNC Financial": 9.9, "U.S. Bancorp": 9.4 },
+  { period: "Q4 2023", "Mizuho Americas": 11.9, "PNC Financial": 10.0, "U.S. Bancorp": 9.5 },
+  { period: "Q1 2024", "Mizuho Americas": 12.1, "PNC Financial": 10.0, "U.S. Bancorp": 9.6 },
+  { period: "Q2 2024", "Mizuho Americas": 12.3, "PNC Financial": 10.0, "U.S. Bancorp": 9.7 },
+  { period: "Q3 2024", "Mizuho Americas": 12.5, "PNC Financial": 10.1, "U.S. Bancorp": 9.7 },
+  { period: "Q4 2024", "Mizuho Americas": 12.8, "PNC Financial": 10.1, "U.S. Bancorp": 9.8 },
 ];
 
 export interface AIQueryItem {
