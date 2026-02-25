@@ -61,7 +61,7 @@ export default function Home() {
             Intelligent regulatory reporting and analytics platform demonstrating AI-powered capabilities
             across the full reporting lifecycle and peer analysis.
           </p>
-          <Badge variant="outline" className="text-[10px] font-mono" data-testid="badge-date">March 2025</Badge>
+          <Badge variant="outline" className="text-[10px] font-mono" data-testid="badge-date">March 2026</Badge>
         </div>
 
         <Card className="border-primary/20 bg-primary/5" data-testid="card-data-ingestion">

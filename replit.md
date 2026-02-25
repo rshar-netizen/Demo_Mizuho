@@ -1,7 +1,7 @@
 # RegAssist AI - Regulatory Intelligence Platform
 
 ## Overview
-Demo application for Mizuho Financial Group CFO presentation (March 2025). Showcases AI-powered regulatory reporting and peer analysis capabilities with real-time data ingestion from federal portals.
+Demo application for Mizuho Financial Group CFO presentation (March 2026). Showcases AI-powered regulatory reporting and peer analysis capabilities with real-time data ingestion from federal portals.
 
 ## Architecture
 - **Frontend**: React + TypeScript + Vite, Tailwind CSS, Shadcn UI, Recharts
