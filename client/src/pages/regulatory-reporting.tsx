@@ -843,42 +843,81 @@ function rawDateToLabel(rawDate: string): string {
   return `${q} ${year}`;
 }
 
-function buildLiveReviewItems(current: HistoricalRecord, prior: HistoricalRecord) {
-  const items: Array<{ id: string; lineItem: string; schedule: string; currentVal: number; priorVal: number; changePercent: number; crossCheck: "passed" | "warning" | "failed"; derivation: string; isRatio: boolean }> = [];
+interface ReviewItem {
+  id: string;
+  lineItem: string;
+  schedule: string;
+  currentVal: number;
+  priorVal: number;
+  changePercent: number;
+  crossCheck: "passed" | "warning" | "failed";
+  source: string;
+  notes: string;
+  isRatio: boolean;
+}
 
-  const add = (id: string, lineItem: string, schedule: string, cv: number, pv: number, crossCheck: "passed" | "warning" | "failed", derivation: string, isRatio = false) => {
+function buildLiveReviewItems(current: HistoricalRecord, prior: HistoricalRecord): ReviewItem[] {
+  const items: ReviewItem[] = [];
+
+  const add = (id: string, lineItem: string, schedule: string, cv: number, pv: number, crossCheck: "passed" | "warning" | "failed", source: string, notes: string, isRatio = false) => {
     const changePct = pv !== 0 ? ((cv - pv) / Math.abs(pv)) * 100 : 0;
-    items.push({ id, lineItem, schedule, currentVal: cv, priorVal: pv, changePercent: changePct, crossCheck, derivation, isRatio });
+    items.push({ id, lineItem, schedule, currentVal: cv, priorVal: pv, changePercent: changePct, crossCheck, source, notes, isRatio });
   };
 
-  add("RC-1", "Total Assets", "RC", current.totalAssets, prior.totalAssets, "passed", "FDIC field ASSET; cross-checked against FR Y-9C BHCK2170");
-  add("RC-2", "Net Loans & Leases", "RC-C", current.totalLoans, prior.totalLoans, "passed", "FDIC field LNLSNET; reconciled to UBPR loan concentration ratios");
+  add("RC-1", "Total Assets", "RC", current.totalAssets, prior.totalAssets, "passed",
+    "FDIC ASSET", "Consolidated total assets from Call Report Schedule RC. Cross-checked against FR Y-9C BHCK2170.");
+  add("RC-2", "Net Loans & Leases", "RC-C", current.totalLoans, prior.totalLoans, "passed",
+    "FDIC LNLSNET", "Net loans and leases after unearned income and allowance. Reconciled to UBPR loan concentration ratios.");
   if (current.securities !== undefined && prior.securities !== undefined) {
     const secChange = Math.abs(((current.securities - prior.securities) / prior.securities) * 100);
-    add("RC-3", "Securities Portfolio", "RC", current.securities, prior.securities, secChange > 8 ? "warning" : "passed", "FDIC fields SCHTM+SCAFS; AOCI impact cross-checked with UBPR Page 6");
+    add("RC-3", "Securities Portfolio", "RC", current.securities, prior.securities, secChange > 8 ? "warning" : "passed",
+      "FDIC SCHTM + SCAFS", secChange > 8
+        ? `QoQ change of ${secChange.toFixed(1)}% exceeds 8% threshold. AOCI impact on equity requires review against UBPR Page 6.`
+        : "Sum of held-to-maturity and available-for-sale securities. AOCI impact cross-checked with UBPR Page 6.");
   }
-  add("RC-4", "Total Deposits", "RC-E", current.totalDeposits, prior.totalDeposits, "passed", "FDIC field DEP; validated against FR Y-9C BHDM6631+BHDM6636");
-  add("RC-5", "Net Income", "RI", current.netIncome, prior.netIncome, "passed", "FDIC field NETINC; reconciled to FR Y-9C BHCK4340");
+  add("RC-4", "Total Deposits", "RC-E", current.totalDeposits, prior.totalDeposits, "passed",
+    "FDIC DEP", "Total deposits from Schedule RC-E. Validated against FR Y-9C BHDM6631 + BHDM6636 by deposit type.");
+  add("RC-5", "Net Income", "RI", current.netIncome, prior.netIncome, "passed",
+    "FDIC NETINC", "Net income from Schedule RI. Reconciled to FR Y-9C BHCK4340.");
 
-  add("RC-R1", "Tier 1 Capital Ratio", "RC-R", current.tier1Ratio, prior.tier1Ratio, "passed", "FR Y-9C BHCK7206; validated against FDIC IDT1RWA and UBPR Page 11", true);
+  add("RC-R1", "Tier 1 Capital Ratio", "RC-R", current.tier1Ratio, prior.tier1Ratio, "passed",
+    "FDIC IDT1RWA", "Tier 1 risk-based capital ratio from Schedule RC-R. Validated against FR Y-9C BHCK7206 and UBPR Page 11.", true);
   if (current.efficiencyRatio !== undefined && prior.efficiencyRatio !== undefined) {
     const effDev = Math.abs(current.efficiencyRatio - prior.efficiencyRatio);
-    add("RI-1", "Efficiency Ratio", "RI", current.efficiencyRatio, prior.efficiencyRatio, effDev > 5 ? "warning" : "passed", "FDIC derived EEFFR; cross-checked with UBPR Page 7 peer median", true);
+    add("RI-1", "Efficiency Ratio", "RI", current.efficiencyRatio, prior.efficiencyRatio, effDev > 5 ? "warning" : "passed",
+      "FDIC EEFFR", effDev > 5
+        ? `QoQ shift of ${effDev.toFixed(1)}pp exceeds 5pp threshold. Non-interest expense drivers should be decomposed against UBPR Page 7 peer median.`
+        : "Ratio of non-interest expense to revenue. Cross-checked with UBPR Page 7 peer median.", true);
   }
   if (current.npaRatio !== undefined && prior.npaRatio !== undefined) {
     const npaShift = Math.abs(current.npaRatio - prior.npaRatio);
-    add("RC-N1", "NPA Ratio", "RC-N", current.npaRatio, prior.npaRatio, npaShift > 0.1 ? "warning" : "passed", "FDIC derived P3ASSET/ASSET; validated against FR Y-9C BHCK5525", true);
+    add("RC-N1", "NPA Ratio", "RC-N", current.npaRatio, prior.npaRatio, npaShift > 0.1 ? "warning" : "passed",
+      "FDIC P3ASSET / ASSET", npaShift > 0.1
+        ? `NPA ratio shifted ${npaShift.toFixed(2)}pp QoQ, exceeding 0.10pp tolerance. Migration analysis needed against FR Y-9C BHCK5525.`
+        : "Non-performing assets as percentage of total assets. Validated against FR Y-9C BHCK5525 and UBPR Page 8.", true);
   }
-  add("ROE", "Return on Equity", "RI", current.roe, prior.roe, "passed", "FDIC derived ROE; reconciled to FR Y-9C net income / equity", true);
-  add("NIM", "Net Interest Margin", "RI", current.nim, prior.nim, "passed", "FDIC derived NIM; cross-checked against UBPR Page 1", true);
+  add("ROE", "Return on Equity", "RI", current.roe, prior.roe, "passed",
+    "FDIC ROE", "Annualized net income divided by average equity. Reconciled to FR Y-9C net income / total equity.", true);
+  add("NIM", "Net Interest Margin", "RI", current.nim, prior.nim, "passed",
+    "FDIC NIM", "Net interest income as a percentage of average earning assets. Cross-checked against UBPR Page 1.", true);
   if (current.loanToDeposit !== undefined && prior.loanToDeposit !== undefined) {
-    add("LDR", "Loan-to-Deposit Ratio", "RC", current.loanToDeposit, prior.loanToDeposit, "passed", "FDIC derived LNLSNET/DEP; reconciled to UBPR Page 6", true);
+    add("LDR", "Loan-to-Deposit Ratio", "RC", current.loanToDeposit, prior.loanToDeposit, "passed",
+      "FDIC LNLSNET / DEP", "Net loans divided by total deposits. Indicates funding structure and liquidity position. Reconciled to UBPR Page 6.", true);
   }
 
   return items;
 }
 
+function splitDerivation(derivation: string): { source: string; notes: string } {
+  const semi = derivation.indexOf(";");
+  if (semi > -1) {
+    return { source: derivation.substring(0, semi).trim(), notes: derivation.substring(semi + 1).trim() };
+  }
+  return { source: derivation, notes: "" };
+}
+
 function ReportReviewTab() {
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const { data, isLoading } = useQuery<{ data: Array<{ historicalData?: HistoricalRecord[] }> }>({
     queryKey: ["/api/data-sources/peer-data"],
     staleTime: 5 * 60 * 1000,
@@ -896,23 +935,28 @@ function ReportReviewTab() {
   const currentLabel = isLive ? rawDateToLabel(current.rawDate) : "Q4 2024";
   const priorLabel = isLive ? rawDateToLabel(prior.rawDate) : "Q3 2024";
 
-  const items = isLive
+  const items: ReviewItem[] = isLive
     ? buildLiveReviewItems(current, prior)
-    : reportLineItems.map(item => ({
-        id: item.id,
-        lineItem: item.lineItem,
-        schedule: item.schedule,
-        currentVal: item.currentPeriod,
-        priorVal: item.priorPeriod,
-        changePercent: item.changePercent,
-        crossCheck: item.crossCheck as "passed" | "warning" | "failed",
-        derivation: item.derivation,
-        isRatio: item.currentPeriod < 100,
-      }));
+    : reportLineItems.map(item => {
+        const { source, notes } = splitDerivation(item.derivation);
+        return {
+          id: item.id,
+          lineItem: item.lineItem,
+          schedule: item.schedule,
+          currentVal: item.currentPeriod,
+          priorVal: item.priorPeriod,
+          changePercent: item.changePercent,
+          crossCheck: item.crossCheck as "passed" | "warning" | "failed",
+          source,
+          notes,
+          isRatio: item.currentPeriod < 100,
+        };
+      });
 
   const passedCount = items.filter(i => i.crossCheck === "passed").length;
   const warningCount = items.filter(i => i.crossCheck === "warning").length;
   const failedCount = items.filter(i => i.crossCheck === "failed").length;
+  const selected = selectedIdx !== null ? items[selectedIdx] : null;
 
   const formatVal = (v: number, isRatio: boolean) => {
     if (isRatio) return `${v.toFixed(2)}%`;
@@ -963,7 +1007,7 @@ function ReportReviewTab() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <ScrollArea className="w-full">
             <Table>
               <TableHeader>
@@ -975,12 +1019,18 @@ function ReportReviewTab() {
                   <TableHead className="text-xs text-right">{priorLabel}</TableHead>
                   <TableHead className="text-xs text-right">Change %</TableHead>
                   <TableHead className="text-xs">Cross-Check</TableHead>
-                  <TableHead className="text-xs">Derivation</TableHead>
+                  <TableHead className="text-xs">Source</TableHead>
+                  <TableHead className="text-xs">Notes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((item, idx) => (
-                  <TableRow key={idx} data-testid={`row-report-${idx}`}>
+                  <TableRow
+                    key={idx}
+                    data-testid={`row-report-${idx}`}
+                    className={`cursor-pointer transition-colors ${selectedIdx === idx ? "bg-primary/5 dark:bg-primary/10" : "hover:bg-muted/50"}`}
+                    onClick={() => setSelectedIdx(selectedIdx === idx ? null : idx)}
+                  >
                     <TableCell className="text-xs font-mono py-2">{item.id}</TableCell>
                     <TableCell className="text-xs py-2 font-medium">{item.lineItem}</TableCell>
                     <TableCell className="text-xs py-2">
@@ -998,14 +1048,68 @@ function ReportReviewTab() {
                     <TableCell className="text-xs py-2">
                       <StatusBadge status={item.crossCheck} />
                     </TableCell>
-                    <TableCell className="text-xs py-2 text-muted-foreground max-w-[200px] truncate">
-                      {item.derivation}
-                    </TableCell>
+                    <TableCell className="text-xs py-2 font-mono text-muted-foreground">{item.source}</TableCell>
+                    <TableCell className="text-xs py-2 text-muted-foreground max-w-[220px] truncate">{item.notes}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </ScrollArea>
+
+          {selected && (
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3" data-testid="panel-review-detail">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs text-primary font-semibold">{selected.id}</span>
+                  <span className="text-sm font-medium">{selected.lineItem}</span>
+                  <Badge variant="outline" className="text-[10px]">{selected.schedule}</Badge>
+                </div>
+                <StatusBadge status={selected.crossCheck} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Source</p>
+                  <p className="text-xs font-mono bg-background/60 rounded-md px-3 py-2 border border-border/50">{selected.source}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Notes</p>
+                  <p className="text-xs leading-relaxed bg-background/60 rounded-md px-3 py-2 border border-border/50">{selected.notes}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 pt-1">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">{currentLabel}</p>
+                  <p className="text-sm font-mono font-medium">{formatVal(selected.currentVal, selected.isRatio)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">{priorLabel}</p>
+                  <p className="text-sm font-mono font-medium">{formatVal(selected.priorVal, selected.isRatio)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">QoQ Change</p>
+                  <p className={`text-sm font-mono font-medium ${selected.changePercent >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                    {selected.changePercent >= 0 ? "+" : ""}{selected.changePercent.toFixed(2)}%
+                  </p>
+                </div>
+              </div>
+
+              {selected.crossCheck === "warning" && (
+                <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-3 mt-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                    <p className="text-[10px] font-semibold tracking-wide uppercase text-amber-600 dark:text-amber-400">Warning</p>
+                  </div>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">{selected.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!selected && (
+            <p className="text-xs text-muted-foreground text-center py-2">Select a row to view source derivation and cross-check details</p>
+          )}
         </CardContent>
       </Card>
     </div>
