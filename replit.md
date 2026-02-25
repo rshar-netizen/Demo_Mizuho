@@ -28,9 +28,10 @@ Demo application for Mizuho Financial Group CFO presentation (March 2025). Showc
    - Report Review (cross-checks, tie-outs)
    - Review & Approval (QoQ variance summaries, CFO memorandum generation & approval workflow)
    - Trend Analysis (multi-period charts)
-4. **Peer Analysis** (`/peer-analysis`) - Use Case 2 with 3 tabs:
+4. **Peer Analysis** (`/peer-analysis`) - Use Case 2 with dynamic peer configuration:
+   - Peer Bank Configuration panel (add/remove peers by CERT number, auto-validates via FDIC)
    - Overview (radar chart, peer summary, profitability/capital bars)
-   - Detailed Comparison (full peer table)
+   - Detailed Comparison (full peer table with live FDIC data)
    - Trend Analysis (ROE, NIM, CET1 time-series)
 
 ## Key Files
@@ -51,7 +52,9 @@ Demo application for Mizuho Financial Group CFO presentation (March 2025). Showc
 - `GET /api/data-sources/call-reports?cert=X&periods=N` - Fetch Call Report data
 - `GET /api/data-sources/ubpr?rssd=X` - Fetch UBPR data
 - `GET /api/data-sources/fry9c?rssd=X` - Fetch FR Y-9C data
-- `GET /api/data-sources/peer-data` - All peer bank data from all sources
+- `GET /api/data-sources/peer-data?certs=X,Y` - All peer bank data (optional extra CERTs)
+- `GET /api/data-sources/peer-single?cert=X` - Single peer bank data by CERT
+- `GET /api/data-sources/validate-cert?cert=X` - Validate CERT and get institution name/RSSD
 - `POST /api/data-sources/refresh` - Clear cache and re-fetch all data
 
 ## Peer Bank CERT Numbers (FDIC)

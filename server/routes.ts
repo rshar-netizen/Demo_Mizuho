@@ -7,6 +7,7 @@ import {
   checkFDICConnection,
   PEER_BANKS,
   PEER_DISPLAY_NAMES,
+  FDIC_BASE_URL,
   formatReportDate,
   clearCache,
   getCacheStats,
@@ -164,8 +165,63 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/data-sources/peer-data", async (_req, res) => {
+  function buildPeerEntry(
+    name: string,
+    cert: number,
+    records: FDICFinancialRecord[],
+    rssd: string | null,
+    ubpr: any,
+    fry9c: any
+  ) {
+    const latestReport = records[0];
+    return {
+      name,
+      cert,
+      rssd,
+      callReport: latestReport ? {
+        reportDate: formatReportDate(latestReport.REPDTE),
+        totalAssets: latestReport.ASSET,
+        totalDeposits: latestReport.DEP,
+        totalLoans: latestReport.LNLSNET || latestReport.NTLNLS,
+        netIncome: latestReport.NETINC,
+        roe: latestReport.ROE,
+        roa: latestReport.ROA,
+        nim: computeNIMPercent(latestReport),
+        tier1Ratio: latestReport.IDT1CER,
+        totalCapitalRatio: latestReport.IDTRCR,
+        efficiencyRatio: latestReport.EEFFR,
+        npaRatio: computeNPAPercent(latestReport),
+        chargeOffRate: latestReport.ELNANTR,
+        loanToDeposit: computeLoanToDeposit(latestReport),
+      } : null,
+      ubpr: ubpr?.metrics || null,
+      fry9c: fry9c?.metrics || null,
+      historicalData: records.map((r) => ({
+        period: formatReportDate(r.REPDTE),
+        rawDate: r.REPDTE,
+        totalAssets: r.ASSET,
+        totalDeposits: r.DEP,
+        totalLoans: r.LNLSNET || r.NTLNLS,
+        netIncome: r.NETINC,
+        roe: r.ROE,
+        roa: r.ROA,
+        nim: computeNIMPercent(r),
+        tier1Ratio: r.IDT1CER,
+        efficiencyRatio: r.EEFFR,
+        npaRatio: computeNPAPercent(r),
+        securities: r.SC,
+        loanLossReserve: r.LNATRES,
+        chargeOffRate: r.ELNANTR,
+        totalCapitalRatio: r.IDTRCR,
+        loanToDeposit: computeLoanToDeposit(r),
+      })),
+    };
+  }
+
+  app.get("/api/data-sources/peer-data", async (req, res) => {
     try {
+      const extraCerts = (req.query.certs as string || "").split(",").filter(Boolean).map(Number).filter(n => !isNaN(n));
+
       const [callReports, ubprData, fry9cData] = await Promise.all([
         getAllPeerFinancials(),
         getAllPeerUBPR(),
@@ -174,63 +230,98 @@ export async function registerRoutes(
 
       const peerSummary = Object.entries(PEER_BANKS).map(([name, cert]) => {
         const records = callReports[name] || [];
-        const latestReport = records[0];
         const displayName = PEER_DISPLAY_NAMES[cert] || name;
         const ubpr = ubprData[displayName];
         const fry9c = fry9cData[displayName];
-
-        return {
-          name: displayName,
-          cert,
-          rssd: PEER_RSSD_IDS[displayName] || null,
-          callReport: latestReport ? {
-            reportDate: formatReportDate(latestReport.REPDTE),
-            totalAssets: latestReport.ASSET,
-            totalDeposits: latestReport.DEP,
-            totalLoans: latestReport.LNLSNET || latestReport.NTLNLS,
-            netIncome: latestReport.NETINC,
-            roe: latestReport.ROE,
-            roa: latestReport.ROA,
-            nim: computeNIMPercent(latestReport),
-            tier1Ratio: latestReport.IDT1CER,
-            totalCapitalRatio: latestReport.IDTRCR,
-            efficiencyRatio: latestReport.EEFFR,
-            npaRatio: computeNPAPercent(latestReport),
-            chargeOffRate: latestReport.ELNANTR,
-            loanToDeposit: computeLoanToDeposit(latestReport),
-          } : null,
-          ubpr: ubpr?.metrics || null,
-          fry9c: fry9c?.metrics || null,
-          historicalData: records.map((r) => ({
-            period: formatReportDate(r.REPDTE),
-            rawDate: r.REPDTE,
-            totalAssets: r.ASSET,
-            totalDeposits: r.DEP,
-            totalLoans: r.LNLSNET || r.NTLNLS,
-            netIncome: r.NETINC,
-            roe: r.ROE,
-            roa: r.ROA,
-            nim: computeNIMPercent(r),
-            tier1Ratio: r.IDT1CER,
-            efficiencyRatio: r.EEFFR,
-            npaRatio: computeNPAPercent(r),
-            securities: r.SC,
-            loanLossReserve: r.LNATRES,
-            chargeOffRate: r.ELNANTR,
-            totalCapitalRatio: r.IDTRCR,
-            loanToDeposit: computeLoanToDeposit(r),
-          })),
-        };
+        return buildPeerEntry(displayName, cert, records, PEER_RSSD_IDS[displayName] || null, ubpr, fry9c);
       });
+
+      const existingCerts = new Set(Object.values(PEER_BANKS));
+      const extraEntries = await Promise.all(
+        extraCerts
+          .filter(c => !existingCerts.has(c))
+          .map(async (cert) => {
+            try {
+              const [records, instRes] = await Promise.all([
+                getFinancialsByCert(cert, 8),
+                fetch(`${FDIC_BASE_URL}/institutions?filters=CERT:${cert}&fields=CERT,NAME,FED_RSSD&limit=1`, { redirect: "follow" })
+                  .then(r => r.json())
+                  .catch(() => null),
+              ]);
+              const instData = instRes?.data?.[0]?.data;
+              const name = PEER_DISPLAY_NAMES[cert] || instData?.NAME || `CERT ${cert}`;
+              const rssd = instData?.FED_RSSD ? String(instData.FED_RSSD) : null;
+              return buildPeerEntry(name, cert, records, rssd, null, null);
+            } catch {
+              return null;
+            }
+          })
+      );
+
+      const allPeers = [...peerSummary, ...extraEntries.filter(Boolean)];
 
       res.json({
         sources: ["FDIC BankFind Suite", "FFIEC CDR", "Federal Reserve NIC"],
         fetchedAt: new Date().toISOString(),
-        peerCount: peerSummary.length,
-        data: peerSummary,
+        peerCount: allPeers.length,
+        data: allPeers,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Failed to fetch peer data" });
+    }
+  });
+
+  app.get("/api/data-sources/peer-single", async (req, res) => {
+    try {
+      const cert = parseInt(req.query.cert as string);
+      if (!cert || isNaN(cert)) {
+        return res.status(400).json({ error: "Valid CERT number is required" });
+      }
+      const records = await getFinancialsByCert(cert, 8);
+      if (records.length === 0) {
+        return res.status(404).json({ error: `No data found for CERT ${cert}` });
+      }
+      const name = PEER_DISPLAY_NAMES[cert] || `CERT ${cert}`;
+      const entry = buildPeerEntry(name, cert, records, null, null, null);
+      res.json(entry);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to fetch peer data" });
+    }
+  });
+
+  app.get("/api/data-sources/validate-cert", async (req, res) => {
+    try {
+      const cert = parseInt(req.query.cert as string);
+      if (!cert || isNaN(cert)) {
+        return res.status(400).json({ error: "Valid CERT number is required" });
+      }
+
+      const [records, instRes] = await Promise.all([
+        getFinancialsByCert(cert, 1),
+        fetch(`${FDIC_BASE_URL}/institutions?filters=CERT:${cert}&fields=CERT,NAME,FED_RSSD&limit=1`, { redirect: "follow" })
+          .then(r => r.json())
+          .catch(() => null),
+      ]);
+
+      if (records.length === 0) {
+        return res.status(404).json({ error: `No institution found for CERT ${cert}`, valid: false });
+      }
+
+      const instData = instRes?.data?.[0]?.data;
+      const instName = PEER_DISPLAY_NAMES[cert] || instData?.NAME || `CERT ${cert}`;
+      const rssdId = instData?.FED_RSSD || null;
+      const r = records[0];
+
+      res.json({
+        valid: true,
+        cert,
+        name: instName,
+        rssd: rssdId,
+        totalAssets: r.ASSET,
+        reportDate: formatReportDate(r.REPDTE),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Validation failed", valid: false });
     }
   });
 

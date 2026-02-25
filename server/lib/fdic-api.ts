@@ -1,4 +1,4 @@
-const FDIC_BASE_URL = "https://banks.data.fdic.gov/api";
+export const FDIC_BASE_URL = "https://banks.data.fdic.gov/api";
 
 export interface FDICFinancialRecord {
   CERT: number;
@@ -31,7 +31,7 @@ export interface FDICAPIResponse {
 }
 
 const FINANCIAL_FIELDS = [
-  "CERT", "REPDTE", "ASSET", "DEP", "NETINC", "INTINC", "EINTEXP",
+  "CERT", "REPDTE", "INSTNAME", "ASSET", "DEP", "NETINC", "INTINC", "EINTEXP",
   "NTLNLS", "ROE", "ROA", "NIM", "IDT1CER", "IDTRCR", "EEFFR", "P3ASSET",
   "ELNANTR", "LNLSNET", "SC", "LNATRES", "DEPDOM", "RBCT1J"
 ].join(",");
