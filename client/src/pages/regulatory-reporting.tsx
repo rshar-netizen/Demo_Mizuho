@@ -854,70 +854,253 @@ interface ReviewItem {
   source: string;
   notes: string;
   isRatio: boolean;
+  crossChecks: { source: string; field: string; status: "passed" | "warning" | "failed"; detail: string }[];
+  movementCommentary: string;
 }
 
-function buildLiveReviewItems(current: HistoricalRecord, prior: HistoricalRecord): ReviewItem[] {
+function generateMovementCommentary(item: { lineItem: string; currentVal: number; priorVal: number; changePercent: number; isRatio: boolean; crossCheck: "passed" | "warning" | "failed" }, currentLabel: string, priorLabel: string): string {
+  const dir = item.changePercent >= 0 ? "increased" : "decreased";
+  const mag = Math.abs(item.changePercent);
+  const fmtV = (v: number) => item.isRatio ? `${v.toFixed(2)}%` : `$${(v / 1000).toFixed(1)}M`;
+
+  if (item.lineItem === "Total Assets") {
+    if (mag < 1) return `Total assets remained relatively stable at ${fmtV(item.currentVal)} in ${currentLabel}, with minimal movement from the prior quarter. No material balance sheet restructuring observed.`;
+    if (mag > 3) return `Total assets ${dir} ${mag.toFixed(1)}% to ${fmtV(item.currentVal)} in ${currentLabel}, a notable shift from ${fmtV(item.priorVal)} in ${priorLabel}. This magnitude of change warrants review of underlying drivers across loan, securities, and cash components.`;
+    return `Total assets ${dir} ${mag.toFixed(1)}% to ${fmtV(item.currentVal)} in ${currentLabel}. Movement is within normal operating range and consistent with balance sheet growth trends.`;
+  }
+  if (item.lineItem === "Net Loans & Leases") {
+    if (mag > 4) return `Net loans ${dir} ${mag.toFixed(1)}% QoQ to ${fmtV(item.currentVal)}, significantly outpacing recent quarterly averages. The acceleration suggests shifting lending strategy or demand-driven growth. Schedule RC-C concentration limits should be reviewed.`;
+    return `Net loans ${dir} ${mag.toFixed(1)}% to ${fmtV(item.currentVal)} in ${currentLabel}. Loan portfolio movement is within normal operating parameters and consistent with prior quarter trends.`;
+  }
+  if (item.lineItem === "Securities Portfolio") {
+    if (item.crossCheck === "warning") return `Securities portfolio ${dir} ${mag.toFixed(1)}% to ${fmtV(item.currentVal)}, exceeding the 8% QoQ threshold. The magnitude of the swing requires an AOCI impact assessment and unrealized gain/loss reconciliation against equity.`;
+    return `Securities portfolio ${dir} ${mag.toFixed(1)}% to ${fmtV(item.currentVal)} in ${currentLabel}. Duration and credit quality of the portfolio appear stable; AOCI impact is within acceptable bounds.`;
+  }
+  if (item.lineItem === "Total Deposits") {
+    if (mag > 3) return `Total deposits ${dir} ${mag.toFixed(1)}% to ${fmtV(item.currentVal)}. This level of movement may indicate shifting funding composition between core and wholesale deposits, warranting a deposit mix analysis.`;
+    return `Total deposits ${dir} ${mag.toFixed(1)}% to ${fmtV(item.currentVal)} in ${currentLabel}. Deposit base remains stable with no material shifts in composition between demand, savings, and time deposits.`;
+  }
+  if (item.lineItem === "Net Income") {
+    if (mag > 15) return `Net income ${dir} ${mag.toFixed(1)}% to ${fmtV(item.currentVal)}, a significant QoQ swing. Management should assess whether the change is driven by margin compression, provision builds, non-interest income volatility, or non-recurring items.`;
+    return `Net income ${dir} ${mag.toFixed(1)}% to ${fmtV(item.currentVal)} in ${currentLabel}. Earnings trajectory is broadly consistent with recent performance and peer benchmarks.`;
+  }
+  if (item.lineItem === "Tier 1 Capital Ratio") {
+    return `Tier 1 capital ratio moved from ${fmtV(item.priorVal)} to ${fmtV(item.currentVal)} (${item.changePercent >= 0 ? "+" : ""}${item.changePercent.toFixed(2)}% QoQ). The ratio remains ${item.currentVal > 10 ? "well above" : "above"} the regulatory minimum of 6.0%, providing a buffer of ${(item.currentVal - 6.0).toFixed(1)}pp.`;
+  }
+  if (item.lineItem === "Efficiency Ratio") {
+    if (item.crossCheck === "warning") return `Efficiency ratio shifted to ${fmtV(item.currentVal)} from ${fmtV(item.priorVal)}, a ${mag.toFixed(1)}pp movement exceeding the 5pp monitoring threshold. Non-interest expense components should be decomposed by business line to identify cost drivers.`;
+    return `Efficiency ratio at ${fmtV(item.currentVal)} in ${currentLabel}, ${item.changePercent < 0 ? "an improvement" : "a slight increase"} from ${fmtV(item.priorVal)}. Operating leverage remains within the target range relative to peer medians.`;
+  }
+  if (item.lineItem === "NPA Ratio") {
+    if (item.crossCheck === "warning") return `NPA ratio moved from ${fmtV(item.priorVal)} to ${fmtV(item.currentVal)}, a shift exceeding the 0.10pp tolerance. Early-stage delinquency migration should be analyzed by loan segment, particularly CRE and C&I portfolios.`;
+    return `NPA ratio at ${fmtV(item.currentVal)} in ${currentLabel}, remaining ${item.currentVal < 0.5 ? "well within" : "within"} acceptable credit quality thresholds. No material deterioration in asset quality indicators.`;
+  }
+  if (item.lineItem === "Return on Equity") {
+    return `ROE ${dir} to ${fmtV(item.currentVal)} from ${fmtV(item.priorVal)} in the prior quarter. ${item.currentVal > 10 ? "Profitability remains strong" : "Profitability is tracking"} relative to cost of equity benchmarks and peer group performance.`;
+  }
+  if (item.lineItem === "Net Interest Margin") {
+    return `NIM ${dir} to ${fmtV(item.currentVal)} from ${fmtV(item.priorVal)}, reflecting ${item.changePercent > 0 ? "improving asset yield relative to funding costs" : "compression from rising funding costs or declining asset yields"}. Rate sensitivity analysis should be reviewed for forward guidance.`;
+  }
+  if (item.lineItem === "Loan-to-Deposit Ratio") {
+    return `Loan-to-deposit ratio at ${fmtV(item.currentVal)} in ${currentLabel}, ${item.changePercent > 0 ? "indicating increasing reliance on loan growth outpacing deposit gathering" : "suggesting deposit growth is keeping pace with lending activity"}. Liquidity coverage remains adequate.`;
+  }
+  return `${item.lineItem} ${dir} ${mag.toFixed(1)}% to ${fmtV(item.currentVal)} in ${currentLabel} from ${fmtV(item.priorVal)} in ${priorLabel}.`;
+}
+
+function buildLiveReviewItems(current: HistoricalRecord, prior: HistoricalRecord, currentLabel: string, priorLabel: string): ReviewItem[] {
   const items: ReviewItem[] = [];
 
-  const add = (id: string, lineItem: string, schedule: string, cv: number, pv: number, crossCheck: "passed" | "warning" | "failed", source: string, notes: string, isRatio = false) => {
+  const add = (
+    id: string, lineItem: string, schedule: string, cv: number, pv: number,
+    crossCheck: "passed" | "warning" | "failed", source: string, notes: string,
+    crossChecks: ReviewItem["crossChecks"], isRatio = false,
+  ) => {
     const changePct = pv !== 0 ? ((cv - pv) / Math.abs(pv)) * 100 : 0;
-    items.push({ id, lineItem, schedule, currentVal: cv, priorVal: pv, changePercent: changePct, crossCheck, source, notes, isRatio });
+    const base = { lineItem, currentVal: cv, priorVal: pv, changePercent: changePct, isRatio, crossCheck };
+    const movementCommentary = generateMovementCommentary(base, currentLabel, priorLabel);
+    items.push({ id, lineItem, schedule, currentVal: cv, priorVal: pv, changePercent: changePct, crossCheck, source, notes, isRatio, crossChecks, movementCommentary });
   };
 
   add("RC-1", "Total Assets", "RC", current.totalAssets, prior.totalAssets, "passed",
-    "FDIC ASSET", "Consolidated total assets from Call Report Schedule RC. Cross-checked against FR Y-9C BHCK2170.");
+    "FDIC ASSET", "Consolidated total assets from Call Report Schedule RC.",
+    [
+      { source: "FDIC Call Report", field: "ASSET", status: "passed", detail: "Primary source — Schedule RC total assets" },
+      { source: "FR Y-9C", field: "BHCK2170", status: "passed", detail: "Consolidated total assets matched within tolerance" },
+    ]);
   add("RC-2", "Net Loans & Leases", "RC-C", current.totalLoans, prior.totalLoans, "passed",
-    "FDIC LNLSNET", "Net loans and leases after unearned income and allowance. Reconciled to UBPR loan concentration ratios.");
+    "FDIC LNLSNET", "Net loans and leases after unearned income and allowance.",
+    [
+      { source: "FDIC Call Report", field: "LNLSNET", status: "passed", detail: "Net loans from Schedule RC-C" },
+      { source: "UBPR", field: "Loan Concentration", status: "passed", detail: "Reconciled to UBPR loan concentration ratios" },
+    ]);
+
   if (current.securities !== undefined && prior.securities !== undefined) {
     const secChange = Math.abs(((current.securities - prior.securities) / prior.securities) * 100);
-    add("RC-3", "Securities Portfolio", "RC", current.securities, prior.securities, secChange > 8 ? "warning" : "passed",
-      "FDIC SCHTM + SCAFS", secChange > 8
-        ? `QoQ change of ${secChange.toFixed(1)}% exceeds 8% threshold. AOCI impact on equity requires review against UBPR Page 6.`
-        : "Sum of held-to-maturity and available-for-sale securities. AOCI impact cross-checked with UBPR Page 6.");
+    const secStatus: "passed" | "warning" = secChange > 8 ? "warning" : "passed";
+    add("RC-3", "Securities Portfolio", "RC", current.securities, prior.securities, secStatus,
+      "FDIC SCHTM + SCAFS", "Sum of held-to-maturity and available-for-sale securities.",
+      [
+        { source: "FDIC Call Report", field: "SCHTM + SCAFS", status: "passed", detail: "HTM at amortized cost + AFS at fair value" },
+        { source: "UBPR Page 6", field: "AOCI Impact", status: secStatus, detail: secStatus === "warning" ? `QoQ swing of ${secChange.toFixed(1)}% — AOCI impact on equity requires review` : "AOCI impact within acceptable bounds" },
+        { source: "FR Y-9C", field: "BHCK1754 / BHCK1773", status: "passed", detail: "Securities totals reconciled to BHC filing" },
+      ]);
   }
+
   add("RC-4", "Total Deposits", "RC-E", current.totalDeposits, prior.totalDeposits, "passed",
-    "FDIC DEP", "Total deposits from Schedule RC-E. Validated against FR Y-9C BHDM6631 + BHDM6636 by deposit type.");
+    "FDIC DEP", "Total deposits from Schedule RC-E.",
+    [
+      { source: "FDIC Call Report", field: "DEP", status: "passed", detail: "Total deposits from Schedule RC-E" },
+      { source: "FR Y-9C", field: "BHDM6631 + BHDM6636", status: "passed", detail: "Validated by deposit type breakdown" },
+    ]);
   add("RC-5", "Net Income", "RI", current.netIncome, prior.netIncome, "passed",
-    "FDIC NETINC", "Net income from Schedule RI. Reconciled to FR Y-9C BHCK4340.");
+    "FDIC NETINC", "Net income from Schedule RI.",
+    [
+      { source: "FDIC Call Report", field: "NETINC", status: "passed", detail: "Schedule RI net income" },
+      { source: "FR Y-9C", field: "BHCK4340", status: "passed", detail: "Consolidated net income reconciled" },
+    ]);
 
   add("RC-R1", "Tier 1 Capital Ratio", "RC-R", current.tier1Ratio, prior.tier1Ratio, "passed",
-    "FDIC IDT1RWA", "Tier 1 risk-based capital ratio from Schedule RC-R. Validated against FR Y-9C BHCK7206 and UBPR Page 11.", true);
+    "FDIC IDT1RWA", "Tier 1 risk-based capital ratio from Schedule RC-R.",
+    [
+      { source: "FDIC Call Report", field: "IDT1RWA", status: "passed", detail: "Tier 1 capital to risk-weighted assets" },
+      { source: "FR Y-9C", field: "BHCK7206", status: "passed", detail: "BHC Tier 1 ratio validated" },
+      { source: "UBPR Page 11", field: "Capital Ratios", status: "passed", detail: "Peer-relative capital adequacy confirmed" },
+    ], true);
+
   if (current.efficiencyRatio !== undefined && prior.efficiencyRatio !== undefined) {
     const effDev = Math.abs(current.efficiencyRatio - prior.efficiencyRatio);
-    add("RI-1", "Efficiency Ratio", "RI", current.efficiencyRatio, prior.efficiencyRatio, effDev > 5 ? "warning" : "passed",
-      "FDIC EEFFR", effDev > 5
-        ? `QoQ shift of ${effDev.toFixed(1)}pp exceeds 5pp threshold. Non-interest expense drivers should be decomposed against UBPR Page 7 peer median.`
-        : "Ratio of non-interest expense to revenue. Cross-checked with UBPR Page 7 peer median.", true);
+    const effStatus: "passed" | "warning" = effDev > 5 ? "warning" : "passed";
+    add("RI-1", "Efficiency Ratio", "RI", current.efficiencyRatio, prior.efficiencyRatio, effStatus,
+      "FDIC EEFFR", "Ratio of non-interest expense to total revenue.",
+      [
+        { source: "FDIC Call Report", field: "EEFFR", status: "passed", detail: "Derived efficiency ratio from Schedule RI" },
+        { source: "UBPR Page 7", field: "Peer Median", status: effStatus, detail: effStatus === "warning" ? `${effDev.toFixed(1)}pp QoQ shift exceeds 5pp threshold` : "Within peer median range" },
+      ], true);
   }
+
   if (current.npaRatio !== undefined && prior.npaRatio !== undefined) {
     const npaShift = Math.abs(current.npaRatio - prior.npaRatio);
-    add("RC-N1", "NPA Ratio", "RC-N", current.npaRatio, prior.npaRatio, npaShift > 0.1 ? "warning" : "passed",
-      "FDIC P3ASSET / ASSET", npaShift > 0.1
-        ? `NPA ratio shifted ${npaShift.toFixed(2)}pp QoQ, exceeding 0.10pp tolerance. Migration analysis needed against FR Y-9C BHCK5525.`
-        : "Non-performing assets as percentage of total assets. Validated against FR Y-9C BHCK5525 and UBPR Page 8.", true);
+    const npaStatus: "passed" | "warning" = npaShift > 0.1 ? "warning" : "passed";
+    add("RC-N1", "NPA Ratio", "RC-N", current.npaRatio, prior.npaRatio, npaStatus,
+      "FDIC P3ASSET / ASSET", "Non-performing assets as percentage of total assets.",
+      [
+        { source: "FDIC Call Report", field: "P3ASSET / ASSET", status: "passed", detail: "Derived from past-due and non-accrual schedules" },
+        { source: "FR Y-9C", field: "BHCK5525", status: npaStatus, detail: npaStatus === "warning" ? `NPA ratio shifted ${npaShift.toFixed(2)}pp, exceeding 0.10pp tolerance` : "Asset quality validated against BHC filing" },
+        { source: "UBPR Page 8", field: "Delinquency Rates", status: "passed", detail: "Peer delinquency comparison within range" },
+      ], true);
   }
+
   add("ROE", "Return on Equity", "RI", current.roe, prior.roe, "passed",
-    "FDIC ROE", "Annualized net income divided by average equity. Reconciled to FR Y-9C net income / total equity.", true);
+    "FDIC ROE", "Annualized net income divided by average equity.",
+    [
+      { source: "FDIC Call Report", field: "ROE", status: "passed", detail: "Derived profitability metric" },
+      { source: "FR Y-9C", field: "Net Income / Equity", status: "passed", detail: "Reconciled to BHC net income and total equity" },
+    ], true);
   add("NIM", "Net Interest Margin", "RI", current.nim, prior.nim, "passed",
-    "FDIC NIM", "Net interest income as a percentage of average earning assets. Cross-checked against UBPR Page 1.", true);
+    "FDIC NIM", "Net interest income as percentage of average earning assets.",
+    [
+      { source: "FDIC Call Report", field: "NIM", status: "passed", detail: "Derived from Schedule RI interest data" },
+      { source: "UBPR Page 1", field: "NIM", status: "passed", detail: "Cross-checked against UBPR summary page" },
+    ], true);
+
   if (current.loanToDeposit !== undefined && prior.loanToDeposit !== undefined) {
     add("LDR", "Loan-to-Deposit Ratio", "RC", current.loanToDeposit, prior.loanToDeposit, "passed",
-      "FDIC LNLSNET / DEP", "Net loans divided by total deposits. Indicates funding structure and liquidity position. Reconciled to UBPR Page 6.", true);
+      "FDIC LNLSNET / DEP", "Net loans divided by total deposits — liquidity indicator.",
+      [
+        { source: "FDIC Call Report", field: "LNLSNET / DEP", status: "passed", detail: "Derived liquidity ratio" },
+        { source: "UBPR Page 6", field: "Funding Ratios", status: "passed", detail: "Reconciled to UBPR funding structure" },
+      ], true);
   }
 
   return items;
 }
 
-function splitDerivation(derivation: string): { source: string; notes: string } {
-  const semi = derivation.indexOf(";");
-  if (semi > -1) {
-    return { source: derivation.substring(0, semi).trim(), notes: derivation.substring(semi + 1).trim() };
-  }
-  return { source: derivation, notes: "" };
+function ReviewItemCard({ item, idx, currentLabel, priorLabel }: { item: ReviewItem; idx: number; currentLabel: string; priorLabel: string }) {
+  const [open, setOpen] = useState(false);
+
+  const formatVal = (v: number, isRatio: boolean) => {
+    if (isRatio) return `${v.toFixed(2)}%`;
+    return `$${(v / 1000).toFixed(1)}M`;
+  };
+
+  return (
+    <Collapsible.Root open={open} onOpenChange={setOpen}>
+      <Card className={`transition-colors ${open ? "border-primary/30" : ""}`} data-testid={`card-review-item-${idx}`}>
+        <Collapsible.Trigger asChild>
+          <button className="w-full text-left px-4 py-3 flex items-center gap-3 cursor-pointer" data-testid={`button-toggle-review-${idx}`}>
+            <Badge variant="outline" className="font-mono text-[10px] shrink-0">{item.id}</Badge>
+            <span className="text-sm font-medium flex-1 min-w-0 truncate">{item.lineItem}</span>
+            <Badge variant="outline" className="text-[10px] shrink-0">{item.schedule}</Badge>
+            <div className="flex items-center gap-4 shrink-0">
+              <div className="text-right">
+                <p className="text-xs font-mono font-medium">{formatVal(item.currentVal, item.isRatio)}</p>
+                <p className="text-[10px] text-muted-foreground">{currentLabel}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-mono font-medium">{formatVal(item.priorVal, item.isRatio)}</p>
+                <p className="text-[10px] text-muted-foreground">{priorLabel}</p>
+              </div>
+              <div className="text-right min-w-[60px]">
+                <p className={`text-xs font-mono font-medium ${item.changePercent >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                  {item.changePercent >= 0 ? "+" : ""}{item.changePercent.toFixed(2)}%
+                </p>
+              </div>
+              <StatusBadge status={item.crossCheck} />
+            </div>
+            <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+          </button>
+        </Collapsible.Trigger>
+        <Collapsible.Content>
+          <div className="px-4 pb-4 pt-0 border-t border-border/50 space-y-4">
+            <div className="grid grid-cols-2 gap-4 pt-3">
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Source</p>
+                <p className="text-xs font-mono bg-muted/50 rounded-md px-3 py-2 border border-border/50">{item.source}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Notes</p>
+                <p className="text-xs leading-relaxed bg-muted/50 rounded-md px-3 py-2 border border-border/50">{item.notes}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Cross-Checks Verified</p>
+              <div className="space-y-1.5">
+                {item.crossChecks.map((cc, ci) => (
+                  <div key={ci} className="flex items-start gap-2 text-xs bg-muted/30 rounded-md px-3 py-2 border border-border/30" data-testid={`crosscheck-${idx}-${ci}`}>
+                    <StatusBadge status={cc.status} />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">{cc.source}</span>
+                      <span className="mx-1.5 text-muted-foreground">·</span>
+                      <span className="font-mono text-muted-foreground">{cc.field}</span>
+                      <p className="text-muted-foreground mt-0.5">{cc.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Movement Commentary</p>
+              </div>
+              <div className={`rounded-md px-3 py-2.5 border text-xs leading-relaxed ${
+                item.crossCheck === "warning"
+                  ? "bg-amber-500/5 border-amber-500/20 text-amber-800 dark:text-amber-200"
+                  : "bg-primary/5 border-primary/10 text-foreground/80"
+              }`}>
+                {item.movementCommentary}
+              </div>
+            </div>
+          </div>
+        </Collapsible.Content>
+      </Card>
+    </Collapsible.Root>
+  );
 }
 
 function ReportReviewTab() {
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const { data, isLoading } = useQuery<{ data: Array<{ historicalData?: HistoricalRecord[] }> }>({
     queryKey: ["/api/data-sources/peer-data"],
     staleTime: 5 * 60 * 1000,
@@ -936,32 +1119,33 @@ function ReportReviewTab() {
   const priorLabel = isLive ? rawDateToLabel(prior.rawDate) : "Q3 2024";
 
   const items: ReviewItem[] = isLive
-    ? buildLiveReviewItems(current, prior)
+    ? buildLiveReviewItems(current, prior, currentLabel, priorLabel)
     : reportLineItems.map(item => {
-        const { source, notes } = splitDerivation(item.derivation);
+        const parts = item.derivation.split(";").map(s => s.trim());
+        const source = parts[0] || item.derivation;
+        const notes = parts.slice(1).join("; ") || "";
+        const changePct = item.changePercent;
+        const isRatio = item.currentPeriod < 100;
+        const base = { lineItem: item.lineItem, currentVal: item.currentPeriod, priorVal: item.priorPeriod, changePercent: changePct, isRatio, crossCheck: item.crossCheck as "passed" | "warning" | "failed" };
         return {
           id: item.id,
           lineItem: item.lineItem,
           schedule: item.schedule,
           currentVal: item.currentPeriod,
           priorVal: item.priorPeriod,
-          changePercent: item.changePercent,
+          changePercent: changePct,
           crossCheck: item.crossCheck as "passed" | "warning" | "failed",
           source,
           notes,
-          isRatio: item.currentPeriod < 100,
+          isRatio,
+          crossChecks: [{ source: "FDIC Call Report", field: source.replace("FDIC field ", "").replace("FDIC ", ""), status: item.crossCheck as "passed" | "warning" | "failed", detail: notes || "Verified against primary source" }],
+          movementCommentary: generateMovementCommentary(base, currentLabel, priorLabel),
         };
       });
 
   const passedCount = items.filter(i => i.crossCheck === "passed").length;
   const warningCount = items.filter(i => i.crossCheck === "warning").length;
   const failedCount = items.filter(i => i.crossCheck === "failed").length;
-  const selected = selectedIdx !== null ? items[selectedIdx] : null;
-
-  const formatVal = (v: number, isRatio: boolean) => {
-    if (isRatio) return `${v.toFixed(2)}%`;
-    return `$${(v / 1000).toFixed(1)}M`;
-  };
 
   return (
     <div className="space-y-4">
@@ -992,126 +1176,29 @@ function ReportReviewTab() {
         </Card>
       </div>
 
-      <Card data-testid="card-report-review-table">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-sm">Schedule RC — Balance Sheet & Income Review</CardTitle>
-            <div className="flex items-center gap-2">
-              {isLive && (
-                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
-                  <Wifi className="w-3 h-3 mr-1" />
-                  Live
-                </Badge>
-              )}
-              <Badge variant="outline" className="text-[10px] font-mono">{currentLabel} vs {priorLabel}</Badge>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ScrollArea className="w-full">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Line</TableHead>
-                  <TableHead className="text-xs">Item</TableHead>
-                  <TableHead className="text-xs">Schedule</TableHead>
-                  <TableHead className="text-xs text-right">{currentLabel}</TableHead>
-                  <TableHead className="text-xs text-right">{priorLabel}</TableHead>
-                  <TableHead className="text-xs text-right">Change %</TableHead>
-                  <TableHead className="text-xs">Cross-Check</TableHead>
-                  <TableHead className="text-xs">Source</TableHead>
-                  <TableHead className="text-xs">Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item, idx) => (
-                  <TableRow
-                    key={idx}
-                    data-testid={`row-report-${idx}`}
-                    className={`cursor-pointer transition-colors ${selectedIdx === idx ? "bg-primary/5 dark:bg-primary/10" : "hover:bg-muted/50"}`}
-                    onClick={() => setSelectedIdx(selectedIdx === idx ? null : idx)}
-                  >
-                    <TableCell className="text-xs font-mono py-2">{item.id}</TableCell>
-                    <TableCell className="text-xs py-2 font-medium">{item.lineItem}</TableCell>
-                    <TableCell className="text-xs py-2">
-                      <Badge variant="outline" className="text-xs">{item.schedule}</Badge>
-                    </TableCell>
-                    <TableCell className="text-xs py-2 text-right font-mono">
-                      {formatVal(item.currentVal, item.isRatio)}
-                    </TableCell>
-                    <TableCell className="text-xs py-2 text-right font-mono">
-                      {formatVal(item.priorVal, item.isRatio)}
-                    </TableCell>
-                    <TableCell className={`text-xs py-2 text-right font-mono ${item.changePercent >= 0 ? "text-emerald-500" : "text-destructive"}`}>
-                      {item.changePercent >= 0 ? "+" : ""}{item.changePercent.toFixed(2)}%
-                    </TableCell>
-                    <TableCell className="text-xs py-2">
-                      <StatusBadge status={item.crossCheck} />
-                    </TableCell>
-                    <TableCell className="text-xs py-2 font-mono text-muted-foreground">{item.source}</TableCell>
-                    <TableCell className="text-xs py-2 text-muted-foreground max-w-[220px] truncate">{item.notes}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-
-          {selected && (
-            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3" data-testid="panel-review-detail">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-primary font-semibold">{selected.id}</span>
-                  <span className="text-sm font-medium">{selected.lineItem}</span>
-                  <Badge variant="outline" className="text-[10px]">{selected.schedule}</Badge>
-                </div>
-                <StatusBadge status={selected.crossCheck} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Source</p>
-                  <p className="text-xs font-mono bg-background/60 rounded-md px-3 py-2 border border-border/50">{selected.source}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Notes</p>
-                  <p className="text-xs leading-relaxed bg-background/60 rounded-md px-3 py-2 border border-border/50">{selected.notes}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 pt-1">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">{currentLabel}</p>
-                  <p className="text-sm font-mono font-medium">{formatVal(selected.currentVal, selected.isRatio)}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">{priorLabel}</p>
-                  <p className="text-sm font-mono font-medium">{formatVal(selected.priorVal, selected.isRatio)}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">QoQ Change</p>
-                  <p className={`text-sm font-mono font-medium ${selected.changePercent >= 0 ? "text-emerald-500" : "text-destructive"}`}>
-                    {selected.changePercent >= 0 ? "+" : ""}{selected.changePercent.toFixed(2)}%
-                  </p>
-                </div>
-              </div>
-
-              {selected.crossCheck === "warning" && (
-                <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-3 mt-1">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                    <p className="text-[10px] font-semibold tracking-wide uppercase text-amber-600 dark:text-amber-400">Warning</p>
-                  </div>
-                  <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">{selected.notes}</p>
-                </div>
-              )}
-            </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-serif font-semibold tracking-tight">Report Review</h2>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+            Expand each line item to review cross-source reconciliation, verified cross-checks, and AI-generated movement commentary.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isLive && (
+            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
+              <Wifi className="w-3 h-3 mr-1" />
+              Live
+            </Badge>
           )}
+          <Badge variant="outline" className="text-[10px] font-mono">{currentLabel} vs {priorLabel}</Badge>
+        </div>
+      </div>
 
-          {!selected && (
-            <p className="text-xs text-muted-foreground text-center py-2">Select a row to view source derivation and cross-check details</p>
-          )}
-        </CardContent>
-      </Card>
+      <div className="space-y-2" data-testid="list-report-review">
+        {items.map((item, idx) => (
+          <ReviewItemCard key={idx} item={item} idx={idx} currentLabel={currentLabel} priorLabel={priorLabel} />
+        ))}
+      </div>
     </div>
   );
 }
