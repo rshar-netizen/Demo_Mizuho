@@ -44,7 +44,7 @@ const capabilities = [
   {
     icon: BarChart3,
     title: "Trend Analysis & Peer Comparison",
-    description: "Multi-period trend visualization and benchmarking against FRB peer data",
+    description: "Multi-period trend visualization and benchmarking against FDIC peer data",
   },
 ];
 
@@ -53,7 +53,7 @@ export default function Home() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-6xl mx-auto p-6 space-y-8">
         <div className="space-y-2">
-          <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase" data-testid="badge-demo">Mizuho Financial Group — CFO Demonstration</p>
+          <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase" data-testid="badge-demo">Mizuho Financial Group</p>
           <h1 className="text-3xl font-serif font-semibold tracking-tight" data-testid="text-main-title">
             RegAssist AI Platform
           </h1>
@@ -149,17 +149,17 @@ export default function Home() {
                   <p className="text-sm text-muted-foreground mt-0.5">Peer Analysis & Comparison</p>
                 </div>
               </div>
-              <Badge variant="secondary">FRB Data</Badge>
+              <Badge variant="secondary">FDIC Data</Badge>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Comprehensive peer benchmarking using Federal Reserve Board data, comparing Mizuho Americas
-                against selected US bank holding companies.
+                Comprehensive peer benchmarking using FDIC Call Report data, comparing Mizuho Americas
+                against selected US peer institutions.
               </p>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <Zap className="w-3.5 h-3.5 text-chart-2" />
-                  <span>FFIEC Call Report & FR Y-9C data</span>
+                  <span>FDIC Call Report data</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Zap className="w-3.5 h-3.5 text-chart-2" />
