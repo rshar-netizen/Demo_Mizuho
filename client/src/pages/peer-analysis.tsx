@@ -64,7 +64,7 @@ interface PeerConfig {
 }
 
 const DEFAULT_PEERS: PeerConfig[] = [
-  { name: "Mizuho Americas", rssd: "1378434", cert: 29950 },
+  { name: "Mizuho Americas", rssd: "229913", cert: 21843 },
   { name: "PNC Bank, N.A.", rssd: "817824", cert: 6384 },
   { name: "U.S. Bank N.A.", rssd: "1119794", cert: 6548 },
   { name: "Citizens Bank, N.A.", rssd: "1132449", cert: 57957 },
@@ -73,7 +73,7 @@ const DEFAULT_PEERS: PeerConfig[] = [
 ];
 
 const PEER_DISPLAY_MAP: Record<number, string> = {
-  29950: "Mizuho Americas",
+  21843: "Mizuho Americas",
   6384: "PNC Financial",
   6548: "U.S. Bancorp",
   57957: "Citizens Financial",

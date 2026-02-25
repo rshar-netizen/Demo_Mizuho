@@ -37,7 +37,7 @@ const FINANCIAL_FIELDS = [
 ].join(",");
 
 export const PEER_BANKS: Record<string, number> = {
-  "Mizuho Americas": 29950,
+  "Mizuho Americas": 21843,
   "PNC Bank, N.A.": 6384,
   "U.S. Bank N.A.": 6548,
   "Citizens Bank, N.A.": 57957,
@@ -46,7 +46,7 @@ export const PEER_BANKS: Record<string, number> = {
 };
 
 export const PEER_DISPLAY_NAMES: Record<number, string> = {
-  29950: "Mizuho Americas",
+  21843: "Mizuho Americas",
   6384: "PNC Financial",
   6548: "U.S. Bancorp",
   57957: "Citizens Financial",

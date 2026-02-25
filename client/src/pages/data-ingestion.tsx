@@ -594,7 +594,7 @@ export default function DataIngestion() {
         <div className="border-t pt-4 pb-2">
           <p className="text-xs text-muted-foreground">
             Data sourced in real-time from FDIC BankFind Suite API, FFIEC Central Data Repository, and Federal Reserve National Information Center.
-            All data is publicly available regulatory filing information. Mizuho Americas LLC (RSSD: 3819869).
+            All data is publicly available regulatory filing information. Mizuho Bank (USA) (RSSD: 229913, CERT: 21843).
           </p>
         </div>
       </div>
