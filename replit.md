@@ -26,7 +26,7 @@ Demo application for Mizuho Financial Group CFO presentation (March 2025). Showc
    - Data & Dictionary
    - Pattern Detection / Anomalies
    - Report Review (cross-checks, tie-outs)
-   - Period Comparison with AI commentary
+   - Review & Approval (QoQ variance summaries, CFO memorandum generation & approval workflow)
    - Trend Analysis (multi-period charts)
 4. **Peer Analysis** (`/peer-analysis`) - Use Case 2 with 3 tabs:
    - Overview (radar chart, peer summary, profitability/capital bars)

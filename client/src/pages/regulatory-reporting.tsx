@@ -50,7 +50,6 @@ import {
   dataDictionaries,
   anomalyRecords,
   reportLineItems,
-  periodComparisons,
   trendData as demoTrendData,
   type TrendDataPoint,
   aiQueries,
@@ -79,7 +78,7 @@ const steps = [
   { id: "data", label: "Data & Dictionary", icon: Database, step: 2 },
   { id: "anomalies", label: "Pattern Detection", icon: AlertTriangle, step: 3 },
   { id: "review", label: "Report Review", icon: FileCheck, step: 4 },
-  { id: "comparison", label: "Period Comparison", icon: GitCompare, step: 5 },
+  { id: "comparison", label: "Review & Approval", icon: GitCompare, step: 5 },
   { id: "trends", label: "Trend Analysis", icon: TrendingUp, step: 6 },
 ];
 
@@ -1375,53 +1374,307 @@ function ReportReviewTab() {
   );
 }
 
-const defaultMemoContent = `MANAGEMENT REVIEW MEMORANDUM
-Mizuho Americas — Regulatory Reporting Period Review
-Period: FY 2024 (Q1–Q4) | Prepared: January 2025
+interface VarianceSummaryItem {
+  id: string;
+  metric: string;
+  category: "balance_sheet" | "income" | "capital" | "risk";
+  currentVal: number;
+  priorVal: number;
+  changePercent: number;
+  isRatio: boolean;
+  priority: "high" | "medium" | "low";
+  finding: string;
+  recommendation: string;
+  dataSources: string[];
+}
+
+function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalRecord, currentLabel: string, priorLabel: string): VarianceSummaryItem[] {
+  const pct = (c: number, p: number) => p !== 0 ? ((c - p) / Math.abs(p)) * 100 : 0;
+  const items: VarianceSummaryItem[] = [];
+
+  const assetChg = pct(current.totalAssets, prior.totalAssets);
+  items.push({
+    id: "VS-01", metric: "Total Consolidated Assets", category: "balance_sheet",
+    currentVal: current.totalAssets, priorVal: prior.totalAssets, changePercent: assetChg, isRatio: false,
+    priority: Math.abs(assetChg) > 5 ? "high" : Math.abs(assetChg) > 2 ? "medium" : "low",
+    finding: `Total assets ${assetChg >= 0 ? "increased" : "decreased"} ${Math.abs(assetChg).toFixed(1)}% from $${(prior.totalAssets / 1000).toFixed(1)}M to $${(current.totalAssets / 1000).toFixed(1)}M. ${Math.abs(assetChg) > 5 ? "This exceeds the 5% quarterly threshold requiring management review." : "Movement is within normal operating range."}`,
+    recommendation: Math.abs(assetChg) > 5 ? "Review Schedule RC balance sheet composition for drivers of the outsized movement. Verify against FR Y-9C HC-1 and UBPR Page 1." : "No action required. Confirmed within expected parameters.",
+    dataSources: ["FDIC Call Report (RCFD2170)", "FR Y-9C (BHCK2170)", "UBPR Page 1"],
+  });
+
+  const loanChg = pct(current.totalLoans, prior.totalLoans);
+  items.push({
+    id: "VS-02", metric: "Net Loans & Leases", category: "balance_sheet",
+    currentVal: current.totalLoans, priorVal: prior.totalLoans, changePercent: loanChg, isRatio: false,
+    priority: Math.abs(loanChg) > 5 ? "high" : Math.abs(loanChg) > 3 ? "medium" : "low",
+    finding: `Loan portfolio ${loanChg >= 0 ? "grew" : "contracted"} ${Math.abs(loanChg).toFixed(1)}% QoQ. ${loanChg > 5 ? "Growth exceeds historical average, suggesting accelerated origination activity." : loanChg < -3 ? "Contraction may indicate elevated paydowns or tightening credit standards." : "Growth trajectory is consistent with recent quarters."}`,
+    recommendation: loanChg > 5 ? "Validate Schedule RC-C concentration limits. Review C&I and CRE segment breakdowns for risk appetite alignment." : "Verify loan mix against internal risk appetite statement.",
+    dataSources: ["FDIC Call Report (RCFD2122)", "UBPR Page 4"],
+  });
+
+  const depositChg = pct(current.totalDeposits, prior.totalDeposits);
+  items.push({
+    id: "VS-03", metric: "Total Deposits", category: "balance_sheet",
+    currentVal: current.totalDeposits, priorVal: prior.totalDeposits, changePercent: depositChg, isRatio: false,
+    priority: Math.abs(depositChg) > 5 ? "high" : "low",
+    finding: `Deposit base ${depositChg >= 0 ? "expanded" : "contracted"} ${Math.abs(depositChg).toFixed(1)}% to $${(current.totalDeposits / 1000).toFixed(1)}M. ${depositChg < -3 ? "Outflows may signal competitive rate pressure or client rebalancing." : "Deposit stability is consistent with funding strategy."}`,
+    recommendation: Math.abs(depositChg) > 5 ? "Review Schedule RC-E deposit composition (core vs. brokered). Assess liquidity coverage ratio impact." : "No material concerns identified.",
+    dataSources: ["FDIC Call Report (RCON2200)", "UBPR Page 3"],
+  });
+
+  const incomeChg = pct(current.netIncome, prior.netIncome);
+  items.push({
+    id: "VS-04", metric: "Net Income", category: "income",
+    currentVal: current.netIncome, priorVal: prior.netIncome, changePercent: incomeChg, isRatio: false,
+    priority: Math.abs(incomeChg) > 15 ? "high" : Math.abs(incomeChg) > 8 ? "medium" : "low",
+    finding: `Net income ${incomeChg >= 0 ? "increased" : "declined"} ${Math.abs(incomeChg).toFixed(1)}% QoQ to $${(current.netIncome / 1000).toFixed(1)}M. ${Math.abs(incomeChg) > 15 ? "Material movement requires explanation in the management commentary." : "Within expected quarterly variation."}`,
+    recommendation: Math.abs(incomeChg) > 15 ? "Decompose income drivers — NII, non-interest income, and provision expense — to identify primary contributors." : "Standard variance within peer norms.",
+    dataSources: ["FDIC Call Report (RIAD4340)", "FR Y-9C (BHCK4340)", "UBPR Page 2"],
+  });
+
+  const nimChg = current.nim - prior.nim;
+  items.push({
+    id: "VS-05", metric: "Net Interest Margin", category: "income",
+    currentVal: current.nim, priorVal: prior.nim, changePercent: pct(current.nim, prior.nim), isRatio: true,
+    priority: Math.abs(nimChg) > 0.3 ? "high" : Math.abs(nimChg) > 0.1 ? "medium" : "low",
+    finding: `NIM ${nimChg >= 0 ? "expanded" : "compressed"} ${Math.abs(nimChg).toFixed(0)}bps to ${current.nim.toFixed(2)}% from ${prior.nim.toFixed(2)}%. ${Math.abs(nimChg) > 30 ? "Significant margin shift driven by rate environment and asset/liability repricing dynamics." : "Marginal movement consistent with current rate cycle positioning."}`,
+    recommendation: Math.abs(nimChg) > 0.3 ? "Review interest rate sensitivity analysis and repricing gap schedules. Assess impact on forward earnings projections." : "Continue monitoring against peer median.",
+    dataSources: ["UBPR Page 1 (NIM)", "FDIC derived (NII / Avg Earning Assets)"],
+  });
+
+  const tier1Chg = current.tier1Ratio - prior.tier1Ratio;
+  items.push({
+    id: "VS-06", metric: "Tier 1 Capital Ratio", category: "capital",
+    currentVal: current.tier1Ratio, priorVal: prior.tier1Ratio, changePercent: pct(current.tier1Ratio, prior.tier1Ratio), isRatio: true,
+    priority: current.tier1Ratio < 8 ? "high" : Math.abs(tier1Chg) > 1 ? "medium" : "low",
+    finding: `Tier 1 ratio ${tier1Chg >= 0 ? "strengthened" : "declined"} ${Math.abs(tier1Chg).toFixed(0)}bps to ${current.tier1Ratio.toFixed(2)}%. Buffer above regulatory minimum (6.0%) stands at ${(current.tier1Ratio - 6.0).toFixed(1)}pp. ${current.tier1Ratio > 12 ? "Capital position remains well-capitalized." : current.tier1Ratio > 8 ? "Capital is adequate but bears monitoring." : "Approaching regulatory scrutiny threshold."}`,
+    recommendation: tier1Chg < -1 ? "Investigate RWA growth drivers. Confirm capital planning assumptions remain valid." : "No remediation required. Capital accretion on track.",
+    dataSources: ["FDIC Call Report (Schedule RC-R)", "FR Y-9C (HC-R)", "UBPR Page 11"],
+  });
+
+  const roeChg = current.roe - prior.roe;
+  items.push({
+    id: "VS-07", metric: "Return on Equity", category: "income",
+    currentVal: current.roe, priorVal: prior.roe, changePercent: pct(current.roe, prior.roe), isRatio: true,
+    priority: Math.abs(roeChg) > 2 ? "medium" : "low",
+    finding: `ROE ${roeChg >= 0 ? "improved" : "declined"} ${Math.abs(roeChg).toFixed(0)}bps to ${current.roe.toFixed(2)}%. ${current.roe > 10 ? "Exceeds cost of equity benchmark." : "Below peer median; earnings capacity warrants attention."}`,
+    recommendation: roeChg < -2 ? "Review capital allocation efficiency and revenue generation capacity." : "Consistent with strategic plan projections.",
+    dataSources: ["FDIC derived (Net Income / Avg Equity)", "UBPR Page 2"],
+  });
+
+  if (current.efficiencyRatio !== undefined && prior.efficiencyRatio !== undefined) {
+    const effChg = current.efficiencyRatio - prior.efficiencyRatio;
+    items.push({
+      id: "VS-08", metric: "Efficiency Ratio", category: "income",
+      currentVal: current.efficiencyRatio, priorVal: prior.efficiencyRatio, changePercent: pct(current.efficiencyRatio, prior.efficiencyRatio), isRatio: true,
+      priority: current.efficiencyRatio > 65 ? "high" : Math.abs(effChg) > 3 ? "medium" : "low",
+      finding: `Efficiency ratio ${effChg > 0 ? "deteriorated" : "improved"} ${Math.abs(effChg).toFixed(1)}pp to ${current.efficiencyRatio.toFixed(1)}%. ${current.efficiencyRatio > 65 ? "Operating leverage is challenged; cost management initiatives should be assessed." : "Operating cost discipline remains within target range."}`,
+      recommendation: current.efficiencyRatio > 65 ? "Review non-interest expense categories. Identify discretionary spend reduction opportunities." : "No remediation needed.",
+      dataSources: ["FDIC derived", "UBPR Page 2"],
+    });
+  }
+
+  if (current.npaRatio !== undefined && prior.npaRatio !== undefined) {
+    const npaChg = current.npaRatio - prior.npaRatio;
+    items.push({
+      id: "VS-09", metric: "Non-Performing Assets Ratio", category: "risk",
+      currentVal: current.npaRatio, priorVal: prior.npaRatio, changePercent: pct(current.npaRatio, prior.npaRatio), isRatio: true,
+      priority: current.npaRatio > 1.0 ? "high" : npaChg > 0.1 ? "medium" : "low",
+      finding: `NPA ratio ${npaChg >= 0 ? "increased" : "improved"} ${Math.abs(npaChg).toFixed(2)}pp to ${current.npaRatio.toFixed(2)}%. ${current.npaRatio > 1 ? "Elevated NPAs require enhanced monitoring and workout strategies." : "Asset quality remains sound."}`,
+      recommendation: npaChg > 0.1 ? "Review Schedule RC-N past due and nonaccrual detail. Assess CRE and C&I segment exposure." : "Trends within acceptable bounds.",
+      dataSources: ["FDIC Call Report (Schedule RC-N)", "UBPR Page 7"],
+    });
+  }
+
+  if (current.loanToDeposit !== undefined && prior.loanToDeposit !== undefined) {
+    const ltdChg = current.loanToDeposit - prior.loanToDeposit;
+    items.push({
+      id: "VS-10", metric: "Loan-to-Deposit Ratio", category: "balance_sheet",
+      currentVal: current.loanToDeposit, priorVal: prior.loanToDeposit, changePercent: pct(current.loanToDeposit, prior.loanToDeposit), isRatio: true,
+      priority: current.loanToDeposit > 90 ? "high" : Math.abs(ltdChg) > 3 ? "medium" : "low",
+      finding: `LTD ratio ${ltdChg >= 0 ? "increased" : "decreased"} ${Math.abs(ltdChg).toFixed(1)}pp to ${current.loanToDeposit.toFixed(1)}%. ${current.loanToDeposit > 90 ? "Approaching liquidity stress threshold." : "Funding profile remains balanced."}`,
+      recommendation: current.loanToDeposit > 85 ? "Assess wholesale funding reliance and contingency funding plan adequacy." : "No action required.",
+      dataSources: ["FDIC derived (Loans / Deposits)", "UBPR Page 3"],
+    });
+  }
+
+  return items;
+}
+
+function generateMemoFromVariances(items: VarianceSummaryItem[], currentLabel: string, priorLabel: string): string {
+  const today = new Date();
+  const prepared = today.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const highItems = items.filter(i => i.priority === "high");
+  const medItems = items.filter(i => i.priority === "medium");
+  const lowItems = items.filter(i => i.priority === "low");
+
+  const fmtVal = (v: number, isRatio: boolean) => isRatio ? `${v.toFixed(2)}%` : `$${(v / 1000).toFixed(1)}M`;
+
+  let findings = "";
+  let counter = 1;
+  [...highItems, ...medItems].forEach(item => {
+    const priorityLabel = item.priority === "high" ? "High Priority" : "Medium Priority";
+    findings += `${counter}. ${item.metric} (${priorityLabel})\n`;
+    findings += `${item.finding}\n`;
+    findings += `Recommendation: ${item.recommendation}\n\n`;
+    counter++;
+  });
+
+  if (lowItems.length > 0) {
+    findings += `${counter}. Other Metrics (Informational)\n`;
+    findings += `The following metrics showed movements within normal operating parameters and require no management action: ${lowItems.map(i => i.metric).join(", ")}.\n\n`;
+  }
+
+  const tier1Item = items.find(i => i.metric.includes("Tier 1"));
+  const tier1Val = tier1Item ? `${tier1Item.currentVal.toFixed(1)}%` : "N/A";
+  const niItem = items.find(i => i.metric === "Net Income");
+  const niVal = niItem ? fmtVal(niItem.currentVal, false) : "N/A";
+
+  return `MANAGEMENT REVIEW MEMORANDUM
+Mizuho Americas — Quarterly Variance Review & Filing Recommendation
+Period: ${currentLabel} vs ${priorLabel} | Prepared: ${prepared}
 
 EXECUTIVE SUMMARY
 
-This memorandum summarizes the key findings from the quarterly regulatory reporting review for Mizuho Americas, covering Call Report (FFIEC 031), FR Y-9C, and UBPR data for the fiscal year 2024. Cross-source reconciliation was performed across all three federal data portals.
+This memorandum presents the variance analysis for the ${currentLabel} regulatory reporting cycle, comparing key financial metrics against ${priorLabel}. The review covers Call Report (FFIEC 031), FR Y-9C, and UBPR submissions with cross-source reconciliation across all three federal data portals.
 
-Overall, the institution maintains a strong capital position with CET1 at 12.8% and Total Capital Ratio at 15.2%, well above regulatory minimums. Net income for Q4 2024 was $1.52B, with full-year net income of $6.13B (+3.2% YoY).
+The institution reports net income of ${niVal} for the quarter with Tier 1 Capital Ratio at ${tier1Val}. ${highItems.length === 0 ? "No high-priority items were identified; the filing is recommended for submission." : `${highItems.length} high-priority item${highItems.length > 1 ? "s" : ""} and ${medItems.length} medium-priority item${medItems.length > 1 ? "s" : ""} require management attention prior to filing.`}
+
+VARIANCE SUMMARY — ${currentLabel} vs ${priorLabel}
+
+${items.map(i => `• ${i.metric}: ${fmtVal(i.currentVal, i.isRatio)} (${i.changePercent >= 0 ? "+" : ""}${i.changePercent.toFixed(1)}% QoQ)`).join("\n")}
 
 KEY FINDINGS & FLAGGED ITEMS
 
-1. Loan Growth Acceleration (High Priority)
-Net loans increased 6.33% QoQ to $112.5B, more than double the 8-quarter average of 2.5%. The acceleration is concentrated in C&I lending. Schedule RC-C concentration limits should be reviewed.
+${findings}DATA QUALITY
 
-2. AFS Securities Portfolio Decline (High Priority)
-Available-for-sale securities declined 11.34% QoQ from $21.3B to $18.9B. The AOCI variance between FDIC SCAFS and UBPR Page 6 has been flagged. Unrealized loss impact on equity requires assessment.
-
-3. Provision for Credit Losses (Medium Priority)
-Provisions rose 37.1% QoQ to $425M, exceeding the 20% quarterly change threshold. This aligns with increased delinquencies in Schedule RC-N (30-89 day past dues up 30.3%). CECL model assumptions should be reviewed against current macro conditions.
-
-4. CRE Risk-Weighted Assets (Medium Priority)
-Standardized RWA for CRE exposures increased 12.02% to $38.2B. HVCRE classification criteria and 150% risk-weight applicability should be verified against Schedule RC-R Part II.
-
-5. Derivative Netting (Low Priority)
-Net derivative fair value declined 26.4% QoQ. Schedule RC-L netting agreement classifications should be reconciled between FDIC and FR Y-9C reporting.
-
-DATA QUALITY
-
-Cross-source reconciliation across FDIC Call Report, FR Y-9C, and UBPR yielded a 95.3% auto-mapping rate for Call Report fields, 97.0% for UBPR, and 94.5% for FR Y-9C. Total flagged records requiring manual review: 12 out of 168 ingested records.
+Cross-source reconciliation across FDIC Call Report, FR Y-9C, and UBPR was performed for all reported metrics. Data integrity checks confirmed alignment within acceptable tolerance thresholds for primary balance sheet and income statement line items.
 
 RECOMMENDATION
 
-Items 1–3 above require management discussion prior to filing. Items 4–5 are informational and can be addressed in the normal review cycle. The overall regulatory filing is recommended for submission pending resolution of the flagged cross-checks on Schedules RC-N, RC-L, and RC-R.`;
+${highItems.length > 0 ? `Items 1–${highItems.length} above require management discussion prior to filing. ` : ""}${medItems.length > 0 ? `Medium-priority items are flagged for awareness and can be addressed in the normal review cycle. ` : ""}The overall regulatory filing is recommended for submission ${highItems.length > 0 ? "pending resolution of high-priority items" : "without additional review requirements"}.`;
+}
 
-function PeriodComparisonTab() {
-  const [memoContent, setMemoContent] = useState(defaultMemoContent);
+function VarianceSummaryCard({ item, idx }: { item: VarianceSummaryItem; idx: number }) {
+  const [open, setOpen] = useState(false);
+
+  const fmtVal = (v: number) => {
+    if (item.isRatio) return `${v.toFixed(2)}%`;
+    return `$${(v / 1000).toFixed(1)}M`;
+  };
+
+  const priorityColors = {
+    high: "bg-destructive/10 text-destructive border-destructive/20",
+    medium: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    low: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+  };
+
+  const categoryLabels = {
+    balance_sheet: "Balance Sheet",
+    income: "Income & Profitability",
+    capital: "Capital Adequacy",
+    risk: "Asset Quality",
+  };
+
+  return (
+    <Collapsible.Root open={open} onOpenChange={setOpen}>
+      <Card className={`transition-colors ${open ? "border-primary/30" : ""}`} data-testid={`card-variance-${idx}`}>
+        <Collapsible.Trigger asChild>
+          <button className="w-full text-left px-4 py-3 flex items-center gap-3 cursor-pointer" data-testid={`button-toggle-variance-${idx}`}>
+            <Badge variant="outline" className="font-mono text-[10px] shrink-0">{item.id}</Badge>
+            <span className="text-sm font-medium flex-1 min-w-0 truncate">{item.metric}</span>
+            <Badge variant="outline" className="text-[10px] shrink-0">{categoryLabels[item.category]}</Badge>
+            <div className="flex items-center gap-4 shrink-0">
+              <div className="text-right">
+                <p className="text-xs font-mono font-medium">{fmtVal(item.currentVal)}</p>
+                <p className="text-[10px] text-muted-foreground">Current</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-mono font-medium">{fmtVal(item.priorVal)}</p>
+                <p className="text-[10px] text-muted-foreground">Prior</p>
+              </div>
+              <div className="text-right min-w-[60px]">
+                <p className={`text-xs font-mono font-medium ${item.changePercent >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                  {item.changePercent >= 0 ? "+" : ""}{item.changePercent.toFixed(2)}%
+                </p>
+              </div>
+              <Badge className={`text-[10px] border ${priorityColors[item.priority]}`}>
+                {item.priority === "high" ? "High" : item.priority === "medium" ? "Medium" : "Low"}
+              </Badge>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+          </button>
+        </Collapsible.Trigger>
+        <Collapsible.Content>
+          <div className="px-4 pb-4 pt-0 border-t border-border/50 space-y-4">
+            <div className="grid grid-cols-2 gap-4 pt-3">
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Finding</p>
+                <p className="text-xs leading-relaxed bg-muted/50 rounded-md px-3 py-2 border border-border/50">{item.finding}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Recommendation</p>
+                <p className="text-xs leading-relaxed bg-muted/50 rounded-md px-3 py-2 border border-border/50">{item.recommendation}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Data Sources Verified</p>
+              <div className="flex flex-wrap gap-1.5">
+                {item.dataSources.map((src, si) => (
+                  <div key={si} className="flex items-center gap-1.5 text-xs bg-muted/30 rounded-md px-3 py-1.5 border border-border/30" data-testid={`datasource-${idx}-${si}`}>
+                    <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                    <span className="font-mono text-muted-foreground">{src}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Collapsible.Content>
+      </Card>
+    </Collapsible.Root>
+  );
+}
+
+function ReviewApprovalTab() {
+  const { data, isLoading } = useQuery<{ data: PeerDataEntry[] }>({
+    queryKey: ["/api/data-sources/peer-data"],
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const mizuho = data?.data?.[0];
+  const sorted = mizuho?.historicalData?.length
+    ? [...mizuho.historicalData].sort((a, b) => b.rawDate.localeCompare(a.rawDate))
+    : [];
+  const isLive = sorted.length >= 2;
+  const current = sorted[0];
+  const prior = sorted[1];
+
+  const currentLabel = isLive ? rawDateToLabel(current.rawDate) : "Q4 2024";
+  const priorLabel = isLive ? rawDateToLabel(prior.rawDate) : "Q3 2024";
+
+  const varianceItems = isLive
+    ? buildVarianceSummaries(current, prior, currentLabel, priorLabel)
+    : buildVarianceSummaries(
+        { period: "Q4 2024", rawDate: "20241231", totalAssets: 225100000, totalDeposits: 178400000, totalLoans: 112500000, netIncome: 1520000, roe: 7.68, roa: 0.68, nim: 2.42, tier1Ratio: 12.8, efficiencyRatio: 62.4, npaRatio: 0.91, loanToDeposit: 63.1 },
+        { period: "Q3 2024", rawDate: "20240930", totalAssets: 220500000, totalDeposits: 175800000, totalLoans: 106800000, netIncome: 1410000, roe: 7.30, roa: 0.65, nim: 2.38, tier1Ratio: 12.5, efficiencyRatio: 60.1, npaRatio: 0.85, loanToDeposit: 60.8 },
+        "Q4 2024", "Q3 2024"
+      );
+
+  const [memoContent, setMemoContent] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [memoStatus, setMemoStatus] = useState<"draft" | "sent" | "approved">("draft");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [memoGenerated, setMemoGenerated] = useState(false);
 
   const handleGenerate = () => {
     setIsGenerating(true);
     setTimeout(() => {
-      setMemoContent(defaultMemoContent);
+      setMemoContent(generateMemoFromVariances(varianceItems, currentLabel, priorLabel));
       setIsGenerating(false);
       setMemoStatus("draft");
+      setMemoGenerated(true);
     }, 1500);
   };
 
@@ -1430,90 +1683,86 @@ function PeriodComparisonTab() {
     setIsEditing(false);
   };
 
+  const highCount = varianceItems.filter(i => i.priority === "high").length;
+  const medCount = varianceItems.filter(i => i.priority === "medium").length;
+  const lowCount = varianceItems.filter(i => i.priority === "low").length;
+
   return (
     <div className="space-y-4">
-      <Card data-testid="card-period-chart">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Key Metrics - Quarterly Progression</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={periodComparisons.slice(0, 4)}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                <XAxis dataKey="metric" tick={{ fontSize: 10 }} angle={-15} textAnchor="end" height={60} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "6px",
-                    fontSize: "12px",
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Bar dataKey="q1_2024" name="Q1 2024" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="q2_2024" name="Q2 2024" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="q3_2024" name="Q3 2024" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="q4_2024" name="Q4 2024" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-destructive">Step 5 of 6</p>
+          <h2 className="text-xl font-serif font-semibold tracking-tight mt-1">Review & Approval</h2>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+            Quarterly variance summary for management review. Finalize the memorandum and submit for CFO approval.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isLive && (
+            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
+              <Wifi className="w-3 h-3 mr-1" />Live Data
+            </Badge>
+          )}
+          <Badge variant="outline" className="text-[10px] font-mono">{currentLabel} vs {priorLabel}</Badge>
+        </div>
+      </div>
 
-      <Card data-testid="card-period-table">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-sm">Period Over Period Analysis with Commentary</CardTitle>
-            <Badge variant="secondary">FY 2024</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="w-full">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Metric</TableHead>
-                  <TableHead className="text-xs text-right">Q1 2024</TableHead>
-                  <TableHead className="text-xs text-right">Q2 2024</TableHead>
-                  <TableHead className="text-xs text-right">Q3 2024</TableHead>
-                  <TableHead className="text-xs text-right">Q4 2024</TableHead>
-                  <TableHead className="text-xs">Trend</TableHead>
-                  <TableHead className="text-xs">AI Commentary</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {periodComparisons.map((comp, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="text-xs py-3 font-medium">{comp.metric}</TableCell>
-                    <TableCell className="text-xs py-3 text-right font-mono">{comp.q1_2024.toLocaleString()}</TableCell>
-                    <TableCell className="text-xs py-3 text-right font-mono">{comp.q2_2024.toLocaleString()}</TableCell>
-                    <TableCell className="text-xs py-3 text-right font-mono">{comp.q3_2024.toLocaleString()}</TableCell>
-                    <TableCell className="text-xs py-3 text-right font-mono">{comp.q4_2024.toLocaleString()}</TableCell>
-                    <TableCell className="text-xs py-3">
-                      <TrendIcon trend={comp.trend} />
-                    </TableCell>
-                    <TableCell className="text-xs py-3 text-muted-foreground max-w-[300px]">
-                      {comp.commentary}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-mono font-normal text-destructive">{highCount}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">High Priority</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-mono font-normal text-amber-500">{medCount}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Medium Priority</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-mono font-normal text-emerald-500">{lowCount}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Low / Normal</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className={`text-2xl font-mono font-normal ${memoStatus === "approved" ? "text-emerald-500" : memoStatus === "sent" ? "text-amber-500" : "text-muted-foreground"}`}>
+              {memoStatus === "approved" ? "Approved" : memoStatus === "sent" ? "Pending" : "Draft"}
+            </p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Filing Status</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Separator />
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold">Variance Summaries — {currentLabel} vs {priorLabel}</h3>
+        </div>
+        <p className="text-[10px] text-muted-foreground">{varianceItems.length} metrics reviewed</p>
+      </div>
+
+      <div className="space-y-2" data-testid="list-variance-summaries">
+        {varianceItems.map((item, idx) => (
+          <VarianceSummaryCard key={idx} item={item} idx={idx} />
+        ))}
+      </div>
+
+      <Separator />
 
       <Card data-testid="card-memo">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" />
-              <CardTitle className="text-sm">Management Review Memorandum</CardTitle>
+              <CardTitle className="text-sm">CFO Review Memorandum</CardTitle>
               {memoStatus === "draft" && (
                 <Badge variant="outline" className="text-[10px]">
-                  <Pencil className="w-2.5 h-2.5 mr-1" />Draft
+                  <Pencil className="w-2.5 h-2.5 mr-1" />{memoGenerated ? "Draft Ready" : "Not Generated"}
                 </Badge>
               )}
               {memoStatus === "sent" && (
@@ -1523,7 +1772,7 @@ function PeriodComparisonTab() {
               )}
               {memoStatus === "approved" && (
                 <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
-                  <Check className="w-2.5 h-2.5 mr-1" />Approved
+                  <Check className="w-2.5 h-2.5 mr-1" />Approved — Ready to File
                 </Badge>
               )}
             </div>
@@ -1537,9 +1786,9 @@ function PeriodComparisonTab() {
                 data-testid="button-generate-memo"
               >
                 <Sparkles className="w-3 h-3 mr-1" />
-                {isGenerating ? "Generating..." : "Generate Draft"}
+                {isGenerating ? "Generating..." : memoGenerated ? "Regenerate" : "Generate from Variances"}
               </Button>
-              {memoStatus === "draft" && (
+              {memoGenerated && memoStatus === "draft" && (
                 <>
                   <Button
                     variant="outline"
@@ -1558,7 +1807,7 @@ function PeriodComparisonTab() {
                     data-testid="button-send-approval"
                   >
                     <SendHorizontal className="w-3 h-3 mr-1" />
-                    Send for CFO Approval
+                    Submit for CFO Approval
                   </Button>
                 </>
               )}
@@ -1578,7 +1827,20 @@ function PeriodComparisonTab() {
           </div>
         </CardHeader>
         <CardContent>
-          {isEditing ? (
+          {!memoGenerated && !isGenerating ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
+              <FileText className="w-10 h-10 text-muted-foreground/30" />
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">No memorandum generated yet</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">Click "Generate from Variances" to create a draft memorandum based on the variance analysis above.</p>
+              </div>
+            </div>
+          ) : isGenerating ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
+              <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+              <p className="text-sm text-muted-foreground">Generating memorandum from variance analysis...</p>
+            </div>
+          ) : isEditing ? (
             <textarea
               value={memoContent}
               onChange={(e) => setMemoContent(e.target.value)}
@@ -1589,11 +1851,17 @@ function PeriodComparisonTab() {
             <ScrollArea className="h-[500px]">
               <div className="px-1 space-y-2">
                 {memoContent.split("\n").map((line, i) => {
-                  if (line === line.toUpperCase() && line.trim().length > 0 && !/^\d/.test(line.trim())) {
+                  if (line === line.toUpperCase() && line.trim().length > 0 && !/^\d/.test(line.trim()) && !/^•/.test(line.trim())) {
                     return <p key={i} className="text-xs font-bold text-foreground pt-2">{line}</p>;
                   }
                   if (/^\d+\./.test(line.trim())) {
                     return <p key={i} className="text-xs font-medium text-foreground">{line}</p>;
+                  }
+                  if (/^•/.test(line.trim())) {
+                    return <p key={i} className="text-xs font-mono text-muted-foreground pl-2">{line}</p>;
+                  }
+                  if (line.trim().startsWith("Recommendation:")) {
+                    return <p key={i} className="text-xs text-primary/80 italic pl-4">{line}</p>;
                   }
                   if (line.trim() === "") {
                     return <div key={i} className="h-2" />;
@@ -1605,6 +1873,22 @@ function PeriodComparisonTab() {
           )}
         </CardContent>
       </Card>
+
+      {memoStatus === "approved" && (
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Filing Approved</p>
+                <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">
+                  The {currentLabel} regulatory filing memorandum has been approved by the CFO. Submissions to FDIC, FFIEC, and Federal Reserve portals may proceed.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -2034,7 +2318,7 @@ export default function RegulatoryReporting() {
         {activeTab === "data" && <DataDictionaryTab />}
         {activeTab === "anomalies" && <AnomaliesTab />}
         {activeTab === "review" && <ReportReviewTab />}
-        {activeTab === "comparison" && <PeriodComparisonTab />}
+        {activeTab === "comparison" && <ReviewApprovalTab />}
         {activeTab === "trends" && <TrendAnalysisTab />}
       </div>
     </div>
