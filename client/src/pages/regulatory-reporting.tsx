@@ -325,6 +325,13 @@ function DataDictionaryTab() {
   const overallQuality = ((totalAutoMapped / totalFields) * 100).toFixed(1);
   return (
     <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-serif font-semibold tracking-tight">Data Ingestion & Profiling</h2>
+        <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
+          Multiple source data sets are ingested and automatically profiled. The system generates data dictionaries and flags data quality issues prior to report population.
+        </p>
+      </div>
+
       <div className="grid grid-cols-3 gap-3">
         <Card data-testid="card-data-sources">
           <CardContent className="p-4 text-center">
