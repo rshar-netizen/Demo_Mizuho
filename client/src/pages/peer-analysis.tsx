@@ -309,28 +309,22 @@ function PeerBankConfig({ peers, onAdd, onRemove }: {
           </p>
         )}
 
-        <div className="space-y-1" data-testid="list-configured-peers">
+        <div className="flex flex-wrap gap-1.5" data-testid="list-configured-peers">
           {peers.map((peer) => (
             <div
               key={peer.cert}
-              className="flex items-center justify-between px-3 py-1.5 rounded-md bg-muted/30 border border-border/30"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/40 border border-border/40 text-xs"
               data-testid={`peer-config-${peer.cert}`}
             >
-              <div className="flex items-center gap-2">
-                <p className="text-xs font-medium">{PEER_DISPLAY_MAP[peer.cert] || peer.name}</p>
-                <p className="text-[10px] text-muted-foreground font-mono">
-                  {peer.rssd && `RSSD ${peer.rssd} | `}CERT {peer.cert}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+              <span className="font-medium">{PEER_DISPLAY_MAP[peer.cert] || peer.name}</span>
+              <span className="text-[10px] text-muted-foreground font-mono">({peer.cert})</span>
+              <button
+                className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 onClick={() => onRemove(peer.cert)}
                 data-testid={`button-remove-peer-${peer.cert}`}
               >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
+                <Trash2 className="w-3 h-3" />
+              </button>
             </div>
           ))}
         </div>
