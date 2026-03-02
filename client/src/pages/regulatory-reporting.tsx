@@ -1329,6 +1329,54 @@ function computeQoQAnomaly(
     }
   }
 
+  const roeChange = current.roe - prior.roe;
+  const avgRoes = older.map(r => r.roe);
+  const avgRoe = avgRoes.length > 0 ? avgRoes.reduce((a, b) => a + b, 0) / avgRoes.length : 8;
+  const roeDev = parseFloat((current.roe - avgRoe).toFixed(2));
+  if (Math.abs(roeDev) > 0.5) {
+    results.push({
+      period,
+      metric: "Return on Equity",
+      value: parseFloat(current.roe.toFixed(2)),
+      expected: parseFloat(avgRoe.toFixed(2)),
+      deviation: roeDev,
+      severity: Math.abs(roeDev) > 2 ? "high" : Math.abs(roeDev) > 1 ? "medium" : "low",
+      description: `ROE at ${current.roe.toFixed(2)}% vs historical avg of ${avgRoe.toFixed(2)}% (${roeChange >= 0 ? "+" : ""}${roeChange.toFixed(2)}pp QoQ)`,
+    });
+  }
+
+  const roaChange = current.roa - prior.roa;
+  const avgRoas = older.map(r => r.roa);
+  const avgRoa = avgRoas.length > 0 ? avgRoas.reduce((a, b) => a + b, 0) / avgRoas.length : 1.0;
+  const roaDev = parseFloat((current.roa - avgRoa).toFixed(2));
+  if (Math.abs(roaDev) > 0.1) {
+    results.push({
+      period,
+      metric: "Return on Assets",
+      value: parseFloat(current.roa.toFixed(2)),
+      expected: parseFloat(avgRoa.toFixed(2)),
+      deviation: roaDev,
+      severity: Math.abs(roaDev) > 0.4 ? "high" : Math.abs(roaDev) > 0.2 ? "medium" : "low",
+      description: `ROA at ${current.roa.toFixed(2)}% vs historical avg of ${avgRoa.toFixed(2)}% (${roaChange >= 0 ? "+" : ""}${roaChange.toFixed(2)}pp QoQ)`,
+    });
+  }
+
+  const nimChange = current.nim - prior.nim;
+  const avgNims = older.map(r => r.nim);
+  const avgNim = avgNims.length > 0 ? avgNims.reduce((a, b) => a + b, 0) / avgNims.length : 1.5;
+  const nimDev = parseFloat((current.nim - avgNim).toFixed(2));
+  if (Math.abs(nimDev) > 0.1) {
+    results.push({
+      period,
+      metric: "Net Interest Margin",
+      value: parseFloat(current.nim.toFixed(2)),
+      expected: parseFloat(avgNim.toFixed(2)),
+      deviation: nimDev,
+      severity: Math.abs(nimDev) > 0.5 ? "high" : Math.abs(nimDev) > 0.25 ? "medium" : "low",
+      description: `NIM at ${current.nim.toFixed(2)}% vs historical avg of ${avgNim.toFixed(2)}% (${nimChange >= 0 ? "+" : ""}${nimChange.toFixed(2)}pp QoQ)`,
+    });
+  }
+
   return results;
 }
 
@@ -1370,6 +1418,7 @@ const anomalyTrendMetrics = [
   { key: "efficiencyRatio" as const, label: "Efficiency Ratio", unit: "%", color: "hsl(var(--destructive))" },
   { key: "roe" as const, label: "Return on Equity", unit: "%", color: "hsl(var(--chart-3))" },
   { key: "roa" as const, label: "Return on Assets", unit: "%", color: "hsl(var(--chart-4))" },
+  { key: "nim" as const, label: "Net Interest Margin", unit: "%", color: "hsl(var(--chart-5))" },
 ];
 
 interface AnomalyLogEntry {
@@ -1415,6 +1464,21 @@ const METRIC_ACTIONS: Record<string, { high: string; medium: string; low: string
     high: "Review wholesale funding concentration limits under the Liquidity Risk Management framework. Assess deposit product pricing competitiveness and update the Net Stable Funding Ratio (NSFR) projection. Escalate funding gap concerns to the ALCO committee.",
     medium: "Review the deposit-to-loan ratio trend and assess whether the shift reflects intentional balance sheet strategy or organic movement. Update liquidity coverage metrics and include commentary in the quarterly filing package.",
     low: "Monitor the LDR trajectory for persistence. The movement is within normal operating range. Include a brief note on funding composition in the period comparison analysis.",
+  },
+  "Return on Equity": {
+    high: "Significant ROE movement warrants a decomposition analysis (DuPont framework: profit margin × asset turnover × equity multiplier). Assess whether the shift is driven by earnings volatility, balance sheet leverage changes, or capital actions. Include ROE bridge in the CFO memorandum.",
+    medium: "Review ROE trend against peer group benchmarks from the UBPR. Assess whether the movement reflects organic earnings growth/decline or capital base changes. Include ROE commentary in the quarterly variance analysis.",
+    low: "ROE movement is modest but warrants monitoring. Cross-reference against UBPR Page 1 peer ROE for context. No immediate filing action required.",
+  },
+  "Return on Assets": {
+    high: "ROA movement indicates a material shift in asset productivity. Conduct an earnings decomposition across net interest income, non-interest income, and provision expense. Assess asset mix changes (loan, securities, cash) that may be driving the shift. Prepare a detailed profitability narrative for the CFO filing package.",
+    medium: "Review the ROA trend and identify the primary driver (NII, fee income, provision, or expense growth). Cross-reference against UBPR peer group ROA on Page 1. Include profitability commentary in the quarterly variance analysis.",
+    low: "ROA movement is within normal range. Monitor for persistence over the next quarter and note any divergence from peer group trends.",
+  },
+  "Net Interest Margin": {
+    high: "NIM movement exceeds historical norms. Conduct a rate/volume analysis to decompose the change into earning asset yield vs. funding cost drivers. Review the interest rate risk position and assess repricing gap exposure. Prepare a NIM sensitivity analysis for ALCO and include in the Schedule RI commentary.",
+    medium: "Review NIM trend against the UBPR peer group and assess whether the movement is driven by asset yield changes, funding cost shifts, or balance sheet mix. Include NIM commentary in the quarterly filing narrative.",
+    low: "NIM movement is modest. Monitor the trajectory for persistence and cross-reference against the UBPR NIM peer comparison. No immediate filing action required.",
   },
 };
 
