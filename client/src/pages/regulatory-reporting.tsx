@@ -104,7 +104,197 @@ function SeverityBadge({ severity }: { severity: string }) {
   return <Badge variant="secondary">Low</Badge>;
 }
 
-function InstructionCard({ inst, idx }: { inst: typeof reportingInstructions[number]; idx: number }) {
+interface CallReportRecord {
+  reportDate: string;
+  rawDate: string;
+  institutionName: string;
+  cert: number;
+  totalAssets: number | null;
+  totalDeposits: number | null;
+  netIncome: number | null;
+  totalInterestIncome: number | null;
+  totalInterestExpense: number | null;
+  totalLoansAndLeases: number | null;
+  roe: number | null;
+  roa: number | null;
+  nim: number | null;
+  tier1Ratio: number | null;
+  totalCapitalRatio: number | null;
+  efficiencyRatio: number | null;
+  npaRatio: number | null;
+  chargeOffRate: number | null;
+  loanToDeposit: number | null;
+  securities: number | null;
+  loanLossReserve: number | null;
+  domesticDeposits: number | null;
+  tier1Capital: number | null;
+}
+
+function fmtM(val: number | null | undefined): string {
+  if (val == null) return "N/A";
+  return `$${(val / 1000).toLocaleString(undefined, { maximumFractionDigits: 0 })}M`;
+}
+
+function fmtPct(val: number | null | undefined): string {
+  if (val == null) return "N/A";
+  return `${val.toFixed(2)}%`;
+}
+
+function buildLiveInstructions(latest: CallReportRecord, prior: CallReportRecord | null): ReportingInstruction[] {
+  const instructions: ReportingInstruction[] = [];
+  const rd = latest.reportDate;
+  const priorRd = prior?.reportDate || "Prior Period";
+
+  if (latest.totalAssets != null || latest.totalDeposits != null) {
+    const reqs: string[] = [];
+    if (latest.totalAssets != null) reqs.push(`Total Consolidated Assets reported: ${fmtM(latest.totalAssets)} (${rd})`);
+    if (latest.totalDeposits != null) reqs.push(`Total Deposits reported: ${fmtM(latest.totalDeposits)} (${rd})`);
+    if (latest.securities != null) reqs.push(`Investment Securities reported: ${fmtM(latest.securities)} (${rd})`);
+    if (latest.loanLossReserve != null) reqs.push(`Allowance for Loan Losses: ${fmtM(latest.loanLossReserve)} (${rd})`);
+    reqs.push("Total assets must equal total liabilities plus equity capital");
+    reqs.push("All amounts reported in thousands of dollars");
+    if (prior && prior.totalAssets != null && latest.totalAssets != null) {
+      const chg = ((latest.totalAssets - prior.totalAssets) / prior.totalAssets * 100).toFixed(1);
+      reqs.push(`QoQ Change in Total Assets: ${Number(chg) >= 0 ? "+" : ""}${chg}% vs ${priorRd}`);
+    }
+    instructions.push({
+      id: "FFIEC-031",
+      section: "Schedule RC — Balance Sheet",
+      description: `Consolidated Report of Condition for ${latest.institutionName} (CERT ${latest.cert}) as of ${rd}. Reports total assets, liabilities, and equity capital.`,
+      schedule: "RC",
+      frequency: "Quarterly",
+      status: "analyzed",
+      requirements: reqs,
+    });
+  }
+
+  if (latest.totalLoansAndLeases != null) {
+    const reqs: string[] = [];
+    reqs.push(`Net Loans and Leases reported: ${fmtM(latest.totalLoansAndLeases)} (${rd})`);
+    if (latest.loanToDeposit != null) reqs.push(`Loan-to-Deposit Ratio: ${fmtPct(latest.loanToDeposit)}`);
+    if (latest.loanLossReserve != null && latest.totalLoansAndLeases != null) {
+      const coverage = (latest.loanLossReserve / latest.totalLoansAndLeases * 100).toFixed(2);
+      reqs.push(`Reserve Coverage Ratio: ${coverage}% of total loans`);
+    }
+    reqs.push("Report gross loans before deducting unearned income and allowance");
+    reqs.push("Classify by loan type per FFIEC instructions");
+    if (prior && prior.totalLoansAndLeases != null) {
+      const chg = ((latest.totalLoansAndLeases - prior.totalLoansAndLeases) / prior.totalLoansAndLeases * 100).toFixed(1);
+      reqs.push(`QoQ Change in Loans: ${Number(chg) >= 0 ? "+" : ""}${chg}% vs ${priorRd}`);
+    }
+    instructions.push({
+      id: "FFIEC-031",
+      section: "Schedule RC-C — Loans and Leases",
+      description: `Loans and lease financing receivables for ${latest.institutionName} as of ${rd}, broken down by category.`,
+      schedule: "RC-C",
+      frequency: "Quarterly",
+      status: "analyzed",
+      requirements: reqs,
+    });
+  }
+
+  if (latest.tier1Ratio != null || latest.totalCapitalRatio != null) {
+    const reqs: string[] = [];
+    if (latest.tier1Ratio != null) reqs.push(`Tier 1 Capital Ratio: ${fmtPct(latest.tier1Ratio)} (${rd})`);
+    if (latest.totalCapitalRatio != null) reqs.push(`Total Capital Ratio: ${fmtPct(latest.totalCapitalRatio)} (${rd})`);
+    if (latest.tier1Capital != null) reqs.push(`Tier 1 Capital: ${fmtM(latest.tier1Capital)} (${rd})`);
+    reqs.push("Calculate CET1 capital per Basel III standards");
+    reqs.push("Apply correct risk weights to all asset categories");
+    const wellCap = (latest.tier1Ratio ?? 0) >= 8;
+    reqs.push(`Well-Capitalized Threshold (≥8% Tier 1): ${wellCap ? "Met" : "Below threshold — review required"}`);
+    if (prior && prior.tier1Ratio != null && latest.tier1Ratio != null) {
+      const chg = (latest.tier1Ratio - prior.tier1Ratio).toFixed(2);
+      reqs.push(`QoQ Change in Tier 1 Ratio: ${Number(chg) >= 0 ? "+" : ""}${chg}pp vs ${priorRd}`);
+    }
+    instructions.push({
+      id: "FFIEC-031",
+      section: "Schedule RC-R — Regulatory Capital",
+      description: `Risk-based capital ratios for ${latest.institutionName} as of ${rd}, including Tier 1 and Total Capital with risk-weighted assets.`,
+      schedule: "RC-R",
+      frequency: "Quarterly",
+      status: wellCap ? "analyzed" : "flagged",
+      requirements: reqs,
+    });
+  }
+
+  if (latest.totalDeposits != null) {
+    const reqs: string[] = [];
+    reqs.push(`Total Deposits reported: ${fmtM(latest.totalDeposits)} (${rd})`);
+    if (latest.domesticDeposits != null) reqs.push(`Domestic Deposits: ${fmtM(latest.domesticDeposits)} (${rd})`);
+    if (latest.domesticDeposits != null && latest.totalDeposits != null) {
+      const foreign = latest.totalDeposits - latest.domesticDeposits;
+      if (foreign > 0) reqs.push(`Foreign Office Deposits: ${fmtM(foreign)} (${rd})`);
+    }
+    reqs.push("Classify deposits as transaction or non-transaction accounts");
+    reqs.push("Separate insured vs uninsured deposits per FDIC coverage rules");
+    if (prior && prior.totalDeposits != null) {
+      const chg = ((latest.totalDeposits - prior.totalDeposits) / prior.totalDeposits * 100).toFixed(1);
+      reqs.push(`QoQ Change in Deposits: ${Number(chg) >= 0 ? "+" : ""}${chg}% vs ${priorRd}`);
+    }
+    instructions.push({
+      id: "FFIEC-031",
+      section: "Schedule RC-E — Deposit Liabilities",
+      description: `Deposit liabilities breakdown for ${latest.institutionName} as of ${rd}, including domestic and foreign office deposits.`,
+      schedule: "RC-E",
+      frequency: "Quarterly",
+      status: "analyzed",
+      requirements: reqs,
+    });
+  }
+
+  if (latest.npaRatio != null) {
+    const reqs: string[] = [];
+    reqs.push(`Non-Performing Assets Ratio: ${fmtPct(latest.npaRatio)} (${rd})`);
+    if (latest.chargeOffRate != null) reqs.push(`Net Charge-Off Rate: ${fmtPct(latest.chargeOffRate)} (${rd})`);
+    reqs.push("Report loans past due 30-89 days separately from 90+ days");
+    reqs.push("Identify nonaccrual loans by loan category per ASC 326 guidance");
+    const elevated = (latest.npaRatio ?? 0) > 1.5;
+    if (elevated) reqs.push("NPA ratio above 1.5% — supervisory attention recommended");
+    if (prior && prior.npaRatio != null) {
+      const chg = (latest.npaRatio - prior.npaRatio).toFixed(2);
+      reqs.push(`QoQ Change in NPA Ratio: ${Number(chg) >= 0 ? "+" : ""}${chg}pp vs ${priorRd}`);
+    }
+    instructions.push({
+      id: "FFIEC-031",
+      section: "Schedule RC-N — Past Due and Nonaccrual",
+      description: `Delinquency and nonaccrual status for ${latest.institutionName} as of ${rd}.`,
+      schedule: "RC-N",
+      frequency: "Quarterly",
+      status: elevated ? "flagged" : "analyzed",
+      requirements: reqs,
+    });
+  }
+
+  if (latest.netIncome != null || latest.totalInterestIncome != null) {
+    const reqs: string[] = [];
+    if (latest.netIncome != null) reqs.push(`Net Income reported: ${fmtM(latest.netIncome)} (${rd})`);
+    if (latest.totalInterestIncome != null) reqs.push(`Total Interest Income: ${fmtM(latest.totalInterestIncome)} (${rd})`);
+    if (latest.totalInterestExpense != null) reqs.push(`Total Interest Expense: ${fmtM(latest.totalInterestExpense)} (${rd})`);
+    if (latest.nim != null) reqs.push(`Net Interest Margin: ${fmtPct(latest.nim)}`);
+    if (latest.roe != null) reqs.push(`Return on Equity: ${fmtPct(latest.roe)}`);
+    if (latest.roa != null) reqs.push(`Return on Assets: ${fmtPct(latest.roa)}`);
+    if (latest.efficiencyRatio != null) reqs.push(`Efficiency Ratio: ${fmtPct(latest.efficiencyRatio)}`);
+    reqs.push("Report interest income and expense on an accrual basis");
+    reqs.push("Reconcile net income to Schedule RC equity changes");
+    if (prior && prior.netIncome != null && latest.netIncome != null) {
+      const chg = ((latest.netIncome - prior.netIncome) / Math.abs(prior.netIncome) * 100).toFixed(1);
+      reqs.push(`QoQ Change in Net Income: ${Number(chg) >= 0 ? "+" : ""}${chg}% vs ${priorRd}`);
+    }
+    instructions.push({
+      id: "FFIEC-031",
+      section: "Schedule RI — Income Statement",
+      description: `Income and expense detail for ${latest.institutionName} for the period ending ${rd}.`,
+      schedule: "RI",
+      frequency: "Quarterly",
+      status: "analyzed",
+      requirements: reqs,
+    });
+  }
+
+  return instructions;
+}
+
+function InstructionCard({ inst, idx }: { inst: ReportingInstruction; idx: number }) {
   const [open, setOpen] = useState(idx === 0);
 
   return (
@@ -194,11 +384,29 @@ function InstructionsTab() {
   const [selectedQuery, setSelectedQuery] = useState<AIQueryItem | null>(null);
   const [customQuery, setCustomQuery] = useState("");
 
+  const { data: callReportData } = useQuery<{ data: CallReportRecord[] }>({
+    queryKey: ["/api/data-sources/call-reports", 21843],
+    queryFn: async () => {
+      const res = await fetch("/api/data-sources/call-reports?cert=21843&periods=8");
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const liveRecords = callReportData?.data || [];
+  const liveInstructions = liveRecords.length > 0
+    ? buildLiveInstructions(liveRecords[0], liveRecords[1] || null)
+    : reportingInstructions;
+  const isLive = liveRecords.length > 0;
+
   const totalRecords = dataDictionaries.reduce((sum, d) => sum + d.recordCount, 0);
   const totalFields = dataDictionaries.reduce((sum, d) => sum + d.quality.totalFields, 0);
   const totalAutoMapped = dataDictionaries.reduce((sum, d) => sum + d.quality.autoMapped, 0);
   const overallAlignment = ((totalAutoMapped / totalFields) * 100).toFixed(1);
-  const schedulesIndexed = reportingInstructions.length;
+  const schedulesIndexed = liveInstructions.length;
+  const reportDate = isLive ? liveRecords[0].reportDate : "Latest";
 
   return (
     <div className="space-y-4">
@@ -211,9 +419,9 @@ function InstructionsTab() {
 
       <div className="grid grid-cols-4 gap-3">
         {[
-          { value: schedulesIndexed.toString(), label: "Schedules Indexed", sub: `${reportingInstructions.filter(r => r.id === "FFIEC-031").length} FFIEC 031 + ${reportingInstructions.filter(r => r.id === "FR Y-9C").length} FR Y-9C` },
-          { value: dataDictionaries.length.toString(), label: "Reports Ingested", sub: "Call Report, UBPR, FR Y-9C" },
-          { value: totalFields.toLocaleString(), label: "Data Fields Mapped", sub: `${totalRecords} records across ${dataDictionaries.length} sources` },
+          { value: schedulesIndexed.toString(), label: "Schedules Indexed", sub: isLive ? `FFIEC 031 Call Report (${reportDate})` : `${reportingInstructions.filter(r => r.id === "FFIEC-031").length} FFIEC 031` },
+          { value: isLive ? liveRecords.length.toString() : dataDictionaries.length.toString(), label: isLive ? "Periods Ingested" : "Reports Ingested", sub: isLive ? `${liveRecords[liveRecords.length - 1]?.reportDate} – ${reportDate}` : "Call Report data" },
+          { value: totalFields.toLocaleString(), label: "Data Fields Mapped", sub: `${totalRecords} records across sources` },
           { value: `${overallAlignment}%`, label: "Auto-Mapped Accuracy", sub: `${totalAutoMapped.toLocaleString()} of ${totalFields.toLocaleString()} fields` },
         ].map((m, i) => (
           <Card key={i} data-testid={`card-instr-metric-${i}`}>
@@ -229,14 +437,21 @@ function InstructionsTab() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Regulatory Filing Requirements</CardTitle>
-            <Badge variant="outline" className="text-xs font-mono">{reportingInstructions.length} schedules</Badge>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-sm">Regulatory Filing Requirements</CardTitle>
+              {isLive && (
+                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
+                  <Wifi className="w-3 h-3 mr-1" />Live — {reportDate}
+                </Badge>
+              )}
+            </div>
+            <Badge variant="outline" className="text-xs font-mono">{liveInstructions.length} schedules</Badge>
           </div>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[280px]">
             <div className="space-y-2">
-              {reportingInstructions.map((inst, idx) => (
+              {liveInstructions.map((inst, idx) => (
                 <InstructionCard key={idx} inst={inst} idx={idx} />
               ))}
             </div>
