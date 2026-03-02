@@ -251,10 +251,10 @@ function PeerBankConfig({ peers, onAdd, onRemove }: {
 
   return (
     <Card data-testid="card-peer-config">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold">Peer Bank Configuration</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <label className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mb-1 block">Institution name</label>
@@ -313,23 +313,23 @@ function PeerBankConfig({ peers, onAdd, onRemove }: {
           {peers.map((peer) => (
             <div
               key={peer.cert}
-              className="flex items-center justify-between px-3 py-2.5 rounded-md bg-muted/30 border border-border/30"
+              className="flex items-center justify-between px-3 py-1.5 rounded-md bg-muted/30 border border-border/30"
               data-testid={`peer-config-${peer.cert}`}
             >
-              <div>
-                <p className="text-sm font-medium">{PEER_DISPLAY_MAP[peer.cert] || peer.name}</p>
-                <p className="text-xs text-muted-foreground font-mono">
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-medium">{PEER_DISPLAY_MAP[peer.cert] || peer.name}</p>
+                <p className="text-[10px] text-muted-foreground font-mono">
                   {peer.rssd && `RSSD ${peer.rssd} | `}CERT {peer.cert}
                 </p>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                 onClick={() => onRemove(peer.cert)}
                 data-testid={`button-remove-peer-${peer.cert}`}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </Button>
             </div>
           ))}
@@ -342,18 +342,22 @@ function PeerBankConfig({ peers, onAdd, onRemove }: {
 function MetricCard({ label, value, rank, total, positive }: { label: string; value: string; rank: number; total: number; positive?: boolean }) {
   return (
     <Card>
-      <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground mb-1">{label}</p>
-        <p className="text-xl font-bold">{value}</p>
-        <div className="flex items-center gap-1 mt-1">
-          <Badge variant="outline" className="text-xs">
-            Rank {rank}/{total}
-          </Badge>
-          {positive !== undefined && (
-            positive ?
-              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" /> :
-              <ArrowDownRight className="w-3.5 h-3.5 text-red-500" />
-          )}
+      <CardContent className="px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground truncate">{label}</p>
+            <p className="text-lg font-bold leading-tight">{value}</p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              {rank}/{total}
+            </Badge>
+            {positive !== undefined && (
+              positive ?
+                <ArrowUpRight className="w-3 h-3 text-emerald-500" /> :
+                <ArrowDownRight className="w-3 h-3 text-red-500" />
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -456,7 +460,7 @@ function TrendCharts({ trendROE, trendNIM, trendCET1, bankNames }: { trendROE: P
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[320px]">
+        <div className="h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={metricData}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
@@ -498,7 +502,7 @@ function RadarComparison({ banks }: { banks: PeerBank[] }) {
         <CardTitle className="text-sm">Mizuho vs Peer Average - Performance Profile</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
+        <div className="h-[240px]">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart data={radarData}>
               <PolarGrid stroke="hsl(var(--border))" />
@@ -552,13 +556,13 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
   }));
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <Card data-testid="card-profitability-bar">
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-1">
           <CardTitle className="text-sm">Profitability Comparison</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[250px]">
+          <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={profitabilityData}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
@@ -583,11 +587,11 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
       </Card>
 
       <Card data-testid="card-capital-bar">
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-1">
           <CardTitle className="text-sm">Capital Adequacy Comparison</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[250px]">
+          <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={capitalData}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
@@ -677,7 +681,7 @@ export default function PeerAnalysis() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-[1200px] mx-auto p-6 space-y-6">
+      <div className="max-w-[1200px] mx-auto p-6 space-y-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Peer Analysis</p>
@@ -706,7 +710,7 @@ export default function PeerAnalysis() {
 
         <PeerBankConfig peers={peers} onAdd={handleAddPeer} onRemove={handleRemovePeer} />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <MetricCard
             label="Return on Equity"
             value={formatPercent(mizuho.roe)}
@@ -737,46 +741,46 @@ export default function PeerAnalysis() {
           />
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs defaultValue="overview" className="space-y-3">
           <TabsList data-testid="tabs-peer-analysis">
             <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
             <TabsTrigger value="detailed" data-testid="tab-detailed">Detailed Comparison</TabsTrigger>
             <TabsTrigger value="trends" data-testid="tab-trends">Trend Analysis</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TabsContent value="overview" className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <RadarComparison banks={peerBanks} />
               <Card data-testid="card-peer-summary">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Peer Group Summary</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="h-[260px]">
-                    <div className="space-y-3">
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-1">
                       {peerBanks.map((bank, idx) => (
                         <div
                           key={idx}
-                          className={`flex items-center justify-between gap-3 p-2.5 rounded-md ${
+                          className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md ${
                             bank.name === "Mizuho Americas" ? "bg-primary/5 border border-primary/20" : "bg-muted/50"
                           }`}
                           data-testid={`peer-summary-${idx}`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <Building2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                             <div className="min-w-0">
                               <p className="text-xs font-medium truncate">{bank.name}</p>
-                              <p className="text-xs text-muted-foreground">${bank.totalAssets.toLocaleString()}M assets</p>
+                              <p className="text-[10px] text-muted-foreground">${bank.totalAssets.toLocaleString()}M</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3 shrink-0 text-right">
                             <div>
-                              <p className="text-xs font-mono font-medium">{formatPercent(bank.roe)}</p>
-                              <p className="text-[10px] text-muted-foreground">ROE</p>
+                              <p className="text-[11px] font-mono font-medium">{formatPercent(bank.roe)}</p>
+                              <p className="text-[9px] text-muted-foreground">ROE</p>
                             </div>
                             <div>
-                              <p className="text-xs font-mono font-medium">{formatPercent(bank.cet1Ratio)}</p>
-                              <p className="text-[10px] text-muted-foreground">CET1</p>
+                              <p className="text-[11px] font-mono font-medium">{formatPercent(bank.cet1Ratio)}</p>
+                              <p className="text-[9px] text-muted-foreground">CET1</p>
                             </div>
                           </div>
                         </div>
