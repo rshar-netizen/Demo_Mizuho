@@ -89,7 +89,7 @@ const steps = [
   { id: "instructions", label: "Regulatory Instructions", icon: Search, step: 1 },
   { id: "data", label: "Data & Dictionary", icon: Database, step: 2 },
   { id: "anomalies", label: "Multi-Period Analysis", icon: AlertTriangle, step: 3 },
-  { id: "review", label: "Report Review & Validation", icon: FileCheck, step: 4 },
+  { id: "review", label: "Report Validation", icon: FileCheck, step: 4 },
   { id: "comparison", label: "Review & Approval", icon: GitCompare, step: 5 },
   { id: "trends", label: "Trend Analysis", icon: TrendingUp, step: 6 },
 ];
@@ -543,7 +543,7 @@ const OUT_OF_SCOPE_RESPONSE: AIQueryItem = {
   id: "out-of-scope",
   schedule: "—",
   question: "",
-  answer: "This question appears to be outside the scope of regulatory reporting requirements and filing instructions.\n\nThis assistant is designed to help with:\n- FFIEC Call Report (031/041) schedule requirements and filing rules\n- FR Y-9C schedule instructions for bank holding company reporting\n- Regulatory capital calculation guidance (Basel III, CET1, Tier 1, Total Capital)\n- Loan classification, deposit categorization, and derivative reporting rules\n- CECL provisioning requirements and nonaccrual/delinquency guidance\n\nFor other questions, please refer to:\n- Data analysis and trends — see the Multi-Period Analysis and Trend Analysis tabs\n- Cross-report reconciliation and tie-outs — see the Report Review tab\n- Peer benchmarking and comparison — see the Peer Analysis page\n- Specific portfolio or position inquiries — consult the relevant business line team",
+  answer: "This question appears to be outside the scope of regulatory reporting requirements and filing instructions.\n\nThis assistant is designed to help with:\n- FFIEC Call Report (031/041) schedule requirements and filing rules\n- FR Y-9C schedule instructions for bank holding company reporting\n- Regulatory capital calculation guidance (Basel III, CET1, Tier 1, Total Capital)\n- Loan classification, deposit categorization, and derivative reporting rules\n- CECL provisioning requirements and nonaccrual/delinquency guidance\n\nFor other questions, please refer to:\n- Data analysis and trends — see the Multi-Period Analysis and Trend Analysis tabs\n- Cross-report reconciliation and tie-outs — see the Report Validation tab\n- Peer benchmarking and comparison — see the Peer Analysis page\n- Specific portfolio or position inquiries — consult the relevant business line team",
   sources: [
     { label: "Scope", reference: "Filing Requirements & Instructions Only" },
   ],
