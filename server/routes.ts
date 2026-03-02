@@ -16,6 +16,7 @@ import {
   getTier1Ratio,
   computeNPAPercent,
   computeLoanToDeposit,
+  getFallbackData,
   type FDICFinancialRecord,
 } from "./lib/fdic-api";
 import {
@@ -113,15 +114,24 @@ export async function registerRoutes(
       const cert = parseInt(req.query.cert as string) || 21843;
       const periods = parseInt(req.query.periods as string) || 8;
 
-      const financials = await getFinancialsByCert(cert, periods);
+      let financials: FDICFinancialRecord[];
+      let usedFallback = false;
+      try {
+        financials = await getFinancialsByCert(cert, periods);
+      } catch {
+        console.warn(`FDIC API unreachable for CERT ${cert}, using cached fallback data`);
+        financials = getFallbackData(cert, periods);
+        usedFallback = true;
+      }
       const mapped = financials.map((f) => mapRecord(f, cert));
 
       res.json({
-        source: "FDIC BankFind Suite API",
+        source: usedFallback ? "FDIC BankFind Suite API (cached fallback)" : "FDIC BankFind Suite API",
         reportType: "Call Report (FFIEC 031/041)",
         cert,
         recordCount: mapped.length,
         fetchedAt: new Date().toISOString(),
+        fallback: usedFallback,
         data: mapped,
       });
     } catch (err: any) {
@@ -229,8 +239,22 @@ export async function registerRoutes(
     try {
       const extraCerts = (req.query.certs as string || "").split(",").filter(Boolean).map(Number).filter(n => !isNaN(n));
 
-      const [callReports, ubprData, fry9cData] = await Promise.all([
-        getAllPeerFinancials(),
+      let callReports: Record<string, FDICFinancialRecord[]>;
+      try {
+        callReports = await getAllPeerFinancials();
+      } catch {
+        console.warn("FDIC API unreachable for peer data, using cached fallback");
+        callReports = {};
+      }
+      const allEmpty = Object.values(callReports).every(r => r.length === 0);
+      if (allEmpty) {
+        Object.entries(PEER_BANKS).forEach(([name, cert]) => {
+          const fb = getFallbackData(cert, 8);
+          if (fb.length > 0) callReports[name] = fb;
+        });
+      }
+
+      const [ubprData, fry9cData] = await Promise.all([
         getAllPeerUBPR(),
         getAllBHCData(),
       ]);
@@ -284,7 +308,12 @@ export async function registerRoutes(
       if (!cert || isNaN(cert)) {
         return res.status(400).json({ error: "Valid CERT number is required" });
       }
-      const records = await getFinancialsByCert(cert, 8);
+      let records: FDICFinancialRecord[];
+      try {
+        records = await getFinancialsByCert(cert, 8);
+      } catch {
+        records = getFallbackData(cert, 8);
+      }
       if (records.length === 0) {
         return res.status(404).json({ error: `No data found for CERT ${cert}` });
       }
@@ -303,12 +332,18 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Valid CERT number is required" });
       }
 
-      const [records, instRes] = await Promise.all([
-        getFinancialsByCert(cert, 1),
-        fetch(`${FDIC_BASE_URL}/institutions?filters=CERT:${cert}&fields=CERT,NAME,FED_RSSD&limit=1`, { redirect: "follow" })
-          .then(r => r.json())
-          .catch(() => null),
-      ]);
+      let records: FDICFinancialRecord[];
+      let instRes: any = null;
+      try {
+        [records, instRes] = await Promise.all([
+          getFinancialsByCert(cert, 1),
+          fetch(`${FDIC_BASE_URL}/institutions?filters=CERT:${cert}&fields=CERT,NAME,FED_RSSD&limit=1`, { redirect: "follow", signal: AbortSignal.timeout(8000) })
+            .then(r => r.json())
+            .catch(() => null),
+        ]);
+      } catch {
+        records = getFallbackData(cert, 1);
+      }
 
       if (records.length === 0) {
         return res.status(404).json({ error: `No institution found for CERT ${cert}`, valid: false });
@@ -338,8 +373,24 @@ export async function registerRoutes(
       clearUBPRCache();
       clearFRY9CCache();
 
-      const [callReports, ubprData, fry9cData] = await Promise.all([
-        getAllPeerFinancials(),
+      let callReports: Record<string, FDICFinancialRecord[]>;
+      try {
+        callReports = await getAllPeerFinancials();
+      } catch {
+        console.warn("FDIC API unreachable during refresh, using cached fallback");
+        callReports = {};
+        Object.entries(PEER_BANKS).forEach(([name, cert]) => {
+          callReports[name] = getFallbackData(cert, 8);
+        });
+      }
+      const allEmpty = Object.values(callReports).every(r => r.length === 0);
+      if (allEmpty) {
+        Object.entries(PEER_BANKS).forEach(([name, cert]) => {
+          callReports[name] = getFallbackData(cert, 8);
+        });
+      }
+
+      const [ubprData, fry9cData] = await Promise.all([
         getAllPeerUBPR(),
         getAllBHCData(),
       ]);

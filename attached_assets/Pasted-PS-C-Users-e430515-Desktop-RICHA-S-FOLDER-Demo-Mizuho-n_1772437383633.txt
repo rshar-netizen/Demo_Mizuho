@@ -1,0 +1,353 @@
+PS C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho> npm run dev
+
+> rest-express@1.0.0 dev
+> cross-env NODE_ENV=development tsx server/index.ts
+
+1:03:50 PM [express] serving on port 5000
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+1:04:04 PM [express] GET /api/data-sources/call-reports 500 in 10651ms :: {"error":"fetch failed"}
+1:04:04 PM [express] GET /api/data-sources/status 200 in 10632ms :: {"sources":[{"source":"FDIC BankFind Suite","status":"error","lastChecked":1772436844007,"responseTimeMs":10629,"message":"fetch failed","reportType":"Call Reports (FFIEC 031/041)","entity":"Mizuho Bank (USA)","identifier":"RSSD: 229913 / CERT: 21843"},{"source":"FFIEC CDR","status":"connected","lastChecked":1772436834596,"responseTimeMs":1218,"message":"FFIEC Central Data Repository is accessible","reportType":"UBPR (Uniform Bank Performance Report)","entity":"Mizuho Bank (USA)","identifier":"RSSD: 229913"},{"source":"Federal Reserve NIC","status":"connected","lastChecked":1772436833681,"responseTimeMs":302,"message":"Federal Reserve NIC portal is accessible","reportType":"FR Y-9C (Consolidated Financial Statements for BHCs)","entity":"Mizuho Bank (USA)","identifier":"RSSD: 229913"}],"cache":{"entries":0,"oldestEntry":null},"lastRefresh":1772436844007}
+1:06:36 PM [express] GET /api/data-sources/call-reports 500 in 10710ms :: {"error":"fetch failed"}
+1:06:36 PM [express] GET /api/data-sources/status 200 in 10708ms :: {"sources":[{"source":"FDIC BankFind Suite","status":"error","lastChecked":1772436996563,"responseTimeMs":10707,"message":"fetch failed","reportType":"Call Reports (FFIEC 031/041)","entity":"Mizuho Bank (USA)","identifier":"RSSD: 229913 / CERT: 21843"},{"source":"FFIEC CDR","status":"connected","lastChecked":1772436987113,"responseTimeMs":1253,"message":"FFIEC Central Data Repository is accessible","reportType":"UBPR (Uniform Bank Performance Report)","entity":"Mizuho Bank (USA)","identifier":"RSSD: 229913"},{"source":"Federal Reserve NIC","status":"connected","lastChecked":1772436986159,"responseTimeMs":296,"message":"Federal Reserve NIC portal is accessible","reportType":"FR Y-9C (Consolidated Financial Statements for BHCs)","entity":"Mizuho Bank (USA)","identifier":"RSSD: 229913"}],"cache":{"entries":0,"oldestEntry":null},"lastRefresh":1772436996563}
+Failed to fetch data for Mizuho Americas: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 0)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 56.137.201.79:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 52.222.30.52:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for PNC Bank, N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 1)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 56.137.201.79:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 52.222.30.52:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for U.S. Bank N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 2)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 56.137.201.79:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 52.222.30.52:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for Citizens Bank, N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 3)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 56.137.201.79:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 52.222.30.52:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for KeyBank N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 4)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 56.137.201.79:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 52.222.30.52:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for M&T Bank: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 5)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 56.137.201.79:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 52.222.30.52:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+1:07:06 PM [express] POST /api/data-sources/refresh 200 in 10712ms :: {"success":true,"refreshedAt":"2026-03-02T07:37:06.268Z","summary":{"callReports":{"institutions":6,"records":0},"ubpr":{"institutions":6},"fry9c":{"institutions":6}}}       
+Failed to fetch data for Mizuho Americas: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 0)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for M&T Bank: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 5)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for KeyBank N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 4)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for Citizens Bank, N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 3)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for U.S. Bank N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 2)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for PNC Bank, N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 1)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:341:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+1:10:17 PM [express] POST /api/data-sources/refresh 200 in 10521ms :: {"success":true,"refreshedAt":"2026-03-02T07:40:17.249Z","summary":{"callReports":{"institutions":6,"records":0},"ubpr":{"institutions":6},"fry9c":{"institutions":6}}}       
+1:10:19 PM [express] GET /api/data-sources/fry9c 200 in 2ms :: {"source":"Federal Reserve NIC","reportType":"FR Y-9C (Consolidated Financial Statements)","rssdId":"229913","fetchedAt":"2026-03-02T07:40:19.500Z","data":{"bhcName":"Mizuho Americas","rssdId":"229913","reportDate":"2026-03-02","formType":"FR Y-9C","metrics":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null}}}
+Failed to fetch data for M&T Bank: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 5)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:232:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for KeyBank N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 4)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:232:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for Mizuho Americas: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 0)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:232:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for Citizens Bank, N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at runNextTicks (node:internal/process/task_queues:69:3)
+    at process.processImmediate (node:internal/timers:453:9)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 3)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:232:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for U.S. Bank N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 2)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:232:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.30.52:443, 2600:1f12:18a:7d00:13bb:340c:bc21:f168:443, 56.137.201.79:443, 2600:1f12:18a:7d01:4871:c6a1:4701:479b:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+Failed to fetch data for PNC Bank, N.A.: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async fetchFDIC (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:124:20)
+    at async getFinancialsByCert (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:157:16)      
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:177:20)
+    at async Promise.all (index 1)
+    at async getAllPeerFinancials (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\lib\fdic-api.ts:185:3)      
+    at async Promise.all (index 0)
+    at async <anonymous> (C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho\server\routes.ts:232:50) {
+  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.222.99.30:443, 2600:1f12:18a:7d01:4486:a66f:a04d:db5b:443, 52.222.38.94:443, 2600:1f12:18a:7d00:6fe9:ec33:9431:5450:443, timeout: 10000ms)
+      at onConnectTimeout (node:internal/deps/undici/undici:2602:28)
+      at Immediate._onImmediate (node:internal/deps/undici/undici:2568:35)
+      at process.processImmediate (node:internal/timers:485:21) {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+1:10:25 PM [express] GET /api/data-sources/peer-data 200 in 11491ms :: {"sources":["FDIC BankFind Suite","FFIEC CDR","Federal Reserve NIC"],"fetchedAt":"2026-03-02T07:40:25.378Z","peerCount":6,"data":[{"name":"Mizuho Americas","cert":21843,"rssd":"229913","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]},{"name":"PNC Financial","cert":6384,"rssd":"817824","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]},{"name":"U.S. Bancorp","cert":6548,"rssd":"504713","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]},{"name":"Citizens Financial","cert":57957,"rssd":"3303298","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]},{"name":"KeyCorp","cert":17534,"rssd":"280110","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]},{"name":"M&T Bank","cert":57803,"rssd":"3284070","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]}]}
+1:10:28 PM [express] GET /api/data-sources/peer-data 200 in 2ms :: {"sources":["FDIC BankFind Suite","FFIEC CDR","Federal Reserve NIC"],"fetchedAt":"2026-03-02T07:40:28.392Z","peerCount":6,"data":[{"name":"Mizuho Americas","cert":21843,"rssd":"229913","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]},{"name":"PNC Financial","cert":6384,"rssd":"817824","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]},{"name":"U.S. Bancorp","cert":6548,"rssd":"504713","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]},{"name":"Citizens Financial","cert":57957,"rssd":"3303298","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]},{"name":"KeyCorp","cert":17534,"rssd":"280110","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]},{"name":"M&T Bank","cert":57803,"rssd":"3284070","callReport":null,"ubpr":{"netInterestMargin":null,"returnOnAssets":null,"returnOnEquity":null,"efficiencyRatio":null,"tier1LeverageRatio":null,"totalRiskBasedCapitalRatio":null,"netChargeOffsToLoans":null,"nonperformingToAssets":null,"loanToDepositRatio":null,"yieldOnEarningAssets":null,"costOfFundingEarningAssets":null,"provisionToAvgAssets":null},"fry9c":{"totalConsolidatedAssets":null,"totalLoans":null,"totalDeposits":null,"totalEquityCapital":null,"netIncome":null,"netInterestIncome":null,"nonInterestIncome":null,"provisionForCreditLosses":null,"totalRiskWeightedAssets":null,"cet1Capital":null,"cet1Ratio":null,"tier1CapitalRatio":null,"totalCapitalRatio":null,"supplementaryLeverageRatio":null},"historicalData":[]}]}
+1:10:29 PM [express] GET /api/data-sources/call-reports 500 in 10265ms :: {"error":"fetch failed"}
+PS C:\Users\e430515\Desktop\RICHA'S FOLDER\Demo_Mizuho>  
