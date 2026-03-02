@@ -2720,8 +2720,8 @@ function ReviewApprovalTab() {
   const varianceItems = isLive
     ? buildVarianceSummaries(current, prior, currentLabel, priorLabel)
     : buildVarianceSummaries(
-        { period: "Q4 2024", rawDate: "20241231", totalAssets: 225100000, totalDeposits: 178400000, totalLoans: 112500000, netIncome: 1520000, roe: 7.68, roa: 0.68, nim: 2.42, tier1Ratio: 12.8, efficiencyRatio: 62.4, npaRatio: 0.91, loanToDeposit: 63.1 },
-        { period: "Q3 2024", rawDate: "20240930", totalAssets: 220500000, totalDeposits: 175800000, totalLoans: 106800000, netIncome: 1410000, roe: 7.30, roa: 0.65, nim: 2.38, tier1Ratio: 12.5, efficiencyRatio: 60.1, npaRatio: 0.85, loanToDeposit: 60.8 },
+        { period: "Q4 2024", rawDate: "20241231", totalAssets: 8367264, totalDeposits: 6970697, totalLoans: 2511603, netIncome: 114122, roe: 9.55, roa: 1.65, nim: 1.94, tier1Ratio: 24.64, efficiencyRatio: 75.50, npaRatio: 0, loanToDeposit: 36.03 },
+        { period: "Q3 2024", rawDate: "20240930", totalAssets: 6596784, totalDeposits: 5232345, totalLoans: 2631356, netIncome: 88911, roe: 10.04, roa: 1.82, nim: 1.88, tier1Ratio: 23.80, efficiencyRatio: 76.42, npaRatio: 0, loanToDeposit: 50.29 },
         "Q4 2024", "Q3 2024"
       );
 

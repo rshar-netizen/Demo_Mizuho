@@ -108,7 +108,7 @@ export async function registerRoutes(
 
   app.get("/api/data-sources/call-reports", async (req, res) => {
     try {
-      const cert = parseInt(req.query.cert as string) || PEER_BANKS["PNC Bank, N.A."];
+      const cert = parseInt(req.query.cert as string) || 21843;
       const periods = parseInt(req.query.periods as string) || 8;
 
       const financials = await getFinancialsByCert(cert, periods);
