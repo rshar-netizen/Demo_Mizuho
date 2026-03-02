@@ -84,7 +84,7 @@ import {
 const steps = [
   { id: "instructions", label: "Regulatory Instructions", icon: Search, step: 1 },
   { id: "data", label: "Data & Dictionary", icon: Database, step: 2 },
-  { id: "anomalies", label: "Pattern Detection", icon: AlertTriangle, step: 3 },
+  { id: "anomalies", label: "Multi-Period Analysis", icon: AlertTriangle, step: 3 },
   { id: "review", label: "Report Review", icon: FileCheck, step: 4 },
   { id: "comparison", label: "Review & Approval", icon: GitCompare, step: 5 },
   { id: "trends", label: "Trend Analysis", icon: TrendingUp, step: 6 },
@@ -539,7 +539,7 @@ const OUT_OF_SCOPE_RESPONSE: AIQueryItem = {
   id: "out-of-scope",
   schedule: "—",
   question: "",
-  answer: "This question appears to be outside the scope of regulatory reporting requirements and filing instructions.\n\nThis assistant is designed to help with:\n- FFIEC Call Report (031/041) schedule requirements and filing rules\n- FR Y-9C schedule instructions for bank holding company reporting\n- Regulatory capital calculation guidance (Basel III, CET1, Tier 1, Total Capital)\n- Loan classification, deposit categorization, and derivative reporting rules\n- CECL provisioning requirements and nonaccrual/delinquency guidance\n\nFor other questions, please refer to:\n- Data analysis and trends — see the Pattern Detection and Trend Analysis tabs\n- Cross-report reconciliation and tie-outs — see the Report Review tab\n- Peer benchmarking and comparison — see the Peer Analysis page\n- Specific portfolio or position inquiries — consult the relevant business line team",
+  answer: "This question appears to be outside the scope of regulatory reporting requirements and filing instructions.\n\nThis assistant is designed to help with:\n- FFIEC Call Report (031/041) schedule requirements and filing rules\n- FR Y-9C schedule instructions for bank holding company reporting\n- Regulatory capital calculation guidance (Basel III, CET1, Tier 1, Total Capital)\n- Loan classification, deposit categorization, and derivative reporting rules\n- CECL provisioning requirements and nonaccrual/delinquency guidance\n\nFor other questions, please refer to:\n- Data analysis and trends — see the Multi-Period Analysis and Trend Analysis tabs\n- Cross-report reconciliation and tie-outs — see the Report Review tab\n- Peer benchmarking and comparison — see the Peer Analysis page\n- Specific portfolio or position inquiries — consult the relevant business line team",
   sources: [
     { label: "Scope", reference: "Filing Requirements & Instructions Only" },
   ],
@@ -1435,9 +1435,9 @@ function AnomaliesTab() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-serif font-semibold tracking-tight">Anomaly Detection</h2>
+          <h2 className="text-xl font-serif font-semibold tracking-tight">Multi-Period Pattern Analysis</h2>
           <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
-            Source data is analyzed for statistical anomalies, pattern breaks, and data integrity issues before any figures are processed into the regulatory report.
+            Historical Call Report data across 8+ quarters is analyzed for statistical anomalies, trend breaks, and outlier movements before report processing. Patterns that deviate from trailing averages are flagged with severity and recommended actions.
           </p>
         </div>
         {isLive && (
@@ -1478,7 +1478,7 @@ function AnomaliesTab() {
       <Card data-testid="card-anomaly-trend">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <CardTitle className="text-sm">Quarterly Trend — Key Deviation Metrics</CardTitle>
+            <CardTitle className="text-sm">Multi-Period Trend — Deviation from Historical Average</CardTitle>
             <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
               {anomalyTrendMetrics.map((m, i) => (
                 <button
@@ -1558,7 +1558,7 @@ function AnomaliesTab() {
       <Card data-testid="card-anomaly-log">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Anomaly Detail Log</CardTitle>
+            <CardTitle className="text-sm">Pattern Detection Log</CardTitle>
             <Badge variant="outline" className="text-xs font-mono">{totalFindings} findings</Badge>
           </div>
         </CardHeader>
