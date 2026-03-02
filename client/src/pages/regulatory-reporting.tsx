@@ -1368,7 +1368,8 @@ function useLiveAnomalies(): { anomalies: AnomalyRecord[]; isLive: boolean; hist
 const anomalyTrendMetrics = [
   { key: "tier1Ratio" as const, label: "Tier 1 Capital Ratio", unit: "%", color: "hsl(var(--chart-1))" },
   { key: "efficiencyRatio" as const, label: "Efficiency Ratio", unit: "%", color: "hsl(var(--destructive))" },
-  { key: "npaRatio" as const, label: "NPA Ratio", unit: "%", color: "hsl(var(--chart-3))" },
+  { key: "roe" as const, label: "Return on Equity", unit: "%", color: "hsl(var(--chart-3))" },
+  { key: "roa" as const, label: "Return on Assets", unit: "%", color: "hsl(var(--chart-4))" },
 ];
 
 interface AnomalyLogEntry {
