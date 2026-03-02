@@ -540,14 +540,14 @@ function RadarComparison({ banks }: { banks: PeerBank[] }) {
 function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
   const profitabilityData = banks.map((bank) => ({
     name: bank.ticker,
-    ROE: bank.roe,
-    ROA: bank.roa,
+    ROE: parseFloat(bank.roe.toFixed(2)),
+    ROA: parseFloat(bank.roa.toFixed(2)),
   }));
 
   const capitalData = banks.map((bank) => ({
     name: bank.ticker,
-    "Tier 1 Ratio": bank.cet1Ratio,
-    "Leverage": bank.leverageRatio,
+    "Tier 1 Ratio": parseFloat(bank.cet1Ratio.toFixed(2)),
+    "Leverage": parseFloat(bank.leverageRatio.toFixed(2)),
   }));
 
   return (
@@ -570,7 +570,7 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
                     borderRadius: "6px",
                     fontSize: "12px",
                   }}
-                  formatter={(value: number) => [`${value}%`, ""]}
+                  formatter={(value: number) => [`${Number(value).toFixed(2)}%`, ""]}
                 />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 <Bar dataKey="ROE" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
@@ -578,6 +578,7 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <p className="text-[10px] text-muted-foreground mt-1">Source: FDIC Call Reports (FFIEC 031/041) — ROE and ROA fields</p>
         </CardContent>
       </Card>
 
@@ -599,7 +600,7 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
                     borderRadius: "6px",
                     fontSize: "12px",
                   }}
-                  formatter={(value: number) => [`${value}%`, ""]}
+                  formatter={(value: number) => [`${Number(value).toFixed(2)}%`, ""]}
                 />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 <Bar dataKey="Tier 1 Ratio" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
@@ -607,6 +608,7 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <p className="text-[10px] text-muted-foreground mt-1">Source: FDIC Call Reports (FFIEC 031/041) — IDT1CER (Tier 1 ratio), RBCT1J/ASSET (leverage)</p>
         </CardContent>
       </Card>
     </div>
