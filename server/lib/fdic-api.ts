@@ -12,9 +12,13 @@ export interface FDICFinancialRecord {
   ROE: number;
   ROA: number;
   NIM: number;
+  NIMY: number;
   IDT1CER: number;
   IDTRCR: number;
+  RBC1AAJ: number;
   EEFFR: number;
+  EEFF: number;
+  NONII: number;
   P3ASSET: number;
   ELNANTR: number;
   LNLSNET: number;
@@ -34,8 +38,9 @@ export interface FDICAPIResponse {
 
 const FINANCIAL_FIELDS = [
   "CERT", "REPDTE", "INSTNAME", "ASSET", "DEP", "NETINC", "INTINC", "EINTEXP",
-  "NTLNLS", "ROE", "ROA", "NIM", "IDT1CER", "IDTRCR", "EEFFR", "P3ASSET",
-  "ELNANTR", "LNLSNET", "SC", "LNATRES", "DEPDOM", "RBCT1J", "EQ", "LIAB"
+  "NTLNLS", "ROE", "ROA", "NIM", "NIMY", "IDT1CER", "IDTRCR", "RBC1AAJ",
+  "EEFFR", "EEFF", "NONII", "P3ASSET", "ELNANTR", "LNLSNET", "SC", "LNATRES",
+  "DEPDOM", "RBCT1J", "EQ", "LIAB"
 ].join(",");
 
 export const PEER_BANKS: Record<string, number> = {
@@ -57,10 +62,25 @@ export const PEER_DISPLAY_NAMES: Record<number, string> = {
 };
 
 export function computeNIMPercent(record: FDICFinancialRecord): number {
+  if (record.NIMY != null) return record.NIMY;
   if (record.ASSET && record.INTINC && record.EINTEXP) {
     const nii = record.INTINC - record.EINTEXP;
     return (nii / record.ASSET) * 100;
   }
+  return 0;
+}
+
+export function computeEfficiencyRatio(record: FDICFinancialRecord): number {
+  if (record.EEFF && record.INTINC && record.NONII) {
+    return (record.EEFF / (record.INTINC + record.NONII)) * 100;
+  }
+  if (record.EEFFR != null) return record.EEFFR;
+  return 0;
+}
+
+export function getTier1Ratio(record: FDICFinancialRecord): number {
+  if (record.RBC1AAJ != null) return record.RBC1AAJ;
+  if (record.IDT1CER != null) return record.IDT1CER;
   return 0;
 }
 

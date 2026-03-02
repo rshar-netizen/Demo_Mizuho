@@ -10,6 +10,10 @@ Demo application for Mizuho Financial Group CFO presentation (March 2026). Showc
   - FDIC BankFind Suite API (Call Reports - FFIEC 031/041)
   - FFIEC Central Data Repository (UBPR)
   - Federal Reserve NIC (FR Y-9C)
+- **FDIC Ratio Fields** (matched to FDIC portal):
+  - NIM: `NIMY` (annualized net interest margin %)
+  - Tier 1: `RBC1AAJ` (Tier 1 capital / adjusted average assets)
+  - Efficiency: `EEFF / (INTINC + NONII) * 100` (non-interest expense / total revenue)
 - **Routing**: Wouter for client-side routing
 - **Caching**: In-memory cache with 30-minute TTL for API responses
 
