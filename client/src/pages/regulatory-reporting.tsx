@@ -455,8 +455,8 @@ function AIResponsePanel({ query }: { query: AIQueryItem | null }) {
       <div className="h-full flex items-center justify-center text-muted-foreground">
         <div className="text-center space-y-2">
           <MessageSquare className="w-8 h-8 mx-auto opacity-40" />
-          <p className="text-sm">Select a query to view AI analysis</p>
-          <p className="text-xs opacity-60">Responses are generated from ingested report data</p>
+          <p className="text-sm">Select a question or ask your own</p>
+          <p className="text-xs opacity-60">Guidance limited to regulatory reporting requirements, filing instructions, and schedule-specific rules</p>
         </div>
       </div>
     );
@@ -496,6 +496,33 @@ function AIResponsePanel({ query }: { query: AIQueryItem | null }) {
     </div>
   );
 }
+
+const SCOPE_KEYWORDS = [
+  "schedule", "rc", "ri", "hc", "filing", "report", "requirement", "instruction",
+  "ffiec", "call report", "y-9c", "fry9c", "fr y", "ubpr", "capital", "ratio",
+  "tier 1", "tier1", "cet1", "rwa", "risk-weight", "risk weight", "leverage",
+  "basel", "deposit", "loan", "nonaccrual", "past due", "delinquent", "provision",
+  "cecl", "allowance", "derivative", "netting", "fair value", "hedge", "gaap",
+  "asc ", "consolidat", "off-balance", "memorand", "edit check", "threshold",
+  "classify", "classification", "hvcre", "cre", "accrual", "tdr", "charge-off",
+  "securities", "htm", "afs", "aoci", "impairment", "regulatory", "compliance",
+  "quarter", "quarterly", "frequency", "deadline", "due date", "submission",
+];
+
+function isInScope(query: string): boolean {
+  const lower = query.toLowerCase();
+  return SCOPE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+const OUT_OF_SCOPE_RESPONSE: AIQueryItem = {
+  id: "out-of-scope",
+  schedule: "—",
+  question: "",
+  answer: "This question appears to be outside the scope of regulatory reporting requirements and filing instructions.\n\nThis assistant is designed to help with:\n- FFIEC Call Report (031/041) schedule requirements and filing rules\n- FR Y-9C schedule instructions for bank holding company reporting\n- Regulatory capital calculation guidance (Basel III, CET1, Tier 1, Total Capital)\n- Loan classification, deposit categorization, and derivative reporting rules\n- CECL provisioning requirements and nonaccrual/delinquency guidance\n\nFor other questions, please refer to:\n- Data analysis and trends — see the Pattern Detection and Trend Analysis tabs\n- Cross-report reconciliation and tie-outs — see the Report Review tab\n- Peer benchmarking and comparison — see the Peer Analysis page\n- Specific portfolio or position inquiries — consult the relevant business line team",
+  sources: [
+    { label: "Scope", reference: "Filing Requirements & Instructions Only" },
+  ],
+};
 
 function InstructionsTab() {
   const [selectedQuery, setSelectedQuery] = useState<AIQueryItem | null>(null);
@@ -591,7 +618,7 @@ function InstructionsTab() {
             </div>
             <Badge variant="outline" className="text-xs font-mono">{aiQueries.length} queries available</Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Select a question to view AI-generated analysis based on ingested report data</p>
+          <p className="text-xs text-muted-foreground mt-1">Ask questions about reporting requirements, filing instructions, and schedule-specific guidance</p>
         </CardHeader>
         <CardContent className="p-0">
           <div className="flex border-t">
@@ -620,11 +647,48 @@ function InstructionsTab() {
                     type="text"
                     value={customQuery}
                     onChange={(e) => setCustomQuery(e.target.value)}
-                    placeholder="Ask a question about the reports..."
+                    placeholder="Ask about filing requirements or schedule instructions..."
                     className="flex-1 h-8 rounded-md border bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                     data-testid="input-custom-query"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const btn = document.querySelector('[data-testid="button-send-custom-query"]') as HTMLButtonElement;
+                        btn?.click();
+                      }
+                    }}
                   />
-                  <Button size="icon" className="h-8 w-8 shrink-0" data-testid="button-send-custom-query">
+                  <Button
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    data-testid="button-send-custom-query"
+                    onClick={() => {
+                      if (!customQuery.trim()) return;
+                      if (isInScope(customQuery)) {
+                        const matched = aiQueries.find(q =>
+                          q.question.toLowerCase().includes(customQuery.toLowerCase().split(" ").filter(w => w.length > 3)[0] || "") ||
+                          customQuery.toLowerCase().includes(q.schedule.toLowerCase())
+                        );
+                        if (matched) {
+                          setSelectedQuery(matched);
+                        } else {
+                          setSelectedQuery({
+                            id: "custom-scope",
+                            schedule: "General",
+                            question: customQuery,
+                            answer: "Your question is within the scope of regulatory reporting requirements. Based on the filing instructions indexed in this system:\n\nPlease review the schedule-specific guidance cards above for detailed requirements. Each schedule card contains the applicable FFIEC or FR Y-9C filing rules, common pitfalls, and cross-reference points.\n\nFor more targeted guidance, try selecting one of the predefined questions on the left, or refine your question to reference a specific schedule (e.g., RC-R, RC-N, HC-R, RI).\n\nIf your question involves interpretation of a specific filing rule that is not covered here, consult:\n- FFIEC Call Report Instruction Books (available at ffiec.gov)\n- Federal Reserve FR Y-9C Instructions (available at federalreserve.gov)\n- Your institution's Regulatory Reporting team for entity-specific interpretations",
+                            sources: [
+                              { label: "FFIEC", reference: "Call Report Instructions" },
+                              { label: "Federal Reserve", reference: "FR Y-9C Instructions" },
+                            ],
+                          });
+                        }
+                      } else {
+                        setSelectedQuery(OUT_OF_SCOPE_RESPONSE);
+                      }
+                      setCustomQuery("");
+                    }}
+                  >
                     <Send className="w-3.5 h-3.5" />
                   </Button>
                 </div>
