@@ -104,8 +104,7 @@ export default function Home() {
                   <FileText className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">Use Case 1</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-0.5">Regulatory Reporting Lifecycle</p>
+                  <CardTitle className="text-base">Regulatory Reporting Lifecycle</CardTitle>
                 </div>
               </div>
               <Badge variant="secondary">6 Capabilities</Badge>
@@ -145,8 +144,7 @@ export default function Home() {
                   <BarChart3 className="w-5 h-5 text-chart-2" />
                 </div>
                 <div>
-                  <CardTitle className="text-base">Use Case 2</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-0.5">Peer Analysis & Comparison</p>
+                  <CardTitle className="text-base">Peer Analysis & Comparison</CardTitle>
                 </div>
               </div>
               <Badge variant="secondary">FDIC Data</Badge>
