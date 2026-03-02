@@ -680,7 +680,7 @@ export default function PeerAnalysis() {
       <div className="max-w-[1200px] mx-auto p-6 space-y-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Use Case II of II</p>
+            <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Peer Analysis</p>
             <Badge variant="outline" className="text-[10px] font-mono">FDIC Dataset</Badge>
             {isLive && (
               <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
