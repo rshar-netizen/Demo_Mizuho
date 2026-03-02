@@ -6,6 +6,8 @@ export interface ReportingInstruction {
   frequency: string;
   status: "analyzed" | "pending" | "flagged";
   requirements: string[];
+  humanReview?: boolean;
+  reviewReason?: string;
 }
 
 export interface DataColumn {
@@ -134,6 +136,8 @@ export const reportingInstructions: ReportingInstruction[] = [
     schedule: "RC-R",
     frequency: "Quarterly",
     status: "flagged",
+    humanReview: true,
+    reviewReason: "Complex risk-weighting methodology — Basel III standardized vs. advanced approaches require manual validation of asset category assignments and off-balance-sheet conversion factors",
     requirements: [
       "Calculate CET1 capital per Basel III standards",
       "Apply correct risk weights to all asset categories",
@@ -162,6 +166,8 @@ export const reportingInstructions: ReportingInstruction[] = [
     schedule: "RC-N",
     frequency: "Quarterly",
     status: "flagged",
+    humanReview: true,
+    reviewReason: "Judgment-based loan classification — nonaccrual determinations and TDR identification rely on subjective credit risk assessments that AI cannot fully validate",
     requirements: [
       "Report loans past due 30-89 days separately from 90+ days",
       "Identify nonaccrual loans by loan category per ASC 326 guidance",
@@ -176,6 +182,8 @@ export const reportingInstructions: ReportingInstruction[] = [
     schedule: "RC-L",
     frequency: "Quarterly",
     status: "flagged",
+    humanReview: true,
+    reviewReason: "Complex fair value hierarchy and netting rules — derivative valuation (Level 2/3), hedge accounting eligibility, and master netting agreement offsets require expert judgment",
     requirements: [
       "Report notional amounts by derivative type (interest rate, FX, credit, equity)",
       "Separate trading vs hedging derivative positions",

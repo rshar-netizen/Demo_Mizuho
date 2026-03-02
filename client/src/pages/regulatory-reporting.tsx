@@ -44,6 +44,7 @@ import {
   AreaChart as AreaChartIcon,
   Target,
   Zap,
+  Eye,
 } from "lucide-react";
 import {
   reportingInstructions,
@@ -166,6 +167,8 @@ const SCHEDULE_INSTRUCTIONS: Record<string, ReportingInstruction> = {
     schedule: "RC-R",
     frequency: "Quarterly",
     status: "analyzed",
+    humanReview: true,
+    reviewReason: "Complex risk-weighting methodology — Basel III standardized vs. advanced approaches require manual validation of asset category assignments and off-balance-sheet conversion factors",
     requirements: [
       "Calculate CET1 capital per Basel III standards",
       "Apply correct risk weights to all asset categories",
@@ -194,6 +197,8 @@ const SCHEDULE_INSTRUCTIONS: Record<string, ReportingInstruction> = {
     schedule: "RC-N",
     frequency: "Quarterly",
     status: "analyzed",
+    humanReview: true,
+    reviewReason: "Judgment-based loan classification — nonaccrual determinations and TDR identification rely on subjective credit risk assessments that AI cannot fully validate",
     requirements: [
       "Report loans past due 30-89 days separately from 90+ days",
       "Identify nonaccrual loans by loan category per ASC 326 guidance",
@@ -208,6 +213,8 @@ const SCHEDULE_INSTRUCTIONS: Record<string, ReportingInstruction> = {
     schedule: "RC-L",
     frequency: "Quarterly",
     status: "pending",
+    humanReview: true,
+    reviewReason: "Complex fair value hierarchy and netting rules — derivative valuation (Level 2/3), hedge accounting eligibility, and master netting agreement offsets require expert judgment",
     requirements: [
       "Report notional amounts by derivative type (interest rate, FX, credit, equity)",
       "Separate trading vs hedging derivative positions",
@@ -264,6 +271,8 @@ const SCHEDULE_INSTRUCTIONS: Record<string, ReportingInstruction> = {
     schedule: "HC-R",
     frequency: "Quarterly",
     status: "analyzed",
+    humanReview: true,
+    reviewReason: "Advanced capital adequacy calculations — BHC-level Basel III endgame rules, capital buffers (CCyB, G-SIB surcharge), and stress capital buffer integration require senior risk oversight",
     requirements: [
       "Calculate CET1 capital ratio per Basel III final rule (BHCA7205)",
       "Report Tier 1 capital ratio (BHCA7206) and Total capital ratio (BHCA7210)",
@@ -278,6 +287,8 @@ const SCHEDULE_INSTRUCTIONS: Record<string, ReportingInstruction> = {
     schedule: "HC-N",
     frequency: "Quarterly",
     status: "analyzed",
+    humanReview: true,
+    reviewReason: "Consolidated delinquency classification — intercompany loan eliminations and subsidiary-level nonaccrual policies may differ, requiring manual reconciliation across legal entities",
     requirements: [
       "Report loans past due 30-89 days and 90+ days by loan category",
       "Identify nonaccrual loans per ASC 326 and interagency guidance",
@@ -292,6 +303,8 @@ const SCHEDULE_INSTRUCTIONS: Record<string, ReportingInstruction> = {
     schedule: "HC-B",
     frequency: "Quarterly",
     status: "analyzed",
+    humanReview: true,
+    reviewReason: "Fair value measurement complexity — Level 3 securities valuations, OTTI/CECL impairment assessments, and HTM intent-and-ability documentation require accounting judgment",
     requirements: [
       "Report securities held-to-maturity at amortized cost",
       "Report available-for-sale securities at fair value",
@@ -391,7 +404,7 @@ function InstructionCard({ inst, idx }: { inst: ReportingInstruction; idx: numbe
 
   return (
     <Collapsible.Root open={open} onOpenChange={setOpen}>
-      <Card className="hover-elevate" data-testid={`card-instruction-${idx}`}>
+      <Card className={`hover-elevate ${inst.humanReview ? "ring-1 ring-amber-400/40 dark:ring-amber-500/30" : ""}`} data-testid={`card-instruction-${idx}`}>
         <Collapsible.Trigger asChild>
           <button className="w-full text-left p-3 flex items-start justify-between gap-2 cursor-pointer" data-testid={`button-toggle-instruction-${idx}`}>
             <div className="flex-1 min-w-0">
@@ -400,6 +413,12 @@ function InstructionCard({ inst, idx }: { inst: ReportingInstruction; idx: numbe
                 <Badge variant="secondary" className="text-xs">{inst.schedule}</Badge>
                 <StatusBadge status={inst.status} />
                 <Badge variant="outline" className="text-xs">{inst.frequency}</Badge>
+                {inst.humanReview && (
+                  <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30 text-xs gap-1" data-testid={`badge-human-review-${idx}`}>
+                    <Eye className="w-3 h-3" />
+                    Human Review
+                  </Badge>
+                )}
               </div>
               <h4 className="text-sm font-medium">{inst.section}</h4>
             </div>
@@ -409,6 +428,12 @@ function InstructionCard({ inst, idx }: { inst: ReportingInstruction; idx: numbe
         <Collapsible.Content>
           <div className="px-3 pb-3 pt-0 space-y-2 border-t border-border/50">
             <p className="text-xs text-muted-foreground pt-2">{inst.description}</p>
+            {inst.humanReview && inst.reviewReason && (
+              <div className="flex items-start gap-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40" data-testid={`review-reason-${idx}`}>
+                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <p className="text-xs text-amber-800 dark:text-amber-300">{inst.reviewReason}</p>
+              </div>
+            )}
             <div className="space-y-1">
               {inst.requirements.map((req, ridx) => (
                 <div key={ridx} className="flex items-start gap-2 text-xs text-muted-foreground">
@@ -507,9 +532,8 @@ function InstructionsTab() {
 
   const totalRecords = dataDictionaries.reduce((sum, d) => sum + d.recordCount, 0);
   const totalFields = dataDictionaries.reduce((sum, d) => sum + d.quality.totalFields, 0);
-  const totalAutoMapped = dataDictionaries.reduce((sum, d) => sum + d.quality.autoMapped, 0);
-  const overallAlignment = ((totalAutoMapped / totalFields) * 100).toFixed(1);
   const schedulesIndexed = liveInstructions.length;
+  const schedulesNeedingReview = liveInstructions.filter(i => i.humanReview).length;
   const reportDate = isLive ? liveRecords[0].reportDate : "Latest";
 
   return (
@@ -526,12 +550,12 @@ function InstructionsTab() {
           { value: schedulesIndexed.toString(), label: "Schedules Indexed", sub: isLive ? `FFIEC 031 + FR Y-9C (${reportDate})` : `${reportingInstructions.filter(r => r.id === "FFIEC-031").length} FFIEC 031` },
           { value: isLive ? liveRecords.length.toString() : dataDictionaries.length.toString(), label: isLive ? "Periods Ingested" : "Reports Ingested", sub: isLive ? `${liveRecords[liveRecords.length - 1]?.reportDate} – ${reportDate}` : "Call Report data" },
           { value: totalFields.toLocaleString(), label: "Data Fields Mapped", sub: `${totalRecords} records across sources` },
-          { value: `${overallAlignment}%`, label: "Auto-Mapped Accuracy", sub: `${totalAutoMapped.toLocaleString()} of ${totalFields.toLocaleString()} fields` },
+          { value: schedulesNeedingReview.toString(), label: "Flagged for Review", sub: `${schedulesIndexed - schedulesNeedingReview} schedules auto-cleared` },
         ].map((m, i) => (
-          <Card key={i} data-testid={`card-instr-metric-${i}`}>
+          <Card key={i} className={i === 3 ? "ring-1 ring-amber-400/40 dark:ring-amber-500/30" : ""} data-testid={`card-instr-metric-${i}`}>
             <CardContent className="p-4">
-              <p className="text-2xl font-mono font-normal text-foreground">{m.value}</p>
-              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">{m.label}</p>
+              <p className={`text-2xl font-mono font-normal ${i === 3 ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}>{m.value}</p>
+              <p className={`text-[10px] font-semibold tracking-wide uppercase mt-1 ${i === 3 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>{m.label}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">{m.sub}</p>
             </CardContent>
           </Card>
