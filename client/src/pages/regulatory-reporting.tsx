@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import {
   reportingInstructions,
+  type ReportingInstruction,
   dataDictionaries,
   anomalyRecords,
   reportLineItems,
@@ -55,6 +56,8 @@ import {
   type TrendDataPoint,
   aiQueries,
   type AIQueryItem,
+  unmappedFields,
+  type UnmappedField,
   formatCurrency,
   formatPercent,
 } from "@/lib/demo-data";
@@ -737,41 +740,74 @@ const dictionarySources = [
   { key: "FR_Y9C_BHC_DATA", label: "FR Y-9C" },
 ];
 
+const ISSUE_LABELS: Record<UnmappedField["issue"], { label: string; color: string }> = {
+  format_mismatch: { label: "Format Mismatch", color: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30" },
+  missing_source: { label: "Missing Source", color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/30" },
+  ambiguous_mapping: { label: "Ambiguous Mapping", color: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-400/30" },
+  deprecated_field: { label: "Deprecated Field", color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/30" },
+  null_population: { label: "Null Population", color: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-400/30" },
+  cross_source_conflict: { label: "Cross-Source Conflict", color: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-400/30" },
+};
+
 function DataDictionaryTab() {
   const [activeSource, setActiveSource] = useState(dictionarySources[0].key);
+  const [issueFilter, setIssueFilter] = useState<string>("all");
   const dict = dataDictionaries.find((d) => d.tableName === activeSource)!;
   const sourceLabel = dict.tableName.includes("CALL") ? "FDIC BankFind Suite API" :
     dict.tableName.includes("UBPR") ? "FFIEC Central Data Repository" : "Federal Reserve NIC";
   const totalRecords = dataDictionaries.reduce((sum, d) => sum + d.recordCount, 0);
   const totalFields = dataDictionaries.reduce((sum, d) => sum + d.quality.totalFields, 0);
   const totalAutoMapped = dataDictionaries.reduce((sum, d) => sum + d.quality.autoMapped, 0);
+  const totalUnmapped = totalFields - totalAutoMapped;
   const overallQuality = ((totalAutoMapped / totalFields) * 100).toFixed(1);
+  const unmappedRate = ((totalUnmapped / totalFields) * 100).toFixed(1);
+
+  const highIssues = unmappedFields.filter(f => f.severity === "high").length;
+  const mediumIssues = unmappedFields.filter(f => f.severity === "medium").length;
+  const lowIssues = unmappedFields.filter(f => f.severity === "low").length;
+
+  const filteredIssues = issueFilter === "all"
+    ? unmappedFields
+    : unmappedFields.filter(f => f.issue === issueFilter);
+
+  const issueTypes = Array.from(new Set(unmappedFields.map(f => f.issue)));
+
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-serif font-semibold tracking-tight">Data Ingestion & Profiling</h2>
+        <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-data-title">Data Preparation & Profiling</h2>
         <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
-          Multiple source data sets are ingested and automatically profiled. The system generates data dictionaries and flags data quality issues prior to report population.
+          Source data is ingested, profiled, and validated for quality. The system auto-maps fields to regulatory schedules and flags unmapped or problematic fields for review before report population.
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <Card data-testid="card-data-sources">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{totalRecords}</p>
-            <p className="text-xs text-muted-foreground">Records Ingested</p>
+          <CardContent className="p-4">
+            <p className="text-2xl font-mono font-normal text-foreground">{totalRecords}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Records Ingested</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Across {dataDictionaries.length} source tables</p>
           </CardContent>
         </Card>
         <Card data-testid="card-data-tables">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{totalFields.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Total Data Fields</p>
+          <CardContent className="p-4">
+            <p className="text-2xl font-mono font-normal text-foreground">{totalFields.toLocaleString()}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Total Data Fields</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{totalAutoMapped.toLocaleString()} auto-mapped</p>
           </CardContent>
         </Card>
         <Card data-testid="card-data-quality">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-emerald-500">{overallQuality}%</p>
-            <p className="text-xs text-muted-foreground">Auto-Mapped Rate</p>
+          <CardContent className="p-4">
+            <p className="text-2xl font-mono font-normal text-emerald-600 dark:text-emerald-400">{overallQuality}%</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Auto-Mapped Rate</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{totalAutoMapped.toLocaleString()} of {totalFields.toLocaleString()} fields</p>
+          </CardContent>
+        </Card>
+        <Card className="ring-1 ring-amber-400/40 dark:ring-amber-500/30" data-testid="card-data-unmapped">
+          <CardContent className="p-4">
+            <p className="text-2xl font-mono font-normal text-amber-700 dark:text-amber-400">{unmappedFields.length}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-amber-600 dark:text-amber-400 mt-1">Quality Issues</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{unmappedRate}% of fields require review</p>
           </CardContent>
         </Card>
       </div>
@@ -838,6 +874,95 @@ function DataDictionaryTab() {
               ))}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-quality-issues">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <CardTitle className="text-sm">Data Quality Issues</CardTitle>
+              <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30 text-[10px]">
+                {unmappedFields.length} fields require attention
+              </Badge>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Badge variant="destructive" className="text-[10px]">{highIssues} High</Badge>
+              <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-0 text-[10px]">{mediumIssues} Medium</Badge>
+              <Badge variant="secondary" className="text-[10px]">{lowIssues} Low</Badge>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Fields that could not be auto-mapped to regulatory schedules or have data quality concerns. Each issue includes a suggested resolution for the data preparation team.
+          </p>
+          <div className="flex items-center gap-1 mt-2 flex-wrap">
+            <button
+              onClick={() => setIssueFilter("all")}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer border ${
+                issueFilter === "all"
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "text-muted-foreground hover:text-foreground border-border/50 bg-muted/30"
+              }`}
+              data-testid="button-filter-all"
+            >
+              All ({unmappedFields.length})
+            </button>
+            {issueTypes.map((type) => {
+              const info = ISSUE_LABELS[type];
+              const count = unmappedFields.filter(f => f.issue === type).length;
+              return (
+                <button
+                  key={type}
+                  onClick={() => setIssueFilter(type)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer border ${
+                    issueFilter === type
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "text-muted-foreground hover:text-foreground border-border/50 bg-muted/30"
+                  }`}
+                  data-testid={`button-filter-${type}`}
+                >
+                  {info.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[340px]">
+            <div className="space-y-2">
+              {filteredIssues.map((field, idx) => {
+                const info = ISSUE_LABELS[field.issue];
+                return (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg border ${field.severity === "high" ? "border-red-300/50 dark:border-red-800/40" : "border-border/60"}`}
+                    data-testid={`quality-issue-${idx}`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs font-semibold text-foreground">{field.fieldName}</span>
+                        <Badge variant="outline" className="font-mono text-[10px]">{field.expectedType}</Badge>
+                        <Badge variant="secondary" className={`text-[10px] border ${info.color}`}>{info.label}</Badge>
+                        <SeverityBadge severity={field.severity} />
+                      </div>
+                      <Badge variant="outline" className="text-[10px] shrink-0">
+                        {field.affectedRecords > 0 ? `${field.affectedRecords} records` : "No data"}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mb-1">
+                      <span className="font-medium text-foreground/80">Source:</span> {field.source} · {field.table}
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{field.issueDescription}</p>
+                    <div className="mt-2 flex items-start gap-2 p-2 rounded-md bg-muted/40 border border-border/40">
+                      <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" />
+                      <p className="text-[11px] text-foreground/80 leading-relaxed">{field.suggestedResolution}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>

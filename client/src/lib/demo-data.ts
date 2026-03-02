@@ -304,6 +304,153 @@ export const dataDictionaries: DataDictionary[] = [
   }
 ];
 
+export interface UnmappedField {
+  fieldName: string;
+  source: string;
+  table: string;
+  expectedType: string;
+  issue: "format_mismatch" | "missing_source" | "ambiguous_mapping" | "deprecated_field" | "null_population" | "cross_source_conflict";
+  issueDescription: string;
+  suggestedResolution: string;
+  severity: "high" | "medium" | "low";
+  affectedRecords: number;
+}
+
+export const unmappedFields: UnmappedField[] = [
+  {
+    fieldName: "SCMTGBK",
+    source: "FDIC BankFind Suite",
+    table: "FFIEC_031_CALL_REPORT",
+    expectedType: "DECIMAL(18,0)",
+    issue: "deprecated_field",
+    issueDescription: "Mortgage-backed securities book value field was deprecated in Q1 2024 FFIEC instructions; replaced by SCMTGA (amortized cost) and SCMTGF (fair value) split",
+    suggestedResolution: "Map to new fields SCMTGA + SCMTGF; apply historical backfill for prior quarters using SCMTGBK as proxy",
+    severity: "high",
+    affectedRecords: 8,
+  },
+  {
+    fieldName: "STALPBK",
+    source: "FDIC BankFind Suite",
+    table: "FFIEC_031_CALL_REPORT",
+    expectedType: "DECIMAL(18,0)",
+    issue: "format_mismatch",
+    issueDescription: "State & local government securities field returns values in whole dollars for 3 quarters but in thousands for the remaining 5; inconsistent unit scaling detected",
+    suggestedResolution: "Normalize all values to thousands USD; apply magnitude check (if value > 10x median, divide by 1000)",
+    severity: "high",
+    affectedRecords: 3,
+  },
+  {
+    fieldName: "EQCDIV",
+    source: "FDIC BankFind Suite",
+    table: "FFIEC_031_CALL_REPORT",
+    expectedType: "DECIMAL(18,0)",
+    issue: "null_population",
+    issueDescription: "Cash dividends declared field is null for 6 of 8 quarterly periods; only Q4 filings contain non-null values, consistent with annual dividend declaration pattern",
+    suggestedResolution: "Accept null for Q1-Q3 as expected; flag only if Q4 is also null — indicates missing annual declaration",
+    severity: "low",
+    affectedRecords: 6,
+  },
+  {
+    fieldName: "INTEXPY",
+    source: "FDIC BankFind Suite",
+    table: "FFIEC_031_CALL_REPORT",
+    expectedType: "DECIMAL(18,0)",
+    issue: "ambiguous_mapping",
+    issueDescription: "Year-to-date interest expense field overlaps with quarterly EINTEXP; both are present in source data but map to different aggregation periods causing potential double-count",
+    suggestedResolution: "Use EINTEXP for quarterly analysis; derive QoQ change from INTEXPY year-to-date delta; do not sum both fields",
+    severity: "medium",
+    affectedRecords: 8,
+  },
+  {
+    fieldName: "LNRESNCR",
+    source: "FDIC BankFind Suite",
+    table: "FFIEC_031_CALL_REPORT",
+    expectedType: "DECIMAL(18,0)",
+    issue: "cross_source_conflict",
+    issueDescription: "FDIC loan loss reserve field diverges from FR Y-9C BHCK3123 by >2% for 2 quarters (Q2 and Q3 2024); bank-level vs. BHC-level consolidation difference exceeds tolerance",
+    suggestedResolution: "Investigate subsidiary-level reserve allocations; reconcile using intercompany elimination schedule; flag for manual review if variance persists",
+    severity: "high",
+    affectedRecords: 2,
+  },
+  {
+    fieldName: "NET_CHARGEOFFS_PCT",
+    source: "FFIEC CDR",
+    table: "FFIEC_UBPR_RATIOS",
+    expectedType: "DECIMAL(6,2)",
+    issue: "format_mismatch",
+    issueDescription: "UBPR net charge-off ratio returns basis points (e.g. 45) for some periods and percentage (e.g. 0.45) for others; format changed in 2024 UBPR update",
+    suggestedResolution: "Apply conditional transformation: if value > 10, divide by 100 to normalize to percentage format",
+    severity: "medium",
+    affectedRecords: 4,
+  },
+  {
+    fieldName: "LIQUIDITY_COVERAGE",
+    source: "FFIEC CDR",
+    table: "FFIEC_UBPR_RATIOS",
+    expectedType: "DECIMAL(6,2)",
+    issue: "missing_source",
+    issueDescription: "Liquidity coverage ratio field is referenced in UBPR Page 12 but not available via CDR bulk download; only accessible through individual institution UBPR PDF reports",
+    suggestedResolution: "Omit from automated pipeline; add to manual data collection checklist for quarterly UBPR PDF extraction",
+    severity: "medium",
+    affectedRecords: 0,
+  },
+  {
+    fieldName: "PEER_GROUP_PCT",
+    source: "FFIEC CDR",
+    table: "FFIEC_UBPR_RATIOS",
+    expectedType: "DECIMAL(6,2)",
+    issue: "ambiguous_mapping",
+    issueDescription: "Peer group percentile rank is returned as both a numeric rank and a descriptive category (e.g. '75' vs 'Top Quartile'); CDR API returns mixed format across endpoints",
+    suggestedResolution: "Parse numeric value only; discard descriptive text; standardize to percentile rank 0-100",
+    severity: "low",
+    affectedRecords: 3,
+  },
+  {
+    fieldName: "BHCK4230",
+    source: "Federal Reserve NIC",
+    table: "FR_Y9C_BHC_DATA",
+    expectedType: "DECIMAL(18,0)",
+    issue: "null_population",
+    issueDescription: "Provision for credit losses field returns null for all 8 quarters via NIC bulk data API; field is present in PDF filings but not in structured data feed",
+    suggestedResolution: "Supplement with FDIC ELNATR field as proxy at bank level; escalate NIC data feed gap to Federal Reserve data team",
+    severity: "high",
+    affectedRecords: 8,
+  },
+  {
+    fieldName: "BHCK8741",
+    source: "Federal Reserve NIC",
+    table: "FR_Y9C_BHC_DATA",
+    expectedType: "DECIMAL(18,0)",
+    issue: "cross_source_conflict",
+    issueDescription: "Gross positive fair value of derivatives (FR Y-9C) does not reconcile to FDIC RC-L derivative fair value within 5% tolerance for Q3 2024; BHC includes non-bank subsidiaries",
+    suggestedResolution: "Apply BHC-to-bank-level adjustment factor based on subsidiary contribution; document variance in reconciliation workpaper",
+    severity: "medium",
+    affectedRecords: 1,
+  },
+  {
+    fieldName: "BHCKB704",
+    source: "Federal Reserve NIC",
+    table: "FR_Y9C_BHC_DATA",
+    expectedType: "DECIMAL(18,0)",
+    issue: "deprecated_field",
+    issueDescription: "Supplementary leverage ratio exposure field was restructured in 2024 Basel III endgame proposal; BHCKB704 split into BHCKHT85 (on-balance) and BHCKHT86 (off-balance)",
+    suggestedResolution: "Map to new split fields for Q1 2025+; maintain BHCKB704 for historical quarters; add transformation logic for trend continuity",
+    severity: "medium",
+    affectedRecords: 4,
+  },
+  {
+    fieldName: "BHCA7204",
+    source: "Federal Reserve NIC",
+    table: "FR_Y9C_BHC_DATA",
+    expectedType: "DECIMAL(6,2)",
+    issue: "null_population",
+    issueDescription: "Leverage ratio field returns null via NIC API for all periods; structured data feed does not populate this derived ratio — only raw capital and exposure components are available",
+    suggestedResolution: "Derive from BHCKA223 (Tier 1 capital) / BHCK2170 (total assets); validate derived ratio against PDF filing",
+    severity: "low",
+    affectedRecords: 8,
+  },
+];
+
 export const anomalyRecords: AnomalyRecord[] = [
   { period: "Q4 2024", metric: "Net Loans QoQ Growth", value: 6.33, expected: 2.5, deviation: 3.83, severity: "high", description: "FDIC LNLSNET increased from $105.8B to $112.5B (+6.33% QoQ), more than double the 8-quarter average growth rate of 2.5%; Schedule RC-C concentration review recommended" },
   { period: "Q4 2024", metric: "AFS Securities Decline", value: -11.34, expected: -3.0, deviation: -8.34, severity: "high", description: "FDIC SCAFS dropped from $21.3B to $18.9B (−11.34% QoQ); AOCI variance flagged in cross-check with UBPR Page 6 — unrealized loss impact on equity needs review" },
