@@ -567,11 +567,6 @@ function InstructionsTab() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CardTitle className="text-sm">Regulatory Filing Requirements</CardTitle>
-              {isLive && (
-                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
-                  <Wifi className="w-3 h-3 mr-1" />Live — {reportDate}
-                </Badge>
-              )}
             </div>
             <Badge variant="outline" className="text-xs font-mono">{liveInstructions.length} schedules</Badge>
           </div>
