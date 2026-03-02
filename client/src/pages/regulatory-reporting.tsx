@@ -1335,20 +1335,15 @@ function computeQoQAnomaly(
 function computeLiveAnomalies(records: HistoricalRecord[]): AnomalyRecord[] {
   if (records.length < 2) return [];
   const sorted = [...records].sort((a, b) => b.rawDate.localeCompare(a.rawDate));
-  const from2024 = sorted.filter(r => r.rawDate >= "20240101");
-  if (from2024.length < 2) return [];
+  const current = sorted[0];
+  const prior = sorted[1];
 
-  const results: AnomalyRecord[] = [];
-  for (let i = 0; i < from2024.length - 1; i++) {
-    const current = from2024[i];
-    const prior = from2024[i + 1];
-    results.push(...computeQoQAnomaly(current, prior, sorted));
-  }
+  const results = computeQoQAnomaly(current, prior, sorted);
 
   results.sort((a, b) => {
     const sev = { high: 0, medium: 1, low: 2 };
     if (sev[a.severity] !== sev[b.severity]) return sev[a.severity] - sev[b.severity];
-    return b.period.localeCompare(a.period) || Math.abs(b.deviation) - Math.abs(a.deviation);
+    return Math.abs(b.deviation) - Math.abs(a.deviation);
   });
 
   return results;
@@ -1580,7 +1575,7 @@ function AnomaliesTab() {
       <Card data-testid="card-anomaly-log">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Pattern Detection Log</CardTitle>
+            <CardTitle className="text-sm">Pattern Detection Log — Latest Quarter</CardTitle>
             <Badge variant="outline" className="text-xs font-mono">{totalFindings} findings</Badge>
           </div>
         </CardHeader>
