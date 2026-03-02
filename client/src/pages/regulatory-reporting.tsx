@@ -130,168 +130,142 @@ interface CallReportRecord {
   tier1Capital: number | null;
 }
 
-function fmtM(val: number | null | undefined): string {
-  if (val == null) return "N/A";
-  return `$${(val / 1000).toLocaleString(undefined, { maximumFractionDigits: 0 })}M`;
-}
+const SCHEDULE_INSTRUCTIONS: Record<string, ReportingInstruction> = {
+  RC: {
+    id: "FFIEC-031",
+    section: "Schedule RC — Balance Sheet",
+    description: "Consolidated Report of Condition: Total assets, liabilities, and equity capital of the reporting institution",
+    schedule: "RC",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Total assets must equal total liabilities plus equity capital",
+      "All amounts reported in thousands of dollars",
+      "Consolidate all domestic and foreign offices",
+      "Report on a fully consolidated basis",
+    ],
+  },
+  "RC-C": {
+    id: "FFIEC-031",
+    section: "Schedule RC-C — Loans and Leases",
+    description: "Loans and lease financing receivables broken down by category including real estate, commercial, consumer, and agricultural loans",
+    schedule: "RC-C",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Report gross loans before deducting unearned income and allowance",
+      "Classify by loan type per FFIEC instructions",
+      "Include commitments and letters of credit",
+      "Reconcile to RC Schedule line items",
+    ],
+  },
+  "RC-R": {
+    id: "FFIEC-031",
+    section: "Schedule RC-R — Regulatory Capital",
+    description: "Risk-based capital ratios including CET1, Tier 1, and Total Capital ratios with risk-weighted assets calculation",
+    schedule: "RC-R",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Calculate CET1 capital per Basel III standards",
+      "Apply correct risk weights to all asset categories",
+      "Include off-balance-sheet exposures in RWA calculation",
+      "Report supplementary leverage ratio for advanced approaches",
+    ],
+  },
+  "RC-E": {
+    id: "FFIEC-031",
+    section: "Schedule RC-E — Deposit Liabilities",
+    description: "Breakdown of deposit liabilities by type, maturity, and insurance status including transaction and non-transaction accounts",
+    schedule: "RC-E",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Classify deposits as transaction or non-transaction accounts",
+      "Report time deposits by remaining maturity buckets",
+      "Separate insured vs uninsured deposits per FDIC coverage rules",
+      "Reconcile total deposits to Schedule RC line 13",
+    ],
+  },
+  "RC-N": {
+    id: "FFIEC-031",
+    section: "Schedule RC-N — Past Due and Nonaccrual",
+    description: "Delinquency and nonaccrual status of loans and leases by category, including 30-89 days past due and 90+ days past due",
+    schedule: "RC-N",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Report loans past due 30-89 days separately from 90+ days",
+      "Identify nonaccrual loans by loan category per ASC 326 guidance",
+      "Include restructured loans in appropriate aging buckets",
+      "Cross-reference delinquency totals to Schedule RC-C loan categories",
+    ],
+  },
+  "RC-L": {
+    id: "FFIEC-031",
+    section: "Schedule RC-L — Derivatives and Off-Balance Sheet",
+    description: "Notional amounts and fair values of derivative contracts and off-balance sheet exposures including commitments and guarantees",
+    schedule: "RC-L",
+    frequency: "Quarterly",
+    status: "pending",
+    requirements: [
+      "Report notional amounts by derivative type (interest rate, FX, credit, equity)",
+      "Separate trading vs hedging derivative positions",
+      "Report gross positive and negative fair values before netting",
+      "Include unused commitments and standby letters of credit",
+    ],
+  },
+  RI: {
+    id: "FFIEC-031",
+    section: "Schedule RI — Income Statement",
+    description: "Income and expense detail for the reporting period including interest income, interest expense, provisions, and non-interest components",
+    schedule: "RI",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Report interest income and expense on an accrual basis",
+      "Separate provision for credit losses per CECL from other provisions",
+      "Report realized gains and losses on securities separately",
+      "Reconcile net income to Schedule RC equity changes",
+    ],
+  },
+};
 
-function fmtPct(val: number | null | undefined): string {
-  if (val == null) return "N/A";
-  return `${val.toFixed(2)}%`;
-}
+const FIELD_TO_SCHEDULE: Record<string, string> = {
+  totalAssets: "RC",
+  totalDeposits: "RC-E",
+  securities: "RC",
+  loanLossReserve: "RC",
+  totalLoansAndLeases: "RC-C",
+  loanToDeposit: "RC-C",
+  tier1Ratio: "RC-R",
+  totalCapitalRatio: "RC-R",
+  tier1Capital: "RC-R",
+  domesticDeposits: "RC-E",
+  npaRatio: "RC-N",
+  chargeOffRate: "RC-N",
+  netIncome: "RI",
+  totalInterestIncome: "RI",
+  totalInterestExpense: "RI",
+  roe: "RI",
+  roa: "RI",
+  nim: "RI",
+  efficiencyRatio: "RI",
+};
 
-function buildLiveInstructions(latest: CallReportRecord, prior: CallReportRecord | null): ReportingInstruction[] {
-  const instructions: ReportingInstruction[] = [];
-  const rd = latest.reportDate;
-  const priorRd = prior?.reportDate || "Prior Period";
-
-  if (latest.totalAssets != null || latest.totalDeposits != null) {
-    const reqs: string[] = [];
-    if (latest.totalAssets != null) reqs.push(`Total Consolidated Assets reported: ${fmtM(latest.totalAssets)} (${rd})`);
-    if (latest.totalDeposits != null) reqs.push(`Total Deposits reported: ${fmtM(latest.totalDeposits)} (${rd})`);
-    if (latest.securities != null) reqs.push(`Investment Securities reported: ${fmtM(latest.securities)} (${rd})`);
-    if (latest.loanLossReserve != null) reqs.push(`Allowance for Loan Losses: ${fmtM(latest.loanLossReserve)} (${rd})`);
-    reqs.push("Total assets must equal total liabilities plus equity capital");
-    reqs.push("All amounts reported in thousands of dollars");
-    if (prior && prior.totalAssets != null && latest.totalAssets != null) {
-      const chg = ((latest.totalAssets - prior.totalAssets) / prior.totalAssets * 100).toFixed(1);
-      reqs.push(`QoQ Change in Total Assets: ${Number(chg) >= 0 ? "+" : ""}${chg}% vs ${priorRd}`);
-    }
-    instructions.push({
-      id: "FFIEC-031",
-      section: "Schedule RC — Balance Sheet",
-      description: `Consolidated Report of Condition for ${latest.institutionName} (CERT ${latest.cert}) as of ${rd}. Reports total assets, liabilities, and equity capital.`,
-      schedule: "RC",
-      frequency: "Quarterly",
-      status: "analyzed",
-      requirements: reqs,
-    });
+function buildLiveInstructions(record: CallReportRecord): ReportingInstruction[] {
+  const activeSchedules = new Set<string>();
+  for (const [field, schedule] of Object.entries(FIELD_TO_SCHEDULE)) {
+    const val = (record as any)[field];
+    if (val != null) activeSchedules.add(schedule);
   }
+  activeSchedules.add("RC-L");
 
-  if (latest.totalLoansAndLeases != null) {
-    const reqs: string[] = [];
-    reqs.push(`Net Loans and Leases reported: ${fmtM(latest.totalLoansAndLeases)} (${rd})`);
-    if (latest.loanToDeposit != null) reqs.push(`Loan-to-Deposit Ratio: ${fmtPct(latest.loanToDeposit)}`);
-    if (latest.loanLossReserve != null && latest.totalLoansAndLeases != null) {
-      const coverage = (latest.loanLossReserve / latest.totalLoansAndLeases * 100).toFixed(2);
-      reqs.push(`Reserve Coverage Ratio: ${coverage}% of total loans`);
-    }
-    reqs.push("Report gross loans before deducting unearned income and allowance");
-    reqs.push("Classify by loan type per FFIEC instructions");
-    if (prior && prior.totalLoansAndLeases != null) {
-      const chg = ((latest.totalLoansAndLeases - prior.totalLoansAndLeases) / prior.totalLoansAndLeases * 100).toFixed(1);
-      reqs.push(`QoQ Change in Loans: ${Number(chg) >= 0 ? "+" : ""}${chg}% vs ${priorRd}`);
-    }
-    instructions.push({
-      id: "FFIEC-031",
-      section: "Schedule RC-C — Loans and Leases",
-      description: `Loans and lease financing receivables for ${latest.institutionName} as of ${rd}, broken down by category.`,
-      schedule: "RC-C",
-      frequency: "Quarterly",
-      status: "analyzed",
-      requirements: reqs,
-    });
-  }
-
-  if (latest.tier1Ratio != null || latest.totalCapitalRatio != null) {
-    const reqs: string[] = [];
-    if (latest.tier1Ratio != null) reqs.push(`Tier 1 Capital Ratio: ${fmtPct(latest.tier1Ratio)} (${rd})`);
-    if (latest.totalCapitalRatio != null) reqs.push(`Total Capital Ratio: ${fmtPct(latest.totalCapitalRatio)} (${rd})`);
-    if (latest.tier1Capital != null) reqs.push(`Tier 1 Capital: ${fmtM(latest.tier1Capital)} (${rd})`);
-    reqs.push("Calculate CET1 capital per Basel III standards");
-    reqs.push("Apply correct risk weights to all asset categories");
-    const wellCap = (latest.tier1Ratio ?? 0) >= 8;
-    reqs.push(`Well-Capitalized Threshold (≥8% Tier 1): ${wellCap ? "Met" : "Below threshold — review required"}`);
-    if (prior && prior.tier1Ratio != null && latest.tier1Ratio != null) {
-      const chg = (latest.tier1Ratio - prior.tier1Ratio).toFixed(2);
-      reqs.push(`QoQ Change in Tier 1 Ratio: ${Number(chg) >= 0 ? "+" : ""}${chg}pp vs ${priorRd}`);
-    }
-    instructions.push({
-      id: "FFIEC-031",
-      section: "Schedule RC-R — Regulatory Capital",
-      description: `Risk-based capital ratios for ${latest.institutionName} as of ${rd}, including Tier 1 and Total Capital with risk-weighted assets.`,
-      schedule: "RC-R",
-      frequency: "Quarterly",
-      status: wellCap ? "analyzed" : "flagged",
-      requirements: reqs,
-    });
-  }
-
-  if (latest.totalDeposits != null) {
-    const reqs: string[] = [];
-    reqs.push(`Total Deposits reported: ${fmtM(latest.totalDeposits)} (${rd})`);
-    if (latest.domesticDeposits != null) reqs.push(`Domestic Deposits: ${fmtM(latest.domesticDeposits)} (${rd})`);
-    if (latest.domesticDeposits != null && latest.totalDeposits != null) {
-      const foreign = latest.totalDeposits - latest.domesticDeposits;
-      if (foreign > 0) reqs.push(`Foreign Office Deposits: ${fmtM(foreign)} (${rd})`);
-    }
-    reqs.push("Classify deposits as transaction or non-transaction accounts");
-    reqs.push("Separate insured vs uninsured deposits per FDIC coverage rules");
-    if (prior && prior.totalDeposits != null) {
-      const chg = ((latest.totalDeposits - prior.totalDeposits) / prior.totalDeposits * 100).toFixed(1);
-      reqs.push(`QoQ Change in Deposits: ${Number(chg) >= 0 ? "+" : ""}${chg}% vs ${priorRd}`);
-    }
-    instructions.push({
-      id: "FFIEC-031",
-      section: "Schedule RC-E — Deposit Liabilities",
-      description: `Deposit liabilities breakdown for ${latest.institutionName} as of ${rd}, including domestic and foreign office deposits.`,
-      schedule: "RC-E",
-      frequency: "Quarterly",
-      status: "analyzed",
-      requirements: reqs,
-    });
-  }
-
-  if (latest.npaRatio != null) {
-    const reqs: string[] = [];
-    reqs.push(`Non-Performing Assets Ratio: ${fmtPct(latest.npaRatio)} (${rd})`);
-    if (latest.chargeOffRate != null) reqs.push(`Net Charge-Off Rate: ${fmtPct(latest.chargeOffRate)} (${rd})`);
-    reqs.push("Report loans past due 30-89 days separately from 90+ days");
-    reqs.push("Identify nonaccrual loans by loan category per ASC 326 guidance");
-    const elevated = (latest.npaRatio ?? 0) > 1.5;
-    if (elevated) reqs.push("NPA ratio above 1.5% — supervisory attention recommended");
-    if (prior && prior.npaRatio != null) {
-      const chg = (latest.npaRatio - prior.npaRatio).toFixed(2);
-      reqs.push(`QoQ Change in NPA Ratio: ${Number(chg) >= 0 ? "+" : ""}${chg}pp vs ${priorRd}`);
-    }
-    instructions.push({
-      id: "FFIEC-031",
-      section: "Schedule RC-N — Past Due and Nonaccrual",
-      description: `Delinquency and nonaccrual status for ${latest.institutionName} as of ${rd}.`,
-      schedule: "RC-N",
-      frequency: "Quarterly",
-      status: elevated ? "flagged" : "analyzed",
-      requirements: reqs,
-    });
-  }
-
-  if (latest.netIncome != null || latest.totalInterestIncome != null) {
-    const reqs: string[] = [];
-    if (latest.netIncome != null) reqs.push(`Net Income reported: ${fmtM(latest.netIncome)} (${rd})`);
-    if (latest.totalInterestIncome != null) reqs.push(`Total Interest Income: ${fmtM(latest.totalInterestIncome)} (${rd})`);
-    if (latest.totalInterestExpense != null) reqs.push(`Total Interest Expense: ${fmtM(latest.totalInterestExpense)} (${rd})`);
-    if (latest.nim != null) reqs.push(`Net Interest Margin: ${fmtPct(latest.nim)}`);
-    if (latest.roe != null) reqs.push(`Return on Equity: ${fmtPct(latest.roe)}`);
-    if (latest.roa != null) reqs.push(`Return on Assets: ${fmtPct(latest.roa)}`);
-    if (latest.efficiencyRatio != null) reqs.push(`Efficiency Ratio: ${fmtPct(latest.efficiencyRatio)}`);
-    reqs.push("Report interest income and expense on an accrual basis");
-    reqs.push("Reconcile net income to Schedule RC equity changes");
-    if (prior && prior.netIncome != null && latest.netIncome != null) {
-      const chg = ((latest.netIncome - prior.netIncome) / Math.abs(prior.netIncome) * 100).toFixed(1);
-      reqs.push(`QoQ Change in Net Income: ${Number(chg) >= 0 ? "+" : ""}${chg}% vs ${priorRd}`);
-    }
-    instructions.push({
-      id: "FFIEC-031",
-      section: "Schedule RI — Income Statement",
-      description: `Income and expense detail for ${latest.institutionName} for the period ending ${rd}.`,
-      schedule: "RI",
-      frequency: "Quarterly",
-      status: "analyzed",
-      requirements: reqs,
-    });
-  }
-
-  return instructions;
+  const order = ["RC", "RC-C", "RC-R", "RC-E", "RC-N", "RC-L", "RI"];
+  return order
+    .filter(s => activeSchedules.has(s))
+    .map(s => SCHEDULE_INSTRUCTIONS[s])
+    .filter(Boolean);
 }
 
 function InstructionCard({ inst, idx }: { inst: ReportingInstruction; idx: number }) {
@@ -397,7 +371,7 @@ function InstructionsTab() {
 
   const liveRecords = callReportData?.data || [];
   const liveInstructions = liveRecords.length > 0
-    ? buildLiveInstructions(liveRecords[0], liveRecords[1] || null)
+    ? buildLiveInstructions(liveRecords[0])
     : reportingInstructions;
   const isLive = liveRecords.length > 0;
 
