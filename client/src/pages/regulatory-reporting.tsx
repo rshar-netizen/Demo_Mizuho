@@ -470,9 +470,19 @@ function AIResponsePanel({ query }: { query: AIQueryItem | null }) {
         <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
           <MessageSquare className="w-3 h-3 text-primary" />
         </div>
-        <span className="text-xs font-medium text-primary">AI Analysis</span>
-        <Badge variant="outline" className="text-[10px] ml-auto">Schedule {query.schedule}</Badge>
+        <span className="text-xs font-medium text-primary">
+          {query.id === "out-of-scope" ? "Out of Scope" : "Reporting Guidance"}
+        </span>
+        <Badge variant="outline" className="text-[10px] ml-auto">
+          {query.schedule === "—" ? "N/A" : `Schedule ${query.schedule}`}
+        </Badge>
       </div>
+
+      {query.question && (
+        <div className="px-3 py-2 rounded-md bg-muted/40 border border-border/40">
+          <p className="text-xs text-muted-foreground italic">"{query.question}"</p>
+        </div>
+      )}
 
       <div className="space-y-3">
         {paragraphs.map((p, i) => (
@@ -497,21 +507,25 @@ function AIResponsePanel({ query }: { query: AIQueryItem | null }) {
   );
 }
 
-const SCOPE_KEYWORDS = [
-  "schedule", "rc", "ri", "hc", "filing", "report", "requirement", "instruction",
+const SCOPE_PHRASES = [
+  "schedule", "filing", "report", "requirement", "instruction",
   "ffiec", "call report", "y-9c", "fry9c", "fr y", "ubpr", "capital", "ratio",
-  "tier 1", "tier1", "cet1", "rwa", "risk-weight", "risk weight", "leverage",
+  "tier 1", "tier1", "cet1", "risk-weight", "risk weight", "leverage",
   "basel", "deposit", "loan", "nonaccrual", "past due", "delinquent", "provision",
-  "cecl", "allowance", "derivative", "netting", "fair value", "hedge", "gaap",
-  "asc ", "consolidat", "off-balance", "memorand", "edit check", "threshold",
-  "classify", "classification", "hvcre", "cre", "accrual", "tdr", "charge-off",
-  "securities", "htm", "afs", "aoci", "impairment", "regulatory", "compliance",
-  "quarter", "quarterly", "frequency", "deadline", "due date", "submission",
+  "cecl", "allowance", "derivative", "netting", "fair value", "hedge",
+  "consolidat", "off-balance", "memorand", "edit check", "threshold",
+  "classify", "classification", "hvcre", "accrual", "charge-off",
+  "securities", "impairment", "regulatory", "compliance",
+  "quarterly", "frequency", "deadline", "submission",
 ];
+
+const SCOPE_EXACT_WORDS = ["rc", "ri", "hc", "rwa", "gaap", "asc", "cre", "tdr", "htm", "afs", "aoci"];
 
 function isInScope(query: string): boolean {
   const lower = query.toLowerCase();
-  return SCOPE_KEYWORDS.some(kw => lower.includes(kw));
+  if (SCOPE_PHRASES.some(kw => lower.includes(kw))) return true;
+  const words = lower.split(/\s+/);
+  return SCOPE_EXACT_WORDS.some(kw => words.includes(kw));
 }
 
 const OUT_OF_SCOPE_RESPONSE: AIQueryItem = {
@@ -665,10 +679,15 @@ function InstructionsTab() {
                     onClick={() => {
                       if (!customQuery.trim()) return;
                       if (isInScope(customQuery)) {
-                        const matched = aiQueries.find(q =>
-                          q.question.toLowerCase().includes(customQuery.toLowerCase().split(" ").filter(w => w.length > 3)[0] || "") ||
-                          customQuery.toLowerCase().includes(q.schedule.toLowerCase())
-                        );
+                        const queryLower = customQuery.toLowerCase();
+                        const significantWords = queryLower.split(/\s+/).filter(w => w.length > 3);
+                        const matched = significantWords.length > 0
+                          ? aiQueries.find(q => {
+                              const qLower = q.question.toLowerCase();
+                              const matchCount = significantWords.filter(w => qLower.includes(w)).length;
+                              return matchCount >= 2 || queryLower.includes(q.schedule.toLowerCase());
+                            })
+                          : aiQueries.find(q => queryLower.includes(q.schedule.toLowerCase()));
                         if (matched) {
                           setSelectedQuery(matched);
                         } else {
@@ -684,7 +703,10 @@ function InstructionsTab() {
                           });
                         }
                       } else {
-                        setSelectedQuery(OUT_OF_SCOPE_RESPONSE);
+                        setSelectedQuery({
+                          ...OUT_OF_SCOPE_RESPONSE,
+                          question: customQuery,
+                        });
                       }
                       setCustomQuery("");
                     }}
