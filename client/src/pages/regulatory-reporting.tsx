@@ -2460,9 +2460,9 @@ function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalReco
     id: "VS-01", metric: "Total Consolidated Assets", category: "balance_sheet",
     currentVal: current.totalAssets, priorVal: prior.totalAssets, changePercent: assetChg, isRatio: false,
     priority: Math.abs(assetChg) > 5 ? "high" : Math.abs(assetChg) > 2 ? "medium" : "low",
-    finding: `Total assets ${assetChg >= 0 ? "increased" : "decreased"} ${Math.abs(assetChg).toFixed(1)}% from $${(prior.totalAssets / 1000).toFixed(1)}M to $${(current.totalAssets / 1000).toFixed(1)}M. ${Math.abs(assetChg) > 5 ? "This exceeds the 5% quarterly threshold requiring management review." : "Movement is within normal operating range."}`,
-    recommendation: Math.abs(assetChg) > 5 ? "Review Schedule RC balance sheet composition for drivers of the outsized movement. Verify against FR Y-9C HC-1 and UBPR Page 1." : "No action required. Confirmed within expected parameters.",
-    dataSources: ["FDIC Call Report (RCFD2170)", "FR Y-9C (BHCK2170)", "UBPR Page 1"],
+    finding: `Total assets ${assetChg >= 0 ? "increased" : "decreased"} ${Math.abs(assetChg).toFixed(1)}% in ${currentLabel} to $${(current.totalAssets / 1000).toFixed(1)}M from $${(prior.totalAssets / 1000).toFixed(1)}M in ${priorLabel}. ${Math.abs(assetChg) > 5 ? "This exceeds the 5% quarterly threshold requiring management review." : "Movement is within normal operating range."}`,
+    recommendation: Math.abs(assetChg) > 5 ? "Review Schedule RC balance sheet composition for drivers of the outsized movement." : "No action required. Confirmed within expected parameters.",
+    dataSources: ["FDIC Call Report (ASSET / RCFD2170)"],
   });
 
   const loanChg = pct(current.totalLoans, prior.totalLoans);
@@ -2470,9 +2470,9 @@ function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalReco
     id: "VS-02", metric: "Net Loans & Leases", category: "balance_sheet",
     currentVal: current.totalLoans, priorVal: prior.totalLoans, changePercent: loanChg, isRatio: false,
     priority: Math.abs(loanChg) > 5 ? "high" : Math.abs(loanChg) > 3 ? "medium" : "low",
-    finding: `Loan portfolio ${loanChg >= 0 ? "grew" : "contracted"} ${Math.abs(loanChg).toFixed(1)}% QoQ. ${loanChg > 5 ? "Growth exceeds historical average, suggesting accelerated origination activity." : loanChg < -3 ? "Contraction may indicate elevated paydowns or tightening credit standards." : "Growth trajectory is consistent with recent quarters."}`,
+    finding: `Loan portfolio ${loanChg >= 0 ? "grew" : "contracted"} ${Math.abs(loanChg).toFixed(1)}% in ${currentLabel} to $${(current.totalLoans / 1000).toFixed(1)}M. ${loanChg > 5 ? "Growth exceeds historical average, suggesting accelerated origination activity." : loanChg < -3 ? "Contraction may indicate elevated paydowns or tightening credit standards." : "Growth trajectory is consistent with recent quarters."}`,
     recommendation: loanChg > 5 ? "Validate Schedule RC-C concentration limits. Review C&I and CRE segment breakdowns for risk appetite alignment." : "Verify loan mix against internal risk appetite statement.",
-    dataSources: ["FDIC Call Report (RCFD2122)", "UBPR Page 4"],
+    dataSources: ["FDIC Call Report (LNLSNET)"],
   });
 
   const depositChg = pct(current.totalDeposits, prior.totalDeposits);
@@ -2480,9 +2480,9 @@ function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalReco
     id: "VS-03", metric: "Total Deposits", category: "balance_sheet",
     currentVal: current.totalDeposits, priorVal: prior.totalDeposits, changePercent: depositChg, isRatio: false,
     priority: Math.abs(depositChg) > 5 ? "high" : "low",
-    finding: `Deposit base ${depositChg >= 0 ? "expanded" : "contracted"} ${Math.abs(depositChg).toFixed(1)}% to $${(current.totalDeposits / 1000).toFixed(1)}M. ${depositChg < -3 ? "Outflows may signal competitive rate pressure or client rebalancing." : "Deposit stability is consistent with funding strategy."}`,
+    finding: `Deposit base ${depositChg >= 0 ? "expanded" : "contracted"} ${Math.abs(depositChg).toFixed(1)}% in ${currentLabel} to $${(current.totalDeposits / 1000).toFixed(1)}M from $${(prior.totalDeposits / 1000).toFixed(1)}M in ${priorLabel}. ${depositChg < -3 ? "Outflows may signal competitive rate pressure or client rebalancing." : "Deposit stability is consistent with funding strategy."}`,
     recommendation: Math.abs(depositChg) > 5 ? "Review Schedule RC-E deposit composition (core vs. brokered). Assess liquidity coverage ratio impact." : "No material concerns identified.",
-    dataSources: ["FDIC Call Report (RCON2200)", "UBPR Page 3"],
+    dataSources: ["FDIC Call Report (DEP)"],
   });
 
   const incomeChg = pct(current.netIncome, prior.netIncome);
@@ -2490,9 +2490,9 @@ function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalReco
     id: "VS-04", metric: "Net Income", category: "income",
     currentVal: current.netIncome, priorVal: prior.netIncome, changePercent: incomeChg, isRatio: false,
     priority: Math.abs(incomeChg) > 15 ? "high" : Math.abs(incomeChg) > 8 ? "medium" : "low",
-    finding: `Net income ${incomeChg >= 0 ? "increased" : "declined"} ${Math.abs(incomeChg).toFixed(1)}% QoQ to $${(current.netIncome / 1000).toFixed(1)}M. ${Math.abs(incomeChg) > 15 ? "Material movement requires explanation in the management commentary." : "Within expected quarterly variation."}`,
+    finding: `Net income ${incomeChg >= 0 ? "increased" : "declined"} ${Math.abs(incomeChg).toFixed(1)}% in ${currentLabel} to $${(current.netIncome / 1000).toFixed(1)}M from $${(prior.netIncome / 1000).toFixed(1)}M in ${priorLabel}. ${Math.abs(incomeChg) > 15 ? "Material movement requires explanation in the management commentary." : "Within expected quarterly variation."}`,
     recommendation: Math.abs(incomeChg) > 15 ? "Decompose income drivers — NII, non-interest income, and provision expense — to identify primary contributors." : "Standard variance within peer norms.",
-    dataSources: ["FDIC Call Report (RIAD4340)", "FR Y-9C (BHCK4340)", "UBPR Page 2"],
+    dataSources: ["FDIC Call Report (NETINC)"],
   });
 
   const nimChg = current.nim - prior.nim;
@@ -2500,9 +2500,9 @@ function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalReco
     id: "VS-05", metric: "Net Interest Margin", category: "income",
     currentVal: current.nim, priorVal: prior.nim, changePercent: pct(current.nim, prior.nim), isRatio: true,
     priority: Math.abs(nimChg) > 0.3 ? "high" : Math.abs(nimChg) > 0.1 ? "medium" : "low",
-    finding: `NIM ${nimChg >= 0 ? "expanded" : "compressed"} ${Math.abs(nimChg).toFixed(0)}bps to ${current.nim.toFixed(2)}% from ${prior.nim.toFixed(2)}%. ${Math.abs(nimChg) > 30 ? "Significant margin shift driven by rate environment and asset/liability repricing dynamics." : "Marginal movement consistent with current rate cycle positioning."}`,
+    finding: `NIM ${nimChg >= 0 ? "expanded" : "compressed"} ${Math.abs(nimChg * 100).toFixed(0)}bps in ${currentLabel} to ${current.nim.toFixed(2)}% from ${prior.nim.toFixed(2)}% in ${priorLabel}. ${Math.abs(nimChg) > 0.3 ? "Significant margin shift driven by rate environment and asset/liability repricing dynamics." : "Marginal movement consistent with current rate cycle positioning."}`,
     recommendation: Math.abs(nimChg) > 0.3 ? "Review interest rate sensitivity analysis and repricing gap schedules. Assess impact on forward earnings projections." : "Continue monitoring against peer median.",
-    dataSources: ["UBPR Page 1 (NIM)", "FDIC derived (NII / Avg Earning Assets)"],
+    dataSources: ["FDIC derived (INTINC − EINTEXP) / ASSET"],
   });
 
   const tier1Chg = current.tier1Ratio - prior.tier1Ratio;
@@ -2510,9 +2510,9 @@ function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalReco
     id: "VS-06", metric: "Tier 1 Capital Ratio", category: "capital",
     currentVal: current.tier1Ratio, priorVal: prior.tier1Ratio, changePercent: pct(current.tier1Ratio, prior.tier1Ratio), isRatio: true,
     priority: current.tier1Ratio < 8 ? "high" : Math.abs(tier1Chg) > 1 ? "medium" : "low",
-    finding: `Tier 1 ratio ${tier1Chg >= 0 ? "strengthened" : "declined"} ${Math.abs(tier1Chg).toFixed(0)}bps to ${current.tier1Ratio.toFixed(2)}%. Buffer above regulatory minimum (6.0%) stands at ${(current.tier1Ratio - 6.0).toFixed(1)}pp. ${current.tier1Ratio > 12 ? "Capital position remains well-capitalized." : current.tier1Ratio > 8 ? "Capital is adequate but bears monitoring." : "Approaching regulatory scrutiny threshold."}`,
+    finding: `Tier 1 ratio ${tier1Chg >= 0 ? "strengthened" : "declined"} ${Math.abs(tier1Chg * 100).toFixed(0)}bps in ${currentLabel} to ${current.tier1Ratio.toFixed(2)}% from ${prior.tier1Ratio.toFixed(2)}% in ${priorLabel}. Buffer above regulatory minimum (6.0%) stands at ${(current.tier1Ratio - 6.0).toFixed(1)}pp. ${current.tier1Ratio > 12 ? "Capital position remains well-capitalized." : current.tier1Ratio > 8 ? "Capital is adequate but bears monitoring." : "Approaching regulatory scrutiny threshold."}`,
     recommendation: tier1Chg < -1 ? "Investigate RWA growth drivers. Confirm capital planning assumptions remain valid." : "No remediation required. Capital accretion on track.",
-    dataSources: ["FDIC Call Report (Schedule RC-R)", "FR Y-9C (HC-R)", "UBPR Page 11"],
+    dataSources: ["FDIC Call Report (IDT1CER / Schedule RC-R)"],
   });
 
   const roeChg = current.roe - prior.roe;
@@ -2520,9 +2520,9 @@ function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalReco
     id: "VS-07", metric: "Return on Equity", category: "income",
     currentVal: current.roe, priorVal: prior.roe, changePercent: pct(current.roe, prior.roe), isRatio: true,
     priority: Math.abs(roeChg) > 2 ? "medium" : "low",
-    finding: `ROE ${roeChg >= 0 ? "improved" : "declined"} ${Math.abs(roeChg).toFixed(0)}bps to ${current.roe.toFixed(2)}%. ${current.roe > 10 ? "Exceeds cost of equity benchmark." : "Below peer median; earnings capacity warrants attention."}`,
+    finding: `ROE ${roeChg >= 0 ? "improved" : "declined"} ${Math.abs(roeChg * 100).toFixed(0)}bps in ${currentLabel} to ${current.roe.toFixed(2)}% from ${prior.roe.toFixed(2)}% in ${priorLabel}. ${current.roe > 10 ? "Exceeds cost of equity benchmark." : "Below peer median; earnings capacity warrants attention."}`,
     recommendation: roeChg < -2 ? "Review capital allocation efficiency and revenue generation capacity." : "Consistent with strategic plan projections.",
-    dataSources: ["FDIC derived (Net Income / Avg Equity)", "UBPR Page 2"],
+    dataSources: ["FDIC Call Report (ROE)"],
   });
 
   if (current.efficiencyRatio !== undefined && prior.efficiencyRatio !== undefined) {
@@ -2531,9 +2531,9 @@ function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalReco
       id: "VS-08", metric: "Efficiency Ratio", category: "income",
       currentVal: current.efficiencyRatio, priorVal: prior.efficiencyRatio, changePercent: pct(current.efficiencyRatio, prior.efficiencyRatio), isRatio: true,
       priority: current.efficiencyRatio > 65 ? "high" : Math.abs(effChg) > 3 ? "medium" : "low",
-      finding: `Efficiency ratio ${effChg > 0 ? "deteriorated" : "improved"} ${Math.abs(effChg).toFixed(1)}pp to ${current.efficiencyRatio.toFixed(1)}%. ${current.efficiencyRatio > 65 ? "Operating leverage is challenged; cost management initiatives should be assessed." : "Operating cost discipline remains within target range."}`,
+      finding: `Efficiency ratio ${effChg > 0 ? "deteriorated" : "improved"} ${Math.abs(effChg).toFixed(1)}pp in ${currentLabel} to ${current.efficiencyRatio.toFixed(1)}% from ${prior.efficiencyRatio.toFixed(1)}% in ${priorLabel}. ${current.efficiencyRatio > 65 ? "Operating leverage is challenged; cost management initiatives should be assessed." : "Operating cost discipline remains within target range."}`,
       recommendation: current.efficiencyRatio > 65 ? "Review non-interest expense categories. Identify discretionary spend reduction opportunities." : "No remediation needed.",
-      dataSources: ["FDIC derived", "UBPR Page 2"],
+      dataSources: ["FDIC Call Report (EEFFR)"],
     });
   }
 
@@ -2543,9 +2543,9 @@ function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalReco
       id: "VS-09", metric: "Non-Performing Assets Ratio", category: "risk",
       currentVal: current.npaRatio, priorVal: prior.npaRatio, changePercent: pct(current.npaRatio, prior.npaRatio), isRatio: true,
       priority: current.npaRatio > 1.0 ? "high" : npaChg > 0.1 ? "medium" : "low",
-      finding: `NPA ratio ${npaChg >= 0 ? "increased" : "improved"} ${Math.abs(npaChg).toFixed(2)}pp to ${current.npaRatio.toFixed(2)}%. ${current.npaRatio > 1 ? "Elevated NPAs require enhanced monitoring and workout strategies." : "Asset quality remains sound."}`,
+      finding: `NPA ratio ${npaChg >= 0 ? "increased" : "improved"} ${Math.abs(npaChg).toFixed(2)}pp in ${currentLabel} to ${current.npaRatio.toFixed(2)}% from ${prior.npaRatio.toFixed(2)}% in ${priorLabel}. ${current.npaRatio > 1 ? "Elevated NPAs require enhanced monitoring and workout strategies." : "Asset quality remains sound."}`,
       recommendation: npaChg > 0.1 ? "Review Schedule RC-N past due and nonaccrual detail. Assess CRE and C&I segment exposure." : "Trends within acceptable bounds.",
-      dataSources: ["FDIC Call Report (Schedule RC-N)", "UBPR Page 7"],
+      dataSources: ["FDIC Call Report (P3ASSET / ASSET)"],
     });
   }
 
@@ -2555,9 +2555,9 @@ function buildVarianceSummaries(current: HistoricalRecord, prior: HistoricalReco
       id: "VS-10", metric: "Loan-to-Deposit Ratio", category: "balance_sheet",
       currentVal: current.loanToDeposit, priorVal: prior.loanToDeposit, changePercent: pct(current.loanToDeposit, prior.loanToDeposit), isRatio: true,
       priority: current.loanToDeposit > 90 ? "high" : Math.abs(ltdChg) > 3 ? "medium" : "low",
-      finding: `LTD ratio ${ltdChg >= 0 ? "increased" : "decreased"} ${Math.abs(ltdChg).toFixed(1)}pp to ${current.loanToDeposit.toFixed(1)}%. ${current.loanToDeposit > 90 ? "Approaching liquidity stress threshold." : "Funding profile remains balanced."}`,
+      finding: `LTD ratio ${ltdChg >= 0 ? "increased" : "decreased"} ${Math.abs(ltdChg).toFixed(1)}pp in ${currentLabel} to ${current.loanToDeposit.toFixed(1)}% from ${prior.loanToDeposit.toFixed(1)}% in ${priorLabel}. ${current.loanToDeposit > 90 ? "Approaching liquidity stress threshold." : "Funding profile remains balanced."}`,
       recommendation: current.loanToDeposit > 85 ? "Assess wholesale funding reliance and contingency funding plan adequacy." : "No action required.",
-      dataSources: ["FDIC derived (Loans / Deposits)", "UBPR Page 3"],
+      dataSources: ["FDIC derived (LNLSNET / DEP)"],
     });
   }
 
@@ -2594,28 +2594,28 @@ function generateMemoFromVariances(items: VarianceSummaryItem[], currentLabel: s
   const niVal = niItem ? fmtVal(niItem.currentVal, false) : "N/A";
 
   return `MANAGEMENT REVIEW MEMORANDUM
-Mizuho Americas — Quarterly Variance Review & Filing Recommendation
-Period: ${currentLabel} vs ${priorLabel} | Prepared: ${prepared}
+Mizuho Americas — ${currentLabel} Regulatory Filing Variance Review
+Filing Period: ${currentLabel} | Prior Period: ${priorLabel} | Prepared: ${prepared}
 
 EXECUTIVE SUMMARY
 
-This memorandum presents the variance analysis for the ${currentLabel} regulatory reporting cycle, comparing key financial metrics against ${priorLabel}. The review covers Call Report (FFIEC 031), FR Y-9C, and UBPR submissions with cross-source reconciliation across all three federal data portals.
+This memorandum presents the variance analysis for the ${currentLabel} Call Report filing (FFIEC 031), comparing key financial metrics against the ${priorLabel} filing. All data sourced from the FDIC BankFind Suite API.
 
-The institution reports net income of ${niVal} for the quarter with Tier 1 Capital Ratio at ${tier1Val}. ${highItems.length === 0 ? "No high-priority items were identified; the filing is recommended for submission." : `${highItems.length} high-priority item${highItems.length > 1 ? "s" : ""} and ${medItems.length} medium-priority item${medItems.length > 1 ? "s" : ""} require management attention prior to filing.`}
+The institution reports net income of ${niVal} for ${currentLabel} with Tier 1 Capital Ratio at ${tier1Val}. ${highItems.length === 0 ? "No high-priority items were identified; the filing is recommended for submission." : `${highItems.length} high-priority item${highItems.length > 1 ? "s" : ""} and ${medItems.length} medium-priority item${medItems.length > 1 ? "s" : ""} require management attention prior to filing.`}
 
-VARIANCE SUMMARY — ${currentLabel} vs ${priorLabel}
+${currentLabel} VARIANCE SUMMARY (vs ${priorLabel})
 
-${items.map(i => `• ${i.metric}: ${fmtVal(i.currentVal, i.isRatio)} (${i.changePercent >= 0 ? "+" : ""}${i.changePercent.toFixed(1)}% QoQ)`).join("\n")}
+${items.map(i => `• ${i.metric}: ${fmtVal(i.currentVal, i.isRatio)} (${i.changePercent >= 0 ? "+" : ""}${i.changePercent.toFixed(1)}% vs ${priorLabel})`).join("\n")}
 
 KEY FINDINGS & FLAGGED ITEMS
 
 ${findings}DATA QUALITY
 
-Cross-source reconciliation across FDIC Call Report, FR Y-9C, and UBPR was performed for all reported metrics. Data integrity checks confirmed alignment within acceptable tolerance thresholds for primary balance sheet and income statement line items.
+All reported metrics are sourced from the FDIC BankFind Suite (Call Report financial data). Balance sheet identity (Assets = Liabilities + Equity) has been verified. Data integrity checks confirmed alignment within acceptable tolerance thresholds for primary balance sheet and income statement line items.
 
 RECOMMENDATION
 
-${highItems.length > 0 ? `Items 1–${highItems.length} above require management discussion prior to filing. ` : ""}${medItems.length > 0 ? `Medium-priority items are flagged for awareness and can be addressed in the normal review cycle. ` : ""}The overall regulatory filing is recommended for submission ${highItems.length > 0 ? "pending resolution of high-priority items" : "without additional review requirements"}.`;
+${highItems.length > 0 ? `Items 1–${highItems.length} above require management discussion prior to filing. ` : ""}${medItems.length > 0 ? `Medium-priority items are flagged for awareness and can be addressed in the normal review cycle. ` : ""}The ${currentLabel} regulatory filing is recommended for submission ${highItems.length > 0 ? "pending resolution of high-priority items" : "without additional review requirements"}.`;
 }
 
 function VarianceSummaryCard({ item, idx }: { item: VarianceSummaryItem; idx: number }) {
@@ -2757,7 +2757,7 @@ function ReviewApprovalTab() {
           <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-destructive">Step 5 of 6</p>
           <h2 className="text-xl font-serif font-semibold tracking-tight mt-1">Review & Approval</h2>
           <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-            Quarterly variance summary for management review. Finalize the memorandum and submit for CFO approval.
+            {currentLabel} filing variance analysis for management review. Finalize the memorandum and submit for CFO approval.
           </p>
         </div>
         <div className="flex items-center gap-2">
