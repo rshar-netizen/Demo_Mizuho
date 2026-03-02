@@ -1458,7 +1458,7 @@ const METRIC_ACTIONS: Record<string, { high: string; medium: string; low: string
   },
   "Non-Performing Assets Ratio": {
     high: "Escalate to the credit risk committee. Review Schedule RC-N delinquency migration and nonaccrual composition. Assess ALLL adequacy under CECL methodology and prepare a supplemental reserve analysis for the CFO memorandum.",
-    medium: "Review Schedule RC-N composition for material shifts in delinquency buckets. Cross-check against UBPR Page 4 peer NPA ratios. Update the quarterly ALLL adequacy assessment with current asset quality trends.",
+    medium: "Review Schedule RC-N composition for material shifts in delinquency buckets. Cross-check against UBPR Page 1 Line 29 peer NPA ratios. Update the quarterly ALLL adequacy assessment with current asset quality trends.",
     low: "Monitor NPA trajectory for migration risk. The movement is modest but warrants tracking against peer benchmarks in the UBPR asset quality analysis.",
   },
   "Tier 1 Capital Ratio": {
