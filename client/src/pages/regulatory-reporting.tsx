@@ -45,6 +45,8 @@ import {
   Target,
   Zap,
   Eye,
+  Link2,
+  ArrowRight,
 } from "lucide-react";
 import {
   reportingInstructions,
@@ -58,6 +60,8 @@ import {
   type AIQueryItem,
   unmappedFields,
   type UnmappedField,
+  fieldLinkages,
+  type FieldLinkage,
   formatCurrency,
   formatPercent,
 } from "@/lib/demo-data";
@@ -749,9 +753,199 @@ const ISSUE_LABELS: Record<UnmappedField["issue"], { label: string; color: strin
   cross_source_conflict: { label: "Cross-Source Conflict", color: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-400/30" },
 };
 
+const LINKAGE_TYPE_META: Record<string, { label: string; color: string; icon: string }> = {
+  reconciliation: { label: "Reconciliation", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-400/30", icon: "=" },
+  derivation: { label: "Derivation", color: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-400/30", icon: "→" },
+  validation: { label: "Validation", color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-400/30", icon: "✓" },
+};
+
+const RECON_STATUS_META: Record<string, { label: string; color: string; dot: string }> = {
+  reconciled: { label: "Reconciled", color: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" },
+  variance: { label: "Variance", color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+  partial: { label: "Partial", color: "text-sky-600 dark:text-sky-400", dot: "bg-sky-500" },
+  unavailable: { label: "Unavailable", color: "text-red-500 dark:text-red-400", dot: "bg-red-500" },
+};
+
+function FieldLinkageMap({
+  linkageTypeFilter,
+  setLinkageTypeFilter,
+  expandedLinkage,
+  setExpandedLinkage,
+}: {
+  linkageTypeFilter: string;
+  setLinkageTypeFilter: (v: string) => void;
+  expandedLinkage: number | null;
+  setExpandedLinkage: (v: number | null) => void;
+}) {
+  const filtered = linkageTypeFilter === "all"
+    ? fieldLinkages
+    : fieldLinkages.filter(l => l.linkageType === linkageTypeFilter);
+
+  const reconciledCount = fieldLinkages.filter(l => l.reconciliationStatus === "reconciled").length;
+  const varianceCount = fieldLinkages.filter(l => l.reconciliationStatus === "variance").length;
+  const partialCount = fieldLinkages.filter(l => l.reconciliationStatus === "partial").length;
+  const unavailableCount = fieldLinkages.filter(l => l.reconciliationStatus === "unavailable").length;
+
+  return (
+    <Card data-testid="card-field-linkages">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Link2 className="w-4 h-4 text-primary" />
+            <CardTitle className="text-sm">Cross-Report Field Linkage Map</CardTitle>
+            <Badge variant="secondary" className="text-[10px]">
+              {fieldLinkages.length} concepts · 3 sources
+            </Badge>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="text-[10px] text-muted-foreground">{reconciledCount}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span className="text-[10px] text-muted-foreground">{varianceCount}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+              <span className="text-[10px] text-muted-foreground">{partialCount}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              <span className="text-[10px] text-muted-foreground">{unavailableCount}</span>
+            </div>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1 max-w-[760px]">
+          Maps equivalent regulatory concepts across Call Report (FFIEC 031), FR Y-9C, and UBPR sources. Identifies reconciliation joins, derived calculations, and cross-source validation rules.
+        </p>
+        <div className="flex items-center gap-1 mt-2">
+          {["all", "reconciliation", "derivation", "validation"].map((type) => {
+            const meta = type === "all" ? null : LINKAGE_TYPE_META[type];
+            const count = type === "all" ? fieldLinkages.length : fieldLinkages.filter(l => l.linkageType === type).length;
+            return (
+              <button
+                key={type}
+                onClick={() => { setLinkageTypeFilter(type); setExpandedLinkage(null); }}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer border ${
+                  linkageTypeFilter === type
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "text-muted-foreground hover:text-foreground border-border/50 bg-muted/30"
+                }`}
+                data-testid={`button-linkage-filter-${type}`}
+              >
+                {type === "all" ? "All" : meta!.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="h-[420px]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs w-[180px]">Concept</TableHead>
+                <TableHead className="text-xs w-[170px]">Call Report (031)</TableHead>
+                <TableHead className="text-xs w-[170px]">FR Y-9C</TableHead>
+                <TableHead className="text-xs w-[150px]">UBPR</TableHead>
+                <TableHead className="text-xs w-[90px]">Status</TableHead>
+                <TableHead className="text-xs w-[90px]">Type</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((link, idx) => {
+                const statusMeta = RECON_STATUS_META[link.reconciliationStatus];
+                const typeMeta = LINKAGE_TYPE_META[link.linkageType];
+                const isExpanded = expandedLinkage === idx;
+                return (
+                  <TableRow
+                    key={idx}
+                    className="cursor-pointer hover:bg-muted/40 transition-colors"
+                    onClick={() => setExpandedLinkage(isExpanded ? null : idx)}
+                    data-testid={`linkage-row-${idx}`}
+                  >
+                    <TableCell className="py-2">
+                      <div className="flex items-center gap-1.5">
+                        {isExpanded ? (
+                          <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+                        )}
+                        <div>
+                          <p className="text-xs font-medium">{link.concept}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">{link.schedule}</p>
+                          {isExpanded && link.varianceNote && (
+                            <div className="mt-2 p-2 rounded-md bg-muted/50 border border-border/40 max-w-[320px]">
+                              <p className="text-[10px] text-muted-foreground leading-relaxed">{link.varianceNote}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-2">
+                      {link.callReport ? (
+                        <div>
+                          <p className="font-mono text-[11px] font-medium text-foreground">{link.callReport.field}</p>
+                          {isExpanded && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{link.callReport.description}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">Not reported</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      {link.frY9C ? (
+                        <div>
+                          <p className="font-mono text-[11px] font-medium text-foreground">{link.frY9C.field}</p>
+                          {isExpanded && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{link.frY9C.description}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">Not reported</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      {link.ubpr ? (
+                        <div>
+                          <p className="font-mono text-[11px] font-medium text-foreground">{link.ubpr.field}</p>
+                          {isExpanded && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{link.ubpr.description}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">Not reported</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusMeta.dot}`} />
+                        <span className={`text-[11px] font-medium ${statusMeta.color}`}>{statusMeta.label}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <Badge variant="secondary" className={`text-[10px] border ${typeMeta.color}`}>
+                        {typeMeta.label}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      </CardContent>
+    </Card>
+  );
+}
+
 function DataDictionaryTab() {
   const [activeSource, setActiveSource] = useState(dictionarySources[0].key);
   const [issueFilter, setIssueFilter] = useState<string>("all");
+  const [linkageTypeFilter, setLinkageTypeFilter] = useState<string>("all");
+  const [expandedLinkage, setExpandedLinkage] = useState<number | null>(null);
   const dict = dataDictionaries.find((d) => d.tableName === activeSource)!;
   const sourceLabel = dict.tableName.includes("CALL") ? "FDIC BankFind Suite API" :
     dict.tableName.includes("UBPR") ? "FFIEC Central Data Repository" : "Federal Reserve NIC";
@@ -876,6 +1070,13 @@ function DataDictionaryTab() {
           </Table>
         </CardContent>
       </Card>
+
+      <FieldLinkageMap
+        linkageTypeFilter={linkageTypeFilter}
+        setLinkageTypeFilter={setLinkageTypeFilter}
+        expandedLinkage={expandedLinkage}
+        setExpandedLinkage={setExpandedLinkage}
+      />
 
       <Card data-testid="card-quality-issues">
         <CardHeader className="pb-2">

@@ -451,6 +451,172 @@ export const unmappedFields: UnmappedField[] = [
   },
 ];
 
+export interface FieldLinkage {
+  concept: string;
+  schedule: string;
+  callReport: { field: string; description: string } | null;
+  frY9C: { field: string; description: string } | null;
+  ubpr: { field: string; description: string } | null;
+  reconciliationStatus: "reconciled" | "variance" | "partial" | "unavailable";
+  varianceNote?: string;
+  linkageType: "reconciliation" | "derivation" | "validation";
+}
+
+export const fieldLinkages: FieldLinkage[] = [
+  {
+    concept: "Total Assets",
+    schedule: "RC / HC",
+    callReport: { field: "ASSET", description: "Total assets, bank-level (Schedule RC line 12)" },
+    frY9C: { field: "BHCK2170", description: "Total consolidated assets, BHC-level (Schedule HC line 12)" },
+    ubpr: { field: "Page 1, Line 1", description: "Total assets, UBPR summary" },
+    reconciliationStatus: "reconciled",
+    linkageType: "reconciliation",
+  },
+  {
+    concept: "Net Loans & Leases",
+    schedule: "RC-C / HC-C",
+    callReport: { field: "LNLSNET", description: "Loans and leases net of unearned income (Schedule RC-C)" },
+    frY9C: { field: "BHCK2122", description: "Total loans and leases, net (Schedule HC-C)" },
+    ubpr: { field: "Page 6, Line 1", description: "Net loans and leases, UBPR loan mix" },
+    reconciliationStatus: "variance",
+    varianceNote: "BHC consolidation includes non-bank subsidiary loans; $20M (0.02%) variance within tolerance",
+    linkageType: "reconciliation",
+  },
+  {
+    concept: "Total Deposits",
+    schedule: "RC-E / HC-E",
+    callReport: { field: "DEP", description: "Total deposits, bank-level (Schedule RC-E)" },
+    frY9C: { field: "BHDM6631 + BHDM6636", description: "Domestic + foreign deposits (Schedule HC-E)" },
+    ubpr: { field: "Page 3, Line 1", description: "Total deposits, UBPR funding analysis" },
+    reconciliationStatus: "reconciled",
+    linkageType: "reconciliation",
+  },
+  {
+    concept: "Net Income",
+    schedule: "RI / HI",
+    callReport: { field: "NETINC", description: "Net income, bank-level (Schedule RI)" },
+    frY9C: { field: "BHCK4340", description: "Net income, BHC consolidated (Schedule HI)" },
+    ubpr: { field: "Page 1, Line 12", description: "Net income, UBPR earnings summary" },
+    reconciliationStatus: "reconciled",
+    linkageType: "reconciliation",
+  },
+  {
+    concept: "Total Interest Income",
+    schedule: "RI / HI",
+    callReport: { field: "INTINC", description: "Total interest income (Schedule RI, line 1)" },
+    frY9C: { field: "BHCK4074", description: "Total interest income (Schedule HI, line 1)" },
+    ubpr: { field: "Page 1, Line 2", description: "Total interest income, UBPR earnings" },
+    reconciliationStatus: "reconciled",
+    linkageType: "reconciliation",
+  },
+  {
+    concept: "Total Interest Expense",
+    schedule: "RI / HI",
+    callReport: { field: "EINTEXP", description: "Total interest expense (Schedule RI, line 2)" },
+    frY9C: { field: "BHCK4079", description: "Total interest expense (Schedule HI, line 2)" },
+    ubpr: null,
+    reconciliationStatus: "partial",
+    varianceNote: "UBPR derives NIM from income and expense but does not expose interest expense as a standalone field",
+    linkageType: "reconciliation",
+  },
+  {
+    concept: "Net Interest Margin",
+    schedule: "Derived",
+    callReport: { field: "NIMY", description: "Net interest margin, derived from INTINC - EINTEXP / avg earning assets" },
+    frY9C: null,
+    ubpr: { field: "Page 1, Line 7", description: "Net interest margin (annualized)" },
+    reconciliationStatus: "reconciled",
+    varianceNote: "UBPR NIM is the authoritative source; Call Report NIM is FDIC-derived and may use different averaging",
+    linkageType: "derivation",
+  },
+  {
+    concept: "Tier 1 Capital Ratio",
+    schedule: "RC-R / HC-R",
+    callReport: { field: "IDT1RWA", description: "Tier 1 risk-based capital ratio (Schedule RC-R Part I)" },
+    frY9C: { field: "BHCK7206", description: "Tier 1 capital ratio (Schedule HC-R)" },
+    ubpr: { field: "Page 11, Line 3", description: "Tier 1 capital ratio, UBPR capital analysis" },
+    reconciliationStatus: "reconciled",
+    linkageType: "reconciliation",
+  },
+  {
+    concept: "CET1 Capital Ratio",
+    schedule: "RC-R / HC-R",
+    callReport: { field: "IDT1CERWAT", description: "CET1 risk-based capital ratio (Schedule RC-R Part I)" },
+    frY9C: { field: "BHCA7205", description: "CET1 ratio (Schedule HC-R)" },
+    ubpr: { field: "Page 11, Line 1", description: "CET1 capital ratio, UBPR capital" },
+    reconciliationStatus: "reconciled",
+    linkageType: "reconciliation",
+  },
+  {
+    concept: "Total Capital Ratio",
+    schedule: "RC-R / HC-R",
+    callReport: { field: "RBCRWAJ", description: "Total risk-based capital ratio (Schedule RC-R Part I)" },
+    frY9C: { field: "BHCK7210", description: "Total capital ratio (Schedule HC-R)" },
+    ubpr: { field: "Page 11, Line 5", description: "Total risk-based capital ratio" },
+    reconciliationStatus: "reconciled",
+    linkageType: "reconciliation",
+  },
+  {
+    concept: "Provision for Credit Losses",
+    schedule: "RI / HI",
+    callReport: { field: "ELNATR", description: "Provision for credit losses (Schedule RI, line 4)" },
+    frY9C: { field: "BHCK4230", description: "Provision for credit losses (Schedule HI, line 4)" },
+    ubpr: { field: "Page 4, Line 1", description: "Provision for loan/lease losses" },
+    reconciliationStatus: "unavailable",
+    varianceNote: "FR Y-9C field BHCK4230 returns null via NIC data feed; FDIC ELNATR used as primary source",
+    linkageType: "reconciliation",
+  },
+  {
+    concept: "Nonperforming Assets Ratio",
+    schedule: "RC-N / HC-N",
+    callReport: { field: "P3ASSET + P9ASSET + NAESSION", description: "Past due 90+ days + nonaccrual / total assets" },
+    frY9C: { field: "BHCK5525 + BHCK3506", description: "Noncurrent loans + OREO / total assets" },
+    ubpr: { field: "Page 4, Line 8", description: "Noncurrent assets + OREO to assets ratio" },
+    reconciliationStatus: "variance",
+    varianceNote: "Calculation methodology differs: FDIC uses past-due 90+ basis; FR Y-9C uses noncurrent (90+ and nonaccrual combined)",
+    linkageType: "derivation",
+  },
+  {
+    concept: "Return on Equity",
+    schedule: "Derived",
+    callReport: { field: "ROE", description: "Return on equity (FDIC-derived from NETINC / avg equity)" },
+    frY9C: null,
+    ubpr: { field: "Page 1, Line 10", description: "Return on average equity" },
+    reconciliationStatus: "partial",
+    varianceNote: "FR Y-9C does not report ROE directly; must be derived from BHCK4340 / average BHCK3210",
+    linkageType: "derivation",
+  },
+  {
+    concept: "Efficiency Ratio",
+    schedule: "Derived",
+    callReport: { field: "EEFFR", description: "Efficiency ratio (FDIC-derived from non-interest expense / revenue)" },
+    frY9C: null,
+    ubpr: { field: "Page 7, Line 1", description: "Efficiency ratio, UBPR operating efficiency" },
+    reconciliationStatus: "partial",
+    varianceNote: "FR Y-9C does not report efficiency ratio; derivable from Schedule HI non-interest expense and revenue lines",
+    linkageType: "derivation",
+  },
+  {
+    concept: "Total Assets = Liabilities + Equity",
+    schedule: "RC / HC",
+    callReport: { field: "ASSET = LIAB + EQ", description: "Balance sheet identity: RC line 12 = line 21 + line 28" },
+    frY9C: { field: "BHCK2170 = BHCK2948 + BHCK3210", description: "HC line 12 = line 21 + line 28" },
+    ubpr: null,
+    reconciliationStatus: "reconciled",
+    linkageType: "validation",
+  },
+  {
+    concept: "Loan Loss Reserve Adequacy",
+    schedule: "RC / RC-N",
+    callReport: { field: "LNATRES / P3ASSET", description: "ALLL-to-noncurrent loans ratio (Schedule RC / RC-N)" },
+    frY9C: { field: "BHCK3123 / BHCK5525", description: "ALLL / noncurrent loans (HC / HC-N)" },
+    ubpr: { field: "Page 4, Line 12", description: "Reserve coverage ratio" },
+    reconciliationStatus: "variance",
+    varianceNote: "FDIC loan loss reserve (LNATRES) diverges from FR Y-9C BHCK3123 by >2% in Q2-Q3 2024; flagged in Data Quality Issues",
+    linkageType: "validation",
+  },
+];
+
 export const anomalyRecords: AnomalyRecord[] = [
   { period: "Q4 2024", metric: "Net Loans QoQ Growth", value: 6.33, expected: 2.5, deviation: 3.83, severity: "high", description: "FDIC LNLSNET increased from $105.8B to $112.5B (+6.33% QoQ), more than double the 8-quarter average growth rate of 2.5%; Schedule RC-C concentration review recommended" },
   { period: "Q4 2024", metric: "AFS Securities Decline", value: -11.34, expected: -3.0, deviation: -8.34, severity: "high", description: "FDIC SCAFS dropped from $21.3B to $18.9B (−11.34% QoQ); AOCI variance flagged in cross-check with UBPR Page 6 — unrealized loss impact on equity needs review" },
