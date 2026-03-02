@@ -229,6 +229,76 @@ const SCHEDULE_INSTRUCTIONS: Record<string, ReportingInstruction> = {
       "Reconcile net income to Schedule RC equity changes",
     ],
   },
+  "HC": {
+    id: "FR Y-9C",
+    section: "Schedule HC — Consolidated Balance Sheet",
+    description: "Consolidated balance sheet for the bank holding company including total consolidated assets, liabilities, and equity capital",
+    schedule: "HC",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Report total consolidated assets of all subsidiaries (BHCK2170)",
+      "Report total liabilities including borrowed funds and subordinated debt",
+      "Report total equity capital including minority interests (BHCK3210)",
+      "Consolidate all domestic and foreign subsidiaries per GAAP",
+    ],
+  },
+  "HI": {
+    id: "FR Y-9C",
+    section: "Schedule HI — Consolidated Income Statement",
+    description: "Consolidated income statement reporting interest income, non-interest income, provisions, and net income for the bank holding company",
+    schedule: "HI",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Report interest income on a taxable-equivalent basis where applicable",
+      "Separate trading revenue from banking book income",
+      "Include provision for credit losses per CECL methodology (BHCK4230)",
+      "Report extraordinary items separately",
+    ],
+  },
+  "HC-R": {
+    id: "FR Y-9C",
+    section: "Schedule HC-R — Regulatory Capital",
+    description: "Risk-based capital components and ratios for the bank holding company including CET1, Tier 1, and Total Capital under Basel III",
+    schedule: "HC-R",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Calculate CET1 capital ratio per Basel III final rule (BHCA7205)",
+      "Report Tier 1 capital ratio (BHCA7206) and Total capital ratio (BHCA7210)",
+      "Calculate total risk-weighted assets including credit, market, and operational risk",
+      "Report supplementary leverage ratio for Category I-III firms",
+    ],
+  },
+  "HC-N": {
+    id: "FR Y-9C",
+    section: "Schedule HC-N — Past Due and Nonaccrual Loans",
+    description: "Delinquency and nonaccrual status of consolidated loans and leases for the bank holding company",
+    schedule: "HC-N",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Report loans past due 30-89 days and 90+ days by loan category",
+      "Identify nonaccrual loans per ASC 326 and interagency guidance",
+      "Include troubled debt restructurings in appropriate aging buckets",
+      "Reconcile totals to Schedule HC-C consolidated loan categories",
+    ],
+  },
+  "HC-B": {
+    id: "FR Y-9C",
+    section: "Schedule HC-B — Securities",
+    description: "Held-to-maturity and available-for-sale securities at amortized cost and fair value for the bank holding company",
+    schedule: "HC-B",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Report securities held-to-maturity at amortized cost",
+      "Report available-for-sale securities at fair value",
+      "Disclose unrealized gains and losses in AOCI",
+      "Classify by issuer type: U.S. Treasury, agency, municipal, corporate, MBS",
+    ],
+  },
 };
 
 const FIELD_TO_SCHEDULE: Record<string, string> = {
@@ -253,15 +323,63 @@ const FIELD_TO_SCHEDULE: Record<string, string> = {
   efficiencyRatio: "RI",
 };
 
-function buildLiveInstructions(record: CallReportRecord): ReportingInstruction[] {
+interface FRY9CData {
+  totalConsolidatedAssets: number | null;
+  totalLoans: number | null;
+  totalDeposits: number | null;
+  totalEquityCapital: number | null;
+  netIncome: number | null;
+  netInterestIncome: number | null;
+  nonInterestIncome: number | null;
+  provisionForCreditLosses: number | null;
+  totalRiskWeightedAssets: number | null;
+  cet1Capital: number | null;
+  cet1Ratio: number | null;
+  tier1CapitalRatio: number | null;
+  totalCapitalRatio: number | null;
+  supplementaryLeverageRatio: number | null;
+}
+
+const FRY9C_FIELD_TO_SCHEDULE: Record<string, string> = {
+  totalConsolidatedAssets: "HC",
+  totalEquityCapital: "HC",
+  totalLoans: "HC",
+  totalDeposits: "HC",
+  netIncome: "HI",
+  netInterestIncome: "HI",
+  nonInterestIncome: "HI",
+  provisionForCreditLosses: "HI",
+  cet1Ratio: "HC-R",
+  tier1CapitalRatio: "HC-R",
+  totalCapitalRatio: "HC-R",
+  totalRiskWeightedAssets: "HC-R",
+  cet1Capital: "HC-R",
+  supplementaryLeverageRatio: "HC-R",
+};
+
+function buildLiveInstructions(record: CallReportRecord, fry9c?: FRY9CData | null): ReportingInstruction[] {
   const activeSchedules = new Set<string>();
+
   for (const [field, schedule] of Object.entries(FIELD_TO_SCHEDULE)) {
     const val = (record as any)[field];
     if (val != null) activeSchedules.add(schedule);
   }
   activeSchedules.add("RC-L");
 
-  const order = ["RC", "RC-C", "RC-R", "RC-E", "RC-N", "RC-L", "RI"];
+  const hasFRY9CData = fry9c && Object.values(fry9c).some(v => v != null);
+  if (hasFRY9CData) {
+    for (const [field, schedule] of Object.entries(FRY9C_FIELD_TO_SCHEDULE)) {
+      const val = (fry9c as any)[field];
+      if (val != null) activeSchedules.add(schedule);
+    }
+  }
+  activeSchedules.add("HC");
+  activeSchedules.add("HI");
+  activeSchedules.add("HC-R");
+  activeSchedules.add("HC-N");
+  activeSchedules.add("HC-B");
+
+  const order = ["RC", "RC-C", "RC-R", "RC-E", "RC-N", "RC-L", "RI", "HC", "HI", "HC-R", "HC-N", "HC-B"];
   return order
     .filter(s => activeSchedules.has(s))
     .map(s => SCHEDULE_INSTRUCTIONS[s])
@@ -369,9 +487,21 @@ function InstructionsTab() {
     retry: 1,
   });
 
+  const { data: fry9cData } = useQuery<{ data: Record<string, FRY9CData> }>({
+    queryKey: ["/api/data-sources/fry9c"],
+    queryFn: async () => {
+      const res = await fetch("/api/data-sources/fry9c?rssd=229913");
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
   const liveRecords = callReportData?.data || [];
+  const fry9cRecord = fry9cData?.data ? Object.values(fry9cData.data)[0] || null : null;
   const liveInstructions = liveRecords.length > 0
-    ? buildLiveInstructions(liveRecords[0])
+    ? buildLiveInstructions(liveRecords[0], fry9cRecord)
     : reportingInstructions;
   const isLive = liveRecords.length > 0;
 
@@ -393,7 +523,7 @@ function InstructionsTab() {
 
       <div className="grid grid-cols-4 gap-3">
         {[
-          { value: schedulesIndexed.toString(), label: "Schedules Indexed", sub: isLive ? `FFIEC 031 Call Report (${reportDate})` : `${reportingInstructions.filter(r => r.id === "FFIEC-031").length} FFIEC 031` },
+          { value: schedulesIndexed.toString(), label: "Schedules Indexed", sub: isLive ? `FFIEC 031 + FR Y-9C (${reportDate})` : `${reportingInstructions.filter(r => r.id === "FFIEC-031").length} FFIEC 031` },
           { value: isLive ? liveRecords.length.toString() : dataDictionaries.length.toString(), label: isLive ? "Periods Ingested" : "Reports Ingested", sub: isLive ? `${liveRecords[liveRecords.length - 1]?.reportDate} – ${reportDate}` : "Call Report data" },
           { value: totalFields.toLocaleString(), label: "Data Fields Mapped", sub: `${totalRecords} records across sources` },
           { value: `${overallAlignment}%`, label: "Auto-Mapped Accuracy", sub: `${totalAutoMapped.toLocaleString()} of ${totalFields.toLocaleString()} fields` },
