@@ -1190,6 +1190,13 @@ interface HistoricalRecord {
   loanToDeposit?: number;
 }
 
+function fmtDollar(valInThousands: number): string {
+  const abs = Math.abs(valInThousands);
+  if (abs >= 1_000_000) return `$${(valInThousands / 1_000_000).toFixed(1)}B`;
+  if (abs >= 1_000) return `$${(valInThousands / 1_000).toFixed(1)}M`;
+  return `$${valInThousands.toFixed(0)}K`;
+}
+
 function computeQoQAnomaly(
   current: HistoricalRecord,
   prior: HistoricalRecord,
@@ -1211,7 +1218,7 @@ function computeQoQAnomaly(
       expected: parseFloat(avgLoanGrowth.toFixed(2)),
       deviation: loanDev,
       severity: Math.abs(loanDev) > 3 ? "high" : Math.abs(loanDev) > 2 ? "medium" : "low",
-      description: `FDIC LNLSNET moved from $${(prior.totalLoans / 1000).toFixed(1)}B to $${(current.totalLoans / 1000).toFixed(1)}B (${loanGrowth >= 0 ? "+" : ""}${loanGrowth.toFixed(2)}% QoQ) vs historical avg of ${avgLoanGrowth.toFixed(1)}%`,
+      description: `FDIC LNLSNET moved from ${fmtDollar(prior.totalLoans)} to ${fmtDollar(current.totalLoans)} (${loanGrowth >= 0 ? "+" : ""}${loanGrowth.toFixed(2)}% QoQ) vs trailing average of ${avgLoanGrowth.toFixed(1)}%`,
     });
   }
 
@@ -1231,7 +1238,7 @@ function computeQoQAnomaly(
         expected: parseFloat(avgSecChange.toFixed(2)),
         deviation: secDev,
         severity: Math.abs(secDev) > 8 ? "high" : "medium",
-        description: `Securities moved from $${(prior.securities! / 1000).toFixed(1)}B to $${(current.securities! / 1000).toFixed(1)}B (${secChange >= 0 ? "+" : ""}${secChange.toFixed(2)}% QoQ); AOCI impact should be cross-checked`,
+        description: `Securities moved from ${fmtDollar(prior.securities!)} to ${fmtDollar(current.securities!)} (${secChange >= 0 ? "+" : ""}${secChange.toFixed(2)}% QoQ); AOCI impact should be cross-checked`,
       });
     }
   }
@@ -1248,7 +1255,7 @@ function computeQoQAnomaly(
       expected: parseFloat(avgAssetGrowth.toFixed(2)),
       deviation: assetDev,
       severity: Math.abs(assetDev) > 4 ? "high" : "medium",
-      description: `Total assets moved from $${(prior.totalAssets / 1000).toFixed(1)}B to $${(current.totalAssets / 1000).toFixed(1)}B (${assetGrowth >= 0 ? "+" : ""}${assetGrowth.toFixed(2)}% QoQ) vs historical avg of ${avgAssetGrowth.toFixed(1)}%`,
+      description: `Total assets moved from ${fmtDollar(prior.totalAssets)} to ${fmtDollar(current.totalAssets)} (${assetGrowth >= 0 ? "+" : ""}${assetGrowth.toFixed(2)}% QoQ) vs trailing average of ${avgAssetGrowth.toFixed(1)}%`,
     });
   }
 
@@ -1377,50 +1384,65 @@ interface AnomalyLogEntry {
   action: string;
 }
 
-const curatedAnomalyLog: AnomalyLogEntry[] = [
-  {
-    severity: "high",
-    metric: "Efficiency Ratio",
-    period: "Q1 2025",
-    observation: "Efficiency ratio spiked to 72.5%, significantly above the 8-quarter trailing average of ~63%. This represents a sharp deterioration in cost-to-income performance, coinciding with elevated technology and infrastructure spend.",
-    action: "Initiate a cost-driver decomposition by business line. Flag non-interest expense growth exceeding 5% QoQ for management review. Recommend inclusion of efficiency ratio bridge analysis in the CFO commentary section of the Call Report filing.",
+const METRIC_ACTIONS: Record<string, { high: string; medium: string; low: string }> = {
+  "Net Loans QoQ Growth": {
+    high: "Request the credit risk team to provide a breakdown by loan category (CRE, C&I, consumer). Cross-check against Schedule RC-C Part I concentration limits and update the ALLL adequacy assessment. Escalate to the Chief Risk Officer for portfolio review.",
+    medium: "Review Schedule RC-C concentration composition for material shifts. Assess whether the movement reflects credit tightening, accelerated paydowns, or drawdown activity. Include loan growth commentary in the quarterly filing narrative.",
+    low: "Monitor loan growth trend over the next quarter for persistence. No immediate filing action required but note the directional change in the period comparison analysis.",
   },
-  {
-    severity: "high",
-    metric: "Tier 1 Capital Ratio",
-    period: "Q4 2025",
-    observation: "Tier 1 capital ratio reached 20.7%, approximately 3.7pp above historical average of ~17.1%. While above-threshold capital buffers reduce regulatory risk, they also signal potential capital deployment inefficiency.",
-    action: "Prepare capital adequacy stress testing summary for Schedule RC-R Part II. Evaluate RWA optimization opportunities and model the impact of potential share buybacks or dividend increases. Brief the Board Risk Committee on capital return scenarios.",
+  "Securities Portfolio Change": {
+    high: "Review Schedule RC-B composition and AOCI impact on equity. Assess duration risk exposure and unrealized loss position. Flag for interest rate risk committee review and include in RC-R Part II capital impact analysis.",
+    medium: "Review AOCI volatility through the UBPR Page 6 cross-reference and ensure Schedule RC-B fair value disclosures are updated. Include a note on duration management in the filing documentation.",
+    low: "No immediate action required. Continue monitoring AOCI volatility through the UBPR Page 6 cross-reference. Include a note on securities portfolio positioning in the next period's Schedule RC-B supporting documentation.",
   },
-  {
-    severity: "medium",
-    metric: "Loan-to-Deposit Ratio",
-    period: "Q2 2024",
-    observation: "LDR elevated to 71.2% versus historical average of ~65.5%, indicating faster loan growth relative to deposit gathering. Widening funding gap increases reliance on wholesale funding sources.",
-    action: "Review wholesale funding concentration limits under the Liquidity Risk Management framework. Assess deposit product pricing competitiveness and update the Net Stable Funding Ratio (NSFR) projection for the next 2 quarters.",
+  "Total Assets QoQ Growth": {
+    high: "Conduct a balance sheet decomposition to identify the primary drivers of the asset change. Review off-balance sheet commitments in Schedule RC-L for related activity. Prepare a detailed management commentary for the CFO filing package.",
+    medium: "Review the composition of asset growth across loan, securities, and cash categories. Ensure Schedule RC line items reconcile to the aggregate change. Flag any category with >5% individual movement for further analysis.",
+    low: "Note the directional change in the quarterly trend analysis. No immediate filing action required unless the movement persists into the next quarter.",
   },
-  {
-    severity: "medium",
-    metric: "Net Loans QoQ Growth",
-    period: "Q3 2025",
-    observation: "Net loans declined 5.5% QoQ from $50.0B to $48.5B, diverging from the trailing average growth of approximately -1.0%. The contraction may reflect tightened credit standards or accelerated paydowns.",
-    action: "Request the credit risk team to provide a breakdown of the decline by loan category (CRE, C&I, consumer). Cross-check against Schedule RC-C Part I concentration limits and update the quarterly ALLL adequacy assessment.",
+  "Efficiency Ratio": {
+    high: "Initiate a cost-driver decomposition by business line. Flag non-interest expense growth exceeding 5% QoQ for management review. Recommend inclusion of an efficiency ratio bridge analysis in the CFO commentary section of the Call Report filing.",
+    medium: "Review Schedule RI non-interest expense categories for unusual movements. Compare against the UBPR peer group efficiency ratio for context. Include efficiency commentary in the quarterly variance analysis.",
+    low: "Monitor the efficiency ratio trajectory over the next quarter. The movement is within normal operating range but warrants tracking for persistence.",
   },
-  {
-    severity: "low",
-    metric: "Securities Portfolio Change",
-    period: "Q3 2025",
-    observation: "Securities portfolio increased 5.2% QoQ, slightly above the historical average change. The reallocation appears consistent with interest rate positioning as the yield curve normalizes.",
-    action: "No immediate action required. Continue monitoring AOCI volatility through the UBPR Page 6 cross-reference. Include a note on duration management strategy in the next period's Schedule RC-B supporting documentation.",
+  "Non-Performing Assets Ratio": {
+    high: "Escalate to the credit risk committee. Review Schedule RC-N delinquency migration and nonaccrual composition. Assess ALLL adequacy under CECL methodology and prepare a supplemental reserve analysis for the CFO memorandum.",
+    medium: "Review Schedule RC-N composition for material shifts in delinquency buckets. Cross-check against UBPR Page 4 peer NPA ratios. Update the quarterly ALLL adequacy assessment with current asset quality trends.",
+    low: "Monitor NPA trajectory for migration risk. The movement is modest but warrants tracking against peer benchmarks in the UBPR asset quality analysis.",
   },
-];
+  "Tier 1 Capital Ratio": {
+    high: "Prepare capital adequacy stress testing summary for Schedule RC-R Part II. Evaluate RWA optimization opportunities and assess whether the capital level reflects strategic positioning or underdeployment. Brief the Board Risk Committee on capital return scenarios.",
+    medium: "Review Schedule RC-R Part I components for the primary driver of the capital ratio change. Assess RWA movements and retained earnings impact. Include capital ratio commentary in the quarterly filing narrative.",
+    low: "Note the capital ratio movement in the trend analysis. The ratio remains well above minimum requirements. No immediate filing action required.",
+  },
+  "Loan-to-Deposit Ratio": {
+    high: "Review wholesale funding concentration limits under the Liquidity Risk Management framework. Assess deposit product pricing competitiveness and update the Net Stable Funding Ratio (NSFR) projection. Escalate funding gap concerns to the ALCO committee.",
+    medium: "Review the deposit-to-loan ratio trend and assess whether the shift reflects intentional balance sheet strategy or organic movement. Update liquidity coverage metrics and include commentary in the quarterly filing package.",
+    low: "Monitor the LDR trajectory for persistence. The movement is within normal operating range. Include a brief note on funding composition in the period comparison analysis.",
+  },
+};
+
+function buildAnomalyLog(anomalies: AnomalyRecord[]): AnomalyLogEntry[] {
+  return anomalies.map(a => {
+    const actions = METRIC_ACTIONS[a.metric];
+    const action = actions ? actions[a.severity] : `Review the ${a.metric} movement and assess materiality for the filing. Cross-check against historical average and peer benchmarks.`;
+
+    return {
+      severity: a.severity,
+      metric: a.metric,
+      period: a.period,
+      observation: a.description,
+      action,
+    };
+  });
+}
 
 function AnomaliesTab() {
   const { anomalies, isLive, historicalData } = useLiveAnomalies();
   const [activeMetric, setActiveMetric] = useState(0);
+  const anomalyLog = buildAnomalyLog(anomalies);
 
-  const periods = [...new Set(anomalies.map(a => a.period))];
-  const totalFindings = curatedAnomalyLog.length;
+  const totalFindings = anomalyLog.length;
 
   const chartData = historicalData.map(r => ({
     period: r.period,
@@ -1451,19 +1473,19 @@ function AnomaliesTab() {
       <div className="grid grid-cols-4 gap-3">
         <Card data-testid="card-anomaly-high">
           <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-destructive">{curatedAnomalyLog.filter(a => a.severity === "high").length}</p>
+            <p className="text-2xl font-mono font-normal text-destructive">{anomalyLog.filter(a => a.severity === "high").length}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">High Severity</p>
           </CardContent>
         </Card>
         <Card data-testid="card-anomaly-medium">
           <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-amber-500">{curatedAnomalyLog.filter(a => a.severity === "medium").length}</p>
+            <p className="text-2xl font-mono font-normal text-amber-500">{anomalyLog.filter(a => a.severity === "medium").length}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Medium Severity</p>
           </CardContent>
         </Card>
         <Card data-testid="card-anomaly-low">
           <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-muted-foreground">{curatedAnomalyLog.filter(a => a.severity === "low").length}</p>
+            <p className="text-2xl font-mono font-normal text-muted-foreground">{anomalyLog.filter(a => a.severity === "low").length}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Low Severity</p>
           </CardContent>
         </Card>
@@ -1564,7 +1586,7 @@ function AnomaliesTab() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {curatedAnomalyLog.map((entry, idx) => (
+            {anomalyLog.map((entry, idx) => (
               <div key={idx} className="p-3 rounded-md border border-border/60 bg-muted/20" data-testid={`anomaly-log-${idx}`}>
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <SeverityBadge severity={entry.severity} />
