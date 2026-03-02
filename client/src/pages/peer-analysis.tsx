@@ -66,10 +66,10 @@ interface PeerConfig {
 const DEFAULT_PEERS: PeerConfig[] = [
   { name: "Mizuho Americas", rssd: "229913", cert: 21843 },
   { name: "PNC Bank, N.A.", rssd: "817824", cert: 6384 },
-  { name: "U.S. Bank N.A.", rssd: "1119794", cert: 6548 },
-  { name: "Citizens Bank, N.A.", rssd: "1132449", cert: 57957 },
-  { name: "KeyBank N.A.", rssd: "1068025", cert: 17534 },
-  { name: "M&T Bank", rssd: "3587412", cert: 57803 },
+  { name: "U.S. Bank N.A.", rssd: "504713", cert: 6548 },
+  { name: "Citizens Bank, N.A.", rssd: "3303298", cert: 57957 },
+  { name: "KeyBank N.A.", rssd: "280110", cert: 17534 },
+  { name: "M&T Bank", rssd: "3284070", cert: 57803 },
 ];
 
 const PEER_DISPLAY_MAP: Record<number, string> = {
@@ -104,6 +104,7 @@ interface LivePeerEntry {
     roa: number;
     nim: number;
     tier1Ratio: number;
+    tier1LeverageRatio: number | null;
     efficiencyRatio: number;
     npaRatio: number;
     chargeOffRate: number;
@@ -133,7 +134,7 @@ function mapLiveToPeerBank(entry: LivePeerEntry): PeerBank | null {
     nim: cr.nim,
     tier1Ratio: cr.tier1Ratio,
     cet1Ratio: cr.tier1Ratio,
-    leverageRatio: cr.tier1Ratio * 0.65,
+    leverageRatio: cr.tier1LeverageRatio ?? 0,
     efficiencyRatio: cr.efficiencyRatio,
     npaRatio: cr.npaRatio,
     loanToDeposit: cr.loanToDeposit,
@@ -194,7 +195,7 @@ function buildRadarData(banks: PeerBank[]) {
     { metric: "ROE", "Mizuho Americas": norm(mizuho.roe, 20), "Peer Avg": norm(avg(b => b.roe), 20), fullMark: 100 },
     { metric: "ROA", "Mizuho Americas": norm(mizuho.roa, 2), "Peer Avg": norm(avg(b => b.roa), 2), fullMark: 100 },
     { metric: "NIM", "Mizuho Americas": norm(mizuho.nim, 5), "Peer Avg": norm(avg(b => b.nim), 5), fullMark: 100 },
-    { metric: "CET1", "Mizuho Americas": norm(mizuho.cet1Ratio, 25), "Peer Avg": norm(avg(b => b.cet1Ratio), 25), fullMark: 100 },
+    { metric: "Tier 1", "Mizuho Americas": norm(mizuho.cet1Ratio, 25), "Peer Avg": norm(avg(b => b.cet1Ratio), 25), fullMark: 100 },
     { metric: "Efficiency", "Mizuho Americas": norm(100 - mizuho.efficiencyRatio, 50), "Peer Avg": norm(100 - avg(b => b.efficiencyRatio), 50), fullMark: 100 },
     { metric: "Asset Quality", "Mizuho Americas": norm(2 - mizuho.npaRatio, 2), "Peer Avg": norm(2 - avg(b => b.npaRatio), 2), fullMark: 100 },
   ];
@@ -387,7 +388,7 @@ function PeerComparisonTable({ banks, reportDate }: { banks: PeerBank[]; reportD
                 <TableHead className="text-xs text-right">ROE %</TableHead>
                 <TableHead className="text-xs text-right">ROA %</TableHead>
                 <TableHead className="text-xs text-right">NIM %</TableHead>
-                <TableHead className="text-xs text-right">CET1 %</TableHead>
+                <TableHead className="text-xs text-right">Tier 1 %</TableHead>
                 <TableHead className="text-xs text-right">Efficiency %</TableHead>
                 <TableHead className="text-xs text-right">NPA %</TableHead>
                 <TableHead className="text-xs text-right">L/D Ratio %</TableHead>
@@ -448,7 +449,7 @@ function TrendCharts({ trendROE, trendNIM, trendCET1, bankNames }: { trendROE: P
             <SelectContent>
               <SelectItem value="roe">Return on Equity (ROE)</SelectItem>
               <SelectItem value="nim">Net Interest Margin (NIM)</SelectItem>
-              <SelectItem value="cet1">CET1 Capital Ratio</SelectItem>
+              <SelectItem value="cet1">Tier 1 Capital Ratio</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -545,8 +546,8 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
 
   const capitalData = banks.map((bank) => ({
     name: bank.ticker,
-    CET1: bank.cet1Ratio,
-    Leverage: bank.leverageRatio,
+    "Tier 1 Ratio": bank.cet1Ratio,
+    "Leverage": bank.leverageRatio,
   }));
 
   return (
@@ -601,7 +602,7 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
                   formatter={(value: number) => [`${value}%`, ""]}
                 />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Bar dataKey="CET1" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Tier 1 Ratio" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="Leverage" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -720,7 +721,7 @@ export default function PeerAnalysis() {
             positive={mizuho.nim > peerAvgNIM}
           />
           <MetricCard
-            label="CET1 Capital Ratio"
+            label="Tier 1 Capital Ratio"
             value={formatPercent(mizuho.cet1Ratio)}
             rank={cet1Rank}
             total={peerBanks.length}
@@ -774,7 +775,7 @@ export default function PeerAnalysis() {
                             </div>
                             <div>
                               <p className="text-[11px] font-mono font-medium">{formatPercent(bank.cet1Ratio)}</p>
-                              <p className="text-[9px] text-muted-foreground">CET1</p>
+                              <p className="text-[9px] text-muted-foreground">Tier 1</p>
                             </div>
                           </div>
                         </div>

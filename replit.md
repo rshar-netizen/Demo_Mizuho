@@ -57,13 +57,13 @@ Demo application for Mizuho Financial Group CFO presentation (March 2026). Showc
 - `GET /api/data-sources/validate-cert?cert=X` - Validate CERT and get institution name/RSSD
 - `POST /api/data-sources/refresh` - Clear cache and re-fetch all data
 
-## Peer Bank CERT Numbers (FDIC)
-- Mizuho Bank (USA): 21843 (RSSD: 229913)
-- PNC Bank, N.A.: 6384
-- U.S. Bank N.A.: 6548
-- Citizens Bank, N.A.: 57957
-- KeyBank N.A.: 17534
-- M&T Bank: 57803
+## Peer Bank Identifiers (FDIC)
+- Mizuho Bank (USA): CERT 21843, RSSD 229913
+- PNC Bank, N.A.: CERT 6384, RSSD 817824
+- U.S. Bank N.A.: CERT 6548, RSSD 504713
+- Citizens Bank, N.A.: CERT 57957, RSSD 3303298
+- KeyBank N.A.: CERT 17534, RSSD 280110
+- M&T Bank: CERT 57803, RSSD 3284070
 
 ## Theme — Mizuho Brand
 - Light mode by default (Mizuho corporate identity)

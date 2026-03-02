@@ -41,10 +41,10 @@ const CACHE_TTL = 30 * 60 * 1000;
 export const PEER_RSSD_IDS: Record<string, string> = {
   "Mizuho Americas": "229913",
   "PNC Financial": "817824",
-  "U.S. Bancorp": "1119794",
-  "Citizens Financial": "1132449",
-  "KeyCorp": "1068025",
-  "M&T Bank": "3587412",
+  "U.S. Bancorp": "504713",
+  "Citizens Financial": "3303298",
+  "KeyCorp": "280110",
+  "M&T Bank": "3284070",
 };
 
 export async function checkFFIECConnection(): Promise<FFIECConnectionStatus> {

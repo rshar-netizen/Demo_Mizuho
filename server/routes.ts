@@ -188,6 +188,9 @@ export async function registerRoutes(
         roa: latestReport.ROA,
         nim: computeNIMPercent(latestReport),
         tier1Ratio: latestReport.IDT1CER,
+        tier1LeverageRatio: latestReport.RBCT1J && latestReport.ASSET
+          ? (latestReport.RBCT1J / latestReport.ASSET) * 100
+          : null,
         totalCapitalRatio: latestReport.IDTRCR,
         efficiencyRatio: latestReport.EEFFR,
         npaRatio: computeNPAPercent(latestReport),
