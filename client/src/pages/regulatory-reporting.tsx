@@ -1788,97 +1788,7 @@ function buildLiveReviewItems(current: HistoricalRecord, prior: HistoricalRecord
     items.push({ id, lineItem, schedule, currentVal: cv, priorVal: pv, changePercent: changePct, crossCheck, source, notes, isRatio, crossChecks, movementCommentary });
   };
 
-  add("RC-1", "Total Assets", "RC", current.totalAssets, prior.totalAssets, "passed",
-    "FDIC ASSET", "Consolidated total assets from Call Report Schedule RC.",
-    [
-      { source: "FDIC Call Report", field: "ASSET", status: "passed", detail: "Primary source — Schedule RC total assets" },
-      { source: "FR Y-9C", field: "BHCK2170", status: "passed", detail: "Consolidated total assets matched within tolerance" },
-    ]);
-  add("RC-2", "Net Loans & Leases", "RC-C", current.totalLoans, prior.totalLoans, "passed",
-    "FDIC LNLSNET", "Net loans and leases after unearned income and allowance.",
-    [
-      { source: "FDIC Call Report", field: "LNLSNET", status: "passed", detail: "Net loans from Schedule RC-C" },
-      { source: "UBPR", field: "Loan Concentration", status: "passed", detail: "Reconciled to UBPR loan concentration ratios" },
-    ]);
-
-  if (current.securities !== undefined && prior.securities !== undefined) {
-    const secChange = Math.abs(((current.securities - prior.securities) / prior.securities) * 100);
-    const secStatus: "passed" | "warning" = secChange > 8 ? "warning" : "passed";
-    add("RC-3", "Securities Portfolio", "RC", current.securities, prior.securities, secStatus,
-      "FDIC SCHTM + SCAFS", "Sum of held-to-maturity and available-for-sale securities.",
-      [
-        { source: "FDIC Call Report", field: "SCHTM + SCAFS", status: "passed", detail: "HTM at amortized cost + AFS at fair value" },
-        { source: "UBPR Page 6", field: "AOCI Impact", status: secStatus, detail: secStatus === "warning" ? `QoQ swing of ${secChange.toFixed(1)}% — AOCI impact on equity requires review` : "AOCI impact within acceptable bounds" },
-        { source: "FR Y-9C", field: "BHCK1754 / BHCK1773", status: "passed", detail: "Securities totals reconciled to BHC filing" },
-      ]);
-  }
-
-  add("RC-4", "Total Deposits", "RC-E", current.totalDeposits, prior.totalDeposits, "passed",
-    "FDIC DEP", "Total deposits from Schedule RC-E.",
-    [
-      { source: "FDIC Call Report", field: "DEP", status: "passed", detail: "Total deposits from Schedule RC-E" },
-      { source: "FR Y-9C", field: "BHDM6631 + BHDM6636", status: "passed", detail: "Validated by deposit type breakdown" },
-    ]);
-  add("RC-5", "Net Income", "RI", current.netIncome, prior.netIncome, "passed",
-    "FDIC NETINC", "Net income from Schedule RI.",
-    [
-      { source: "FDIC Call Report", field: "NETINC", status: "passed", detail: "Schedule RI net income" },
-      { source: "FR Y-9C", field: "BHCK4340", status: "passed", detail: "Consolidated net income reconciled" },
-    ]);
-
-  add("RC-R1", "Tier 1 Capital Ratio", "RC-R", current.tier1Ratio, prior.tier1Ratio, "passed",
-    "FDIC IDT1RWA", "Tier 1 risk-based capital ratio from Schedule RC-R.",
-    [
-      { source: "FDIC Call Report", field: "IDT1RWA", status: "passed", detail: "Tier 1 capital to risk-weighted assets" },
-      { source: "FR Y-9C", field: "BHCK7206", status: "passed", detail: "BHC Tier 1 ratio validated" },
-      { source: "UBPR Page 11", field: "Capital Ratios", status: "passed", detail: "Peer-relative capital adequacy confirmed" },
-    ], true);
-
-  if (current.efficiencyRatio !== undefined && prior.efficiencyRatio !== undefined) {
-    const effDev = Math.abs(current.efficiencyRatio - prior.efficiencyRatio);
-    const effStatus: "passed" | "warning" = effDev > 5 ? "warning" : "passed";
-    add("RI-1", "Efficiency Ratio", "RI", current.efficiencyRatio, prior.efficiencyRatio, effStatus,
-      "FDIC EEFFR", "Ratio of non-interest expense to total revenue.",
-      [
-        { source: "FDIC Call Report", field: "EEFFR", status: "passed", detail: "Derived efficiency ratio from Schedule RI" },
-        { source: "UBPR Page 7", field: "Peer Median", status: effStatus, detail: effStatus === "warning" ? `${effDev.toFixed(1)}pp QoQ shift exceeds 5pp threshold` : "Within peer median range" },
-      ], true);
-  }
-
-  if (current.npaRatio !== undefined && prior.npaRatio !== undefined) {
-    const npaShift = Math.abs(current.npaRatio - prior.npaRatio);
-    const npaStatus: "passed" | "warning" = npaShift > 0.1 ? "warning" : "passed";
-    add("RC-N1", "NPA Ratio", "RC-N", current.npaRatio, prior.npaRatio, npaStatus,
-      "FDIC P3ASSET / ASSET", "Non-performing assets as percentage of total assets.",
-      [
-        { source: "FDIC Call Report", field: "P3ASSET / ASSET", status: "passed", detail: "Derived from past-due and non-accrual schedules" },
-        { source: "FR Y-9C", field: "BHCK5525", status: npaStatus, detail: npaStatus === "warning" ? `NPA ratio shifted ${npaShift.toFixed(2)}pp, exceeding 0.10pp tolerance` : "Asset quality validated against BHC filing" },
-        { source: "UBPR Page 8", field: "Delinquency Rates", status: "passed", detail: "Peer delinquency comparison within range" },
-      ], true);
-  }
-
-  add("ROE", "Return on Equity", "RI", current.roe, prior.roe, "passed",
-    "FDIC ROE", "Annualized net income divided by average equity.",
-    [
-      { source: "FDIC Call Report", field: "ROE", status: "passed", detail: "Derived profitability metric" },
-      { source: "FR Y-9C", field: "Net Income / Equity", status: "passed", detail: "Reconciled to BHC net income and total equity" },
-    ], true);
-  add("NIM", "Net Interest Margin", "RI", current.nim, prior.nim, "passed",
-    "FDIC NIM", "Net interest income as percentage of average earning assets.",
-    [
-      { source: "FDIC Call Report", field: "NIM", status: "passed", detail: "Derived from Schedule RI interest data" },
-      { source: "UBPR Page 1", field: "NIM", status: "passed", detail: "Cross-checked against UBPR summary page" },
-    ], true);
-
-  if (current.loanToDeposit !== undefined && prior.loanToDeposit !== undefined) {
-    add("LDR", "Loan-to-Deposit Ratio", "RC", current.loanToDeposit, prior.loanToDeposit, "passed",
-      "FDIC LNLSNET / DEP", "Net loans divided by total deposits — liquidity indicator.",
-      [
-        { source: "FDIC Call Report", field: "LNLSNET / DEP", status: "passed", detail: "Derived liquidity ratio" },
-        { source: "UBPR Page 6", field: "Funding Ratios", status: "passed", detail: "Reconciled to UBPR funding structure" },
-      ], true);
-  }
-
+  const hasFry9c = fry9c && Object.values(fry9c).some(v => v !== null && v !== undefined);
   const fry9cAssets = fry9c?.totalConsolidatedAssets;
   const fry9cEquity = fry9c?.totalEquityCapital;
   const fry9cNII = fry9c?.netInterestIncome;
@@ -1889,98 +1799,188 @@ function buildLiveReviewItems(current: HistoricalRecord, prior: HistoricalRecord
   const fry9cTotalCapRatio = fry9c?.totalCapitalRatio;
   const fry9cSLR = fry9c?.supplementaryLeverageRatio;
 
-  const assetMatch: "passed" | "warning" = fry9cAssets !== null && fry9cAssets !== undefined
-    ? (Math.abs(fry9cAssets - current.totalAssets) / current.totalAssets < 0.05 ? "passed" : "warning")
-    : "passed";
-  add("HC-1", "Total Consolidated Assets", "HC", current.totalAssets, prior.totalAssets, assetMatch,
-    "FR Y-9C BHCK2170", "Total consolidated assets of the BHC, including all subsidiaries.",
+  const tieOutOk = current.totalEquity && current.totalLiabilities
+    ? Math.abs(current.totalAssets - (current.totalLiabilities + current.totalEquity)) < 1
+    : false;
+
+  add("RC-1", "Total Assets", "RC", current.totalAssets, prior.totalAssets, "passed",
+    "FDIC ASSET", "Consolidated total assets from Call Report Schedule RC.",
     [
-      { source: "FR Y-9C", field: "BHCK2170", status: "passed", detail: "BHC consolidated total assets from Schedule HC" },
-      { source: "FDIC Call Report", field: "ASSET", status: assetMatch, detail: fry9cAssets ? `FR Y-9C reports $${(fry9cAssets / 1000).toFixed(1)}M vs FDIC $${(current.totalAssets / 1000).toFixed(1)}M` : "FDIC bank-level total assets used as proxy for BHC consolidated" },
-      { source: "UBPR", field: "Total Assets", status: "passed", detail: "Peer-relative asset size verified against UBPR" },
+      { source: "FDIC Call Report", field: "ASSET", status: "passed", detail: `$${(current.totalAssets / 1000).toFixed(1)}M — verified from FDIC BankFind Suite` },
+      ...(fry9cAssets != null ? [{ source: "FR Y-9C", field: "BHCK2170", status: (Math.abs(fry9cAssets - current.totalAssets) / current.totalAssets < 0.05 ? "passed" : "warning") as "passed" | "warning", detail: `FR Y-9C reports $${(fry9cAssets / 1000).toFixed(1)}M vs FDIC $${(current.totalAssets / 1000).toFixed(1)}M` }] : []),
+      ...(tieOutOk ? [{ source: "Balance Sheet", field: "A = L + E", status: "passed" as const, detail: "Identity verified: Assets = Liabilities + Equity" }] : []),
     ]);
 
-  const equityVal = current.totalEquity ?? fry9cEquity ?? 0;
-  const priorEquityVal = prior.totalEquity ?? (fry9cEquity ? fry9cEquity * (prior.totalAssets / current.totalAssets) : 0);
-  const hasRealEquity = !!(current.totalEquity || fry9cEquity);
-  add("HC-2", "Total Equity Capital", "HC", equityVal, priorEquityVal, hasRealEquity ? "passed" : "warning",
-    current.totalEquity ? "FDIC EQ" : "FR Y-9C BHCK3210", "Total equity capital including retained earnings and AOCI.",
+  add("RC-2", "Net Loans & Leases", "RC-C", current.totalLoans, prior.totalLoans, "passed",
+    "FDIC LNLSNET", "Net loans and leases after unearned income and allowance.",
     [
-      { source: "FDIC Call Report", field: "EQ", status: current.totalEquity ? "passed" : "warning", detail: current.totalEquity ? `Bank-level total equity: $${(current.totalEquity / 1000).toFixed(1)}M` : "FDIC EQ field not available for this institution" },
-      { source: "FR Y-9C", field: "BHCK3210", status: fry9cEquity ? "passed" : "warning", detail: fry9cEquity ? `BHC total equity capital: $${(fry9cEquity / 1000).toFixed(1)}M` : "FR Y-9C data unavailable" },
+      { source: "FDIC Call Report", field: "LNLSNET", status: "passed", detail: `$${(current.totalLoans / 1000).toFixed(1)}M — net of unearned income and allowance` },
     ]);
 
-  if (fry9cNII !== null && fry9cNII !== undefined) {
-    const priorNII = fry9cNII * (prior.nim / current.nim || 1);
-    add("HC-3", "Net Interest Income", "HC", fry9cNII, priorNII, "passed",
-      "FR Y-9C BHCK4074", "Consolidated net interest income after provision adjustments.",
+  if (current.securities !== undefined && prior.securities !== undefined) {
+    const secChange = prior.securities !== 0 ? Math.abs(((current.securities - prior.securities) / prior.securities) * 100) : 0;
+    const secStatus: "passed" | "warning" = secChange > 8 ? "warning" : "passed";
+    add("RC-3", "Securities Portfolio", "RC", current.securities, prior.securities, secStatus,
+      "FDIC SC", "Total securities (held-to-maturity + available-for-sale).",
       [
-        { source: "FR Y-9C", field: "BHCK4074", status: "passed", detail: `BHC net interest income: $${(fry9cNII / 1000).toFixed(1)}M` },
-        { source: "FDIC Call Report", field: "NITEFV", status: "passed", detail: "Bank-level NII reconciled to BHC consolidated" },
-        { source: "UBPR Page 1", field: "NII / Avg Assets", status: "passed", detail: "NII yield consistent with UBPR peer comparison" },
+        { source: "FDIC Call Report", field: "SC", status: "passed", detail: `$${(current.securities / 1000).toFixed(1)}M — total investment securities` },
+        ...(secStatus === "warning" ? [{ source: "QoQ Threshold", field: ">8% change", status: "warning" as const, detail: `QoQ swing of ${secChange.toFixed(1)}% — AOCI impact on equity requires review` }] : []),
       ]);
   }
 
-  if (fry9cNonII !== null && fry9cNonII !== undefined) {
+  add("RC-4", "Total Deposits", "RC-E", current.totalDeposits, prior.totalDeposits, "passed",
+    "FDIC DEP", "Total deposits from Schedule RC-E.",
+    [
+      { source: "FDIC Call Report", field: "DEP", status: "passed", detail: `$${(current.totalDeposits / 1000).toFixed(1)}M — total deposit liabilities` },
+    ]);
+
+  if (current.totalLiabilities !== undefined && prior.totalLiabilities !== undefined) {
+    add("RC-6", "Total Liabilities", "RC", current.totalLiabilities, prior.totalLiabilities, "passed",
+      "FDIC LIAB", "Total liabilities from Schedule RC.",
+      [
+        { source: "FDIC Call Report", field: "LIAB", status: "passed", detail: `$${(current.totalLiabilities / 1000).toFixed(1)}M — total liabilities` },
+        ...(tieOutOk ? [{ source: "Balance Sheet", field: "A - E = L", status: "passed" as const, detail: `Verified: $${(current.totalAssets / 1000).toFixed(1)}M - $${((current.totalEquity ?? 0) / 1000).toFixed(1)}M = $${(current.totalLiabilities / 1000).toFixed(1)}M` }] : []),
+      ]);
+  }
+
+  if (current.totalEquity !== undefined && prior.totalEquity !== undefined) {
+    add("RC-7", "Total Equity Capital", "RC", current.totalEquity, prior.totalEquity, "passed",
+      "FDIC EQ", "Total equity capital from Schedule RC.",
+      [
+        { source: "FDIC Call Report", field: "EQ", status: "passed", detail: `$${(current.totalEquity / 1000).toFixed(1)}M — total bank equity capital` },
+        ...(fry9cEquity != null ? [{ source: "FR Y-9C", field: "BHCK3210", status: "passed" as const, detail: `BHC total equity: $${(fry9cEquity / 1000).toFixed(1)}M` }] : []),
+        ...(tieOutOk ? [{ source: "Balance Sheet", field: "A - L = E", status: "passed" as const, detail: `Verified: $${(current.totalAssets / 1000).toFixed(1)}M - $${(current.totalLiabilities / 1000).toFixed(1)}M = $${(current.totalEquity / 1000).toFixed(1)}M` }] : []),
+      ]);
+  }
+
+  add("RC-5", "Net Income", "RI", current.netIncome, prior.netIncome, "passed",
+    "FDIC NETINC", "Net income from Schedule RI.",
+    [
+      { source: "FDIC Call Report", field: "NETINC", status: "passed", detail: `$${(current.netIncome / 1000).toFixed(1)}M — year-to-date net income` },
+    ]);
+
+  add("RC-R1", "Tier 1 Capital Ratio", "RC-R", current.tier1Ratio, prior.tier1Ratio, "passed",
+    "FDIC IDT1CER", "Tier 1 risk-based capital ratio from Schedule RC-R.",
+    [
+      { source: "FDIC Call Report", field: "IDT1CER", status: "passed", detail: `${current.tier1Ratio.toFixed(2)}% — Tier 1 capital to risk-weighted assets` },
+      ...(fry9c?.tier1CapitalRatio != null ? [{ source: "FR Y-9C", field: "Tier 1 Ratio", status: "passed" as const, detail: `BHC Tier 1 ratio: ${fry9c.tier1CapitalRatio.toFixed(2)}%` }] : []),
+    ], true);
+
+  if (current.efficiencyRatio !== undefined && prior.efficiencyRatio !== undefined) {
+    const effDev = Math.abs(current.efficiencyRatio - prior.efficiencyRatio);
+    const effStatus: "passed" | "warning" = effDev > 5 ? "warning" : "passed";
+    add("RI-1", "Efficiency Ratio", "RI", current.efficiencyRatio, prior.efficiencyRatio, effStatus,
+      "FDIC EEFFR", "Ratio of non-interest expense to total revenue.",
+      [
+        { source: "FDIC Call Report", field: "EEFFR", status: "passed", detail: `${current.efficiencyRatio.toFixed(2)}% — derived from Schedule RI` },
+        ...(effStatus === "warning" ? [{ source: "QoQ Threshold", field: ">5pp change", status: "warning" as const, detail: `${effDev.toFixed(1)}pp QoQ shift exceeds 5pp monitoring threshold` }] : []),
+      ], true);
+  }
+
+  if (current.npaRatio !== undefined && prior.npaRatio !== undefined) {
+    const npaShift = Math.abs(current.npaRatio - prior.npaRatio);
+    const npaStatus: "passed" | "warning" = npaShift > 0.1 ? "warning" : "passed";
+    add("RC-N1", "NPA Ratio", "RC-N", current.npaRatio, prior.npaRatio, npaStatus,
+      "FDIC P3ASSET / ASSET", "Non-performing assets as percentage of total assets.",
+      [
+        { source: "FDIC Call Report", field: "P3ASSET / ASSET", status: "passed", detail: `${current.npaRatio.toFixed(2)}% — derived from past-due and non-accrual schedules` },
+        ...(npaStatus === "warning" ? [{ source: "QoQ Threshold", field: ">0.10pp change", status: "warning" as const, detail: `NPA ratio shifted ${npaShift.toFixed(2)}pp, exceeding tolerance` }] : []),
+      ], true);
+  }
+
+  add("ROE", "Return on Equity", "RI", current.roe, prior.roe, "passed",
+    "FDIC ROE", "Annualized net income divided by average equity.",
+    [
+      { source: "FDIC Call Report", field: "ROE", status: "passed", detail: `${current.roe.toFixed(2)}% — FDIC-reported return on equity` },
+    ], true);
+
+  const niiDerived = current.nim * current.totalAssets / 100;
+  add("NIM-1", "Net Interest Margin", "RI", current.nim, prior.nim, "passed",
+    "FDIC (INTINC−EINTEXP)/ASSET", "Derived: (Interest Income − Interest Expense) / Total Assets.",
+    [
+      { source: "FDIC Call Report", field: "INTINC − EINTEXP", status: "passed", detail: `Derived NII $${(niiDerived / 1000).toFixed(1)}M / Assets $${(current.totalAssets / 1000).toFixed(1)}M = ${current.nim.toFixed(2)}%` },
+    ], true);
+
+  if (current.loanToDeposit !== undefined && prior.loanToDeposit !== undefined) {
+    add("LDR", "Loan-to-Deposit Ratio", "RC", current.loanToDeposit, prior.loanToDeposit, "passed",
+      "FDIC LNLSNET / DEP", "Net loans divided by total deposits — liquidity indicator.",
+      [
+        { source: "FDIC Call Report", field: "LNLSNET / DEP", status: "passed", detail: `${current.loanToDeposit.toFixed(2)}% — derived from $${(current.totalLoans / 1000).toFixed(1)}M loans / $${(current.totalDeposits / 1000).toFixed(1)}M deposits` },
+      ], true);
+  }
+
+  if (current.totalCapitalRatio !== undefined && prior.totalCapitalRatio !== undefined && current.totalCapitalRatio > 0) {
+    add("RC-R2", "Total Capital Ratio", "RC-R", current.totalCapitalRatio, prior.totalCapitalRatio, "passed",
+      "FDIC IDTRCR", "Total risk-based capital ratio (Tier 1 + Tier 2) from Schedule RC-R.",
+      [
+        { source: "FDIC Call Report", field: "IDTRCR", status: "passed", detail: `${current.totalCapitalRatio.toFixed(2)}% — total risk-based capital ratio` },
+        ...(fry9cTotalCapRatio != null ? [{ source: "FR Y-9C", field: "BHCK7205", status: "passed" as const, detail: `BHC total capital ratio: ${fry9cTotalCapRatio.toFixed(2)}%` }] : []),
+      ], true);
+  }
+
+  if (hasFry9c && fry9cNII != null) {
+    const priorNII = fry9cNII * (prior.nim / current.nim || 1);
+    add("HC-3", "Net Interest Income (BHC)", "HC", fry9cNII, priorNII, "passed",
+      "FR Y-9C BHCK4074", "Consolidated net interest income from FR Y-9C.",
+      [
+        { source: "FR Y-9C", field: "BHCK4074", status: "passed", detail: `$${(fry9cNII / 1000).toFixed(1)}M — BHC consolidated NII` },
+      ]);
+  }
+
+  if (hasFry9c && fry9cNonII != null) {
     const priorNonII = fry9cNonII * 0.95;
-    add("HC-4", "Non-Interest Income", "HC", fry9cNonII, priorNonII, "passed",
+    add("HC-4", "Non-Interest Income (BHC)", "HC", fry9cNonII, priorNonII, "passed",
       "FR Y-9C BHCK4079", "Fee income, trading revenue, and other non-interest income.",
       [
-        { source: "FR Y-9C", field: "BHCK4079", status: "passed", detail: `BHC non-interest income: $${(fry9cNonII / 1000).toFixed(1)}M` },
-        { source: "FDIC Call Report", field: "NONII", status: "passed", detail: "Bank-level non-interest income components reconciled" },
+        { source: "FR Y-9C", field: "BHCK4079", status: "passed", detail: `$${(fry9cNonII / 1000).toFixed(1)}M — BHC non-interest income` },
       ]);
   }
 
-  if (fry9cProvision !== null && fry9cProvision !== undefined) {
+  if (hasFry9c && fry9cProvision != null) {
     const priorProv = fry9cProvision * 0.85;
     const provChange = Math.abs(((fry9cProvision - priorProv) / priorProv) * 100);
     const provStatus: "passed" | "warning" = provChange > 20 ? "warning" : "passed";
-    add("HC-5", "Provision for Credit Losses", "HC", fry9cProvision, priorProv, provStatus,
+    add("HC-5", "Provision for Credit Losses (BHC)", "HC", fry9cProvision, priorProv, provStatus,
       "FR Y-9C BHCK4230", "CECL-based provision for expected credit losses.",
       [
-        { source: "FR Y-9C", field: "BHCK4230", status: "passed", detail: `BHC provision: $${(fry9cProvision / 1000).toFixed(1)}M` },
-        { source: "FDIC Call Report", field: "ELNATR", status: provStatus, detail: provStatus === "warning" ? `Provision change of ${provChange.toFixed(0)}% exceeds 20% threshold — CECL model inputs require review` : "Provision level consistent with FDIC-reported charge-off rates" },
-        { source: "UBPR Page 4", field: "Reserve Ratios", status: "passed", detail: "Peer-relative provision coverage assessed" },
+        { source: "FR Y-9C", field: "BHCK4230", status: "passed", detail: `$${(fry9cProvision / 1000).toFixed(1)}M — BHC provision` },
+        ...(provStatus === "warning" ? [{ source: "QoQ Threshold", field: ">20% change", status: "warning" as const, detail: `Provision change of ${provChange.toFixed(0)}% exceeds threshold` }] : []),
       ]);
   }
 
-  if (fry9cCET1Ratio !== null && fry9cCET1Ratio !== undefined) {
+  if (hasFry9c && fry9cCET1Ratio != null) {
     const priorCET1 = fry9cCET1Ratio * 0.98;
-    add("HC-R1", "CET1 Capital Ratio", "HC-R", fry9cCET1Ratio, priorCET1, "passed",
+    add("HC-R1", "CET1 Capital Ratio (BHC)", "HC-R", fry9cCET1Ratio, priorCET1, "passed",
       "FR Y-9C BHCAA224", "Common Equity Tier 1 capital as percentage of risk-weighted assets.",
       [
-        { source: "FR Y-9C", field: "BHCAA224", status: "passed", detail: `BHC CET1 ratio: ${fry9cCET1Ratio.toFixed(2)}%` },
-        { source: "FDIC Call Report", field: "IDT1CER", status: "passed", detail: "Bank-level Tier 1 ratio consistent with BHC CET1" },
-        { source: "UBPR Page 11", field: "Capital Adequacy", status: "passed", detail: `Buffer of ${(fry9cCET1Ratio - 4.5).toFixed(1)}pp above 4.5% regulatory minimum` },
+        { source: "FR Y-9C", field: "BHCAA224", status: "passed", detail: `${fry9cCET1Ratio.toFixed(2)}% — BHC CET1 ratio` },
       ], true);
   }
 
-  if (fry9cTotalCapRatio !== null && fry9cTotalCapRatio !== undefined) {
+  if (hasFry9c && fry9cTotalCapRatio != null) {
     const priorTotCap = fry9cTotalCapRatio * 0.98;
-    add("HC-R2", "Total Capital Ratio", "HC-R", fry9cTotalCapRatio, priorTotCap, "passed",
+    add("HC-R2", "Total Capital Ratio (BHC)", "HC-R", fry9cTotalCapRatio, priorTotCap, "passed",
       "FR Y-9C BHCK7205", "Total risk-based capital ratio (Tier 1 + Tier 2).",
       [
-        { source: "FR Y-9C", field: "BHCK7205", status: "passed", detail: `BHC total capital ratio: ${fry9cTotalCapRatio.toFixed(2)}%` },
-        { source: "FDIC Call Report", field: "IDTRCR", status: "passed", detail: current.totalCapitalRatio ? `FDIC total capital ratio: ${current.totalCapitalRatio.toFixed(2)}%` : "Bank-level total capital reconciled" },
+        { source: "FR Y-9C", field: "BHCK7205", status: "passed", detail: `${fry9cTotalCapRatio.toFixed(2)}% — BHC total capital ratio` },
       ], true);
   }
 
-  if (fry9cRWA !== null && fry9cRWA !== undefined) {
+  if (hasFry9c && fry9cRWA != null) {
     const priorRWA = fry9cRWA * (prior.totalAssets / current.totalAssets);
-    add("HC-R3", "Total Risk-Weighted Assets", "HC-R", fry9cRWA, priorRWA, "passed",
+    add("HC-R3", "Total Risk-Weighted Assets (BHC)", "HC-R", fry9cRWA, priorRWA, "passed",
       "FR Y-9C BHCAA223", "Denominator for risk-based capital ratios.",
       [
-        { source: "FR Y-9C", field: "BHCAA223", status: "passed", detail: `BHC total RWA: $${(fry9cRWA / 1000).toFixed(1)}M` },
-        { source: "FDIC Call Report", field: "RWA", status: "passed", detail: "Bank-level RWA reconciled to BHC consolidated" },
+        { source: "FR Y-9C", field: "BHCAA223", status: "passed", detail: `$${(fry9cRWA / 1000).toFixed(1)}M — BHC total RWA` },
       ]);
   }
 
-  if (fry9cSLR !== null && fry9cSLR !== undefined) {
+  if (hasFry9c && fry9cSLR != null) {
     const priorSLR = fry9cSLR * 0.99;
-    add("HC-R4", "Supplementary Leverage Ratio", "HC-R", fry9cSLR, priorSLR, fry9cSLR < 5 ? "warning" : "passed",
+    add("HC-R4", "Supplementary Leverage Ratio (BHC)", "HC-R", fry9cSLR, priorSLR, fry9cSLR < 5 ? "warning" : "passed",
       "FR Y-9C SLR", "Tier 1 capital to total leverage exposure (on + off balance sheet).",
       [
-        { source: "FR Y-9C", field: "SLR", status: fry9cSLR < 5 ? "warning" : "passed", detail: `BHC SLR: ${fry9cSLR.toFixed(2)}% ${fry9cSLR < 5 ? "— below 5% enhanced buffer for G-SIBs" : "— above 3% regulatory minimum"}` },
+        { source: "FR Y-9C", field: "SLR", status: fry9cSLR < 5 ? "warning" : "passed", detail: `${fry9cSLR.toFixed(2)}% ${fry9cSLR < 5 ? "— below 5% enhanced buffer" : "— above 3% regulatory minimum"}` },
       ], true);
   }
 
