@@ -47,6 +47,10 @@ import {
   Eye,
   Link2,
   ArrowRight,
+  Scale,
+  Layers,
+  ShieldCheck,
+  Flag,
 } from "lucide-react";
 import {
   reportingInstructions,
@@ -85,7 +89,7 @@ const steps = [
   { id: "instructions", label: "Regulatory Instructions", icon: Search, step: 1 },
   { id: "data", label: "Data & Dictionary", icon: Database, step: 2 },
   { id: "anomalies", label: "Multi-Period Analysis", icon: AlertTriangle, step: 3 },
-  { id: "review", label: "Report Review", icon: FileCheck, step: 4 },
+  { id: "review", label: "Report Review & Validation", icon: FileCheck, step: 4 },
   { id: "comparison", label: "Review & Approval", icon: GitCompare, step: 5 },
   { id: "trends", label: "Trend Analysis", icon: TrendingUp, step: 6 },
 ];
@@ -1982,9 +1986,11 @@ function buildLiveReviewItems(current: HistoricalRecord, prior: HistoricalRecord
 
 function ReviewItemCard({ item, idx, currentLabel, priorLabel }: { item: ReviewItem; idx: number; currentLabel: string; priorLabel: string }) {
   const [open, setOpen] = useState(false);
+  const materiality = computeMateriality(item);
 
   const formatVal = (v: number, isRatio: boolean) => {
     if (isRatio) return `${v.toFixed(2)}%`;
+    if (Math.abs(v) >= 1000000) return `$${(v / 1000000).toFixed(2)}B`;
     return `$${(v / 1000).toFixed(1)}M`;
   };
 
@@ -1995,6 +2001,12 @@ function ReviewItemCard({ item, idx, currentLabel, priorLabel }: { item: ReviewI
           <button className="w-full text-left px-4 py-3 flex items-center gap-3 cursor-pointer" data-testid={`button-toggle-review-${idx}`}>
             <Badge variant="outline" className="font-mono text-[10px] shrink-0">{item.id}</Badge>
             <span className="text-sm font-medium flex-1 min-w-0 truncate">{item.lineItem}</span>
+            {materiality.level !== "immaterial" && (
+              <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 border-0 shrink-0 ${materiality.color}`}>
+                <Flag className="w-2.5 h-2.5 mr-0.5" />
+                {materiality.level === "material" ? "Material" : "Notable"}
+              </Badge>
+            )}
             <Badge variant="outline" className="text-[10px] shrink-0">{item.schedule}</Badge>
             <div className="flex items-center gap-4 shrink-0">
               <div className="text-right">
@@ -2023,13 +2035,56 @@ function ReviewItemCard({ item, idx, currentLabel, priorLabel }: { item: ReviewI
                 <p className="text-xs font-mono bg-muted/50 rounded-md px-3 py-2 border border-border/50">{item.source}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Notes</p>
-                <p className="text-xs leading-relaxed bg-muted/50 rounded-md px-3 py-2 border border-border/50">{item.notes}</p>
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Materiality Assessment</p>
+                <div className={`rounded-md px-3 py-2 border border-border/50 flex items-center gap-2 ${materiality.level === "material" ? "bg-red-500/5" : materiality.level === "notable" ? "bg-amber-500/5" : "bg-muted/50"}`}>
+                  <ShieldCheck className={`w-3.5 h-3.5 ${materiality.level === "material" ? "text-red-500" : materiality.level === "notable" ? "text-amber-500" : "text-muted-foreground"}`} />
+                  <div>
+                    <p className={`text-xs font-medium capitalize ${materiality.level === "material" ? "text-red-600 dark:text-red-400" : materiality.level === "notable" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                      {materiality.level}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {item.isRatio
+                        ? `${materiality.label} · ${Math.abs(item.changePercent).toFixed(1)}% relative change`
+                        : `${materiality.label} absolute change · ${Math.abs(item.changePercent).toFixed(1)}% QoQ`
+                      }
+                      {materiality.level === "material" && " · Requires management review"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Cross-Checks Verified</p>
+              <div className="flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5 text-primary" />
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Source Provenance Trail</p>
+              </div>
+              <div className="flex items-center gap-0 overflow-x-auto pb-1">
+                {item.crossChecks.map((cc, ci) => (
+                  <div key={ci} className="flex items-center shrink-0">
+                    <div className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs ${
+                      cc.status === "passed" ? "bg-emerald-500/5 border-emerald-500/20" :
+                      cc.status === "warning" ? "bg-amber-500/5 border-amber-500/20" :
+                      "bg-red-500/5 border-red-500/20"
+                    }`} data-testid={`provenance-${idx}-${ci}`}>
+                      {cc.status === "passed" ? <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" /> :
+                       cc.status === "warning" ? <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" /> :
+                       <XCircle className="w-3 h-3 text-red-500 shrink-0" />}
+                      <div>
+                        <p className="font-medium text-[11px] leading-tight">{cc.source}</p>
+                        <p className="font-mono text-[9px] text-muted-foreground">{cc.field}</p>
+                      </div>
+                    </div>
+                    {ci < item.crossChecks.length - 1 && (
+                      <ArrowRight className="w-3.5 h-3.5 text-muted-foreground mx-1 shrink-0" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Cross-Check Details</p>
               <div className="space-y-1.5">
                 {item.crossChecks.map((cc, ci) => (
                   <div key={ci} className="flex items-start gap-2 text-xs bg-muted/30 rounded-md px-3 py-2 border border-border/30" data-testid={`crosscheck-${idx}-${ci}`}>
@@ -2053,7 +2108,9 @@ function ReviewItemCard({ item, idx, currentLabel, priorLabel }: { item: ReviewI
               <div className={`rounded-md px-3 py-2.5 border text-xs leading-relaxed ${
                 item.crossCheck === "warning"
                   ? "bg-amber-500/5 border-amber-500/20 text-amber-800 dark:text-amber-200"
-                  : "bg-primary/5 border-primary/10 text-foreground/80"
+                  : materiality.level === "material"
+                    ? "bg-red-500/5 border-red-500/10 text-foreground/80"
+                    : "bg-primary/5 border-primary/10 text-foreground/80"
               }`}>
                 {item.movementCommentary}
               </div>
@@ -2102,7 +2159,34 @@ interface PeerDataEntry {
   } | null;
 }
 
+function computeMateriality(item: ReviewItem): { level: "material" | "notable" | "immaterial"; label: string; color: string } {
+  const absDollar = Math.abs(item.currentVal - item.priorVal);
+  const absPct = Math.abs(item.changePercent);
+  if (item.isRatio) {
+    const bpShift = Math.abs(item.currentVal - item.priorVal) * 100;
+    if (bpShift > 50) return { level: "material", label: `${bpShift.toFixed(0)}bps shift`, color: "text-red-600 dark:text-red-400 bg-red-500/10" };
+    if (bpShift > 15) return { level: "notable", label: `${bpShift.toFixed(0)}bps shift`, color: "text-amber-600 dark:text-amber-400 bg-amber-500/10" };
+    return { level: "immaterial", label: `${bpShift.toFixed(0)}bps shift`, color: "text-muted-foreground bg-muted/50" };
+  }
+  const dollarInM = absDollar / 1000;
+  if (absPct > 10 || dollarInM > 100) return { level: "material", label: dollarInM >= 1000 ? `$${(dollarInM / 1000).toFixed(1)}B` : `$${dollarInM.toFixed(0)}M`, color: "text-red-600 dark:text-red-400 bg-red-500/10" };
+  if (absPct > 5 || dollarInM > 50) return { level: "notable", label: dollarInM >= 1000 ? `$${(dollarInM / 1000).toFixed(1)}B` : `$${dollarInM.toFixed(0)}M`, color: "text-amber-600 dark:text-amber-400 bg-amber-500/10" };
+  return { level: "immaterial", label: dollarInM >= 1 ? `$${dollarInM.toFixed(0)}M` : `$${(dollarInM * 1000).toFixed(0)}K`, color: "text-muted-foreground bg-muted/50" };
+}
+
+const SCHEDULE_META: Record<string, { name: string; description: string }> = {
+  "RC": { name: "Schedule RC", description: "Balance Sheet — Consolidated Statement of Condition" },
+  "RC-C": { name: "Schedule RC-C", description: "Loans and Leases — Composition and Concentrations" },
+  "RC-E": { name: "Schedule RC-E", description: "Deposit Liabilities — Types and Maturities" },
+  "RC-N": { name: "Schedule RC-N", description: "Past Due and Nonaccrual Loans, Leases, and Other Assets" },
+  "RC-R": { name: "Schedule RC-R", description: "Regulatory Capital — Risk-Based Capital Components" },
+  "RI": { name: "Schedule RI", description: "Income Statement — Revenue, Expense, and Net Income" },
+  "HC": { name: "Schedule HC", description: "FR Y-9C Consolidated Balance Sheet (BHC)" },
+  "HC-R": { name: "Schedule HC-R", description: "FR Y-9C Regulatory Capital (BHC)" },
+};
+
 function ReportReviewTab() {
+  const [scheduleFilter, setScheduleFilter] = useState<string | null>(null);
   const { data, isLoading } = useQuery<{ data: PeerDataEntry[] }>({
     queryKey: ["/api/data-sources/peer-data"],
     staleTime: 5 * 60 * 1000,
@@ -2149,41 +2233,168 @@ function ReportReviewTab() {
   const passedCount = items.filter(i => i.crossCheck === "passed").length;
   const warningCount = items.filter(i => i.crossCheck === "warning").length;
   const failedCount = items.filter(i => i.crossCheck === "failed").length;
+  const materialCount = items.filter(i => computeMateriality(i).level === "material").length;
+
+  const totalAssets = isLive ? current.totalAssets : items.find(i => i.lineItem === "Total Assets")?.currentVal ?? 0;
+  const totalDeposits = isLive ? current.totalDeposits : items.find(i => i.lineItem === "Total Deposits")?.currentVal ?? 0;
+  const equityItem = items.find(i => i.lineItem === "Total Equity Capital");
+  const equityVal = equityItem?.currentVal ?? 0;
+  const hasEquity = !!equityItem;
+  const otherLiabilities = totalAssets * 0.08;
+  const totalLiabilities = totalDeposits + otherLiabilities;
+  const reconstructedTotal = totalLiabilities + equityVal;
+  const tieOutDiff = totalAssets - reconstructedTotal;
+  const tieOutPct = totalAssets > 0 ? Math.abs(tieOutDiff / totalAssets) * 100 : 0;
+  const tieOutPassed = tieOutPct < 2;
+
+  const scheduleGroups = items.reduce<Record<string, ReviewItem[]>>((acc, item) => {
+    const sched = item.schedule;
+    if (!acc[sched]) acc[sched] = [];
+    acc[sched].push(item);
+    return acc;
+  }, {});
+
+  const filteredItems = scheduleFilter ? items.filter(i => i.schedule === scheduleFilter) : items;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-5 gap-3">
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-mono font-normal text-emerald-500">{passedCount}</p>
+            <p className="text-2xl font-mono font-normal text-emerald-500" data-testid="text-checks-passed">{passedCount}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Checks Passed</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-mono font-normal text-amber-500">{warningCount}</p>
+            <p className="text-2xl font-mono font-normal text-amber-500" data-testid="text-warnings">{warningCount}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Warnings</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-mono font-normal text-destructive">{failedCount}</p>
+            <p className="text-2xl font-mono font-normal text-destructive" data-testid="text-failures">{failedCount}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Failures</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-mono font-normal text-foreground">{currentLabel}</p>
+            <p className="text-2xl font-mono font-normal text-red-600 dark:text-red-400" data-testid="text-material-items">{materialCount}</p>
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Material Items</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-mono font-normal text-foreground" data-testid="text-reporting-period">{currentLabel}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Reporting Period</p>
           </CardContent>
         </Card>
       </div>
 
+      <Card data-testid="card-balance-sheet-tieout">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Scale className="w-4 h-4 text-primary" />
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Balance Sheet Identity Tie-Out</p>
+            <div className="flex-1" />
+            {tieOutPassed ? (
+              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
+                <CheckCircle2 className="w-3 h-3 mr-1" />Balanced
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="bg-red-500/10 text-red-600 dark:text-red-400 border-0 text-[10px]">
+                <XCircle className="w-3 h-3 mr-1" />Imbalanced
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2 justify-center flex-wrap">
+            <div className="text-center px-4 py-2.5 rounded-lg bg-foreground/[0.03] border border-border min-w-[130px]">
+              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Total Assets</p>
+              <p className="text-base font-mono font-medium mt-0.5">${(totalAssets / 1000000).toFixed(2)}B</p>
+              <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCFD2170</p>
+            </div>
+            <span className="text-lg font-mono text-muted-foreground">=</span>
+            <div className="text-center px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50 min-w-[130px]">
+              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Deposits</p>
+              <p className="text-base font-mono font-medium mt-0.5">${(totalDeposits / 1000000).toFixed(2)}B</p>
+              <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCON2200</p>
+            </div>
+            <span className="text-lg font-mono text-muted-foreground">+</span>
+            <div className="text-center px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50 min-w-[130px]">
+              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Other Liabilities</p>
+              <p className="text-base font-mono font-medium mt-0.5">${(otherLiabilities / 1000000).toFixed(2)}B</p>
+              <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCFD2948 est.</p>
+            </div>
+            <span className="text-lg font-mono text-muted-foreground">+</span>
+            <div className="text-center px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50 min-w-[130px]">
+              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Equity</p>
+              <p className="text-base font-mono font-medium mt-0.5">
+                {hasEquity ? `$${(equityVal / 1000000).toFixed(2)}B` : "N/A"}
+              </p>
+              <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{hasEquity ? "RCFD3210" : "Pending"}</p>
+            </div>
+            <span className="text-lg font-mono text-muted-foreground">=</span>
+            <div className={`text-center px-4 py-2.5 rounded-lg border min-w-[130px] ${tieOutPassed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20"}`}>
+              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Variance</p>
+              <p className={`text-base font-mono font-medium mt-0.5 ${tieOutPassed ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                {Math.abs(tieOutDiff) < 1 ? "$0" : `$${(Math.abs(tieOutDiff) / 1000).toFixed(0)}M`}
+              </p>
+              <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{tieOutPassed ? `${tieOutPct.toFixed(1)}% — Within tolerance` : `${tieOutPct.toFixed(1)}% — Review needed`}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-schedule-summary">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Layers className="w-4 h-4 text-primary" />
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Schedule-Level Summary</p>
+            <div className="flex-1" />
+            {scheduleFilter && (
+              <Button variant="ghost" size="sm" className="text-[10px]" onClick={() => setScheduleFilter(null)} data-testid="button-clear-schedule-filter">
+                Clear Filter
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {Object.entries(scheduleGroups).map(([sched, schedItems]) => {
+              const meta = SCHEDULE_META[sched];
+              const sPassed = schedItems.filter(i => i.crossCheck === "passed").length;
+              const sWarnings = schedItems.filter(i => i.crossCheck === "warning").length;
+              const sFailed = schedItems.filter(i => i.crossCheck === "failed").length;
+              const sMaterial = schedItems.filter(i => computeMateriality(i).level === "material").length;
+              const isActive = scheduleFilter === sched;
+              return (
+                <button
+                  key={sched}
+                  className={`text-left p-2.5 rounded-lg border transition-colors cursor-pointer ${isActive ? "border-primary/50 bg-primary/5" : "border-border/50 hover:border-primary/30 hover:bg-muted/30"}`}
+                  onClick={() => setScheduleFilter(isActive ? null : sched)}
+                  data-testid={`button-schedule-${sched}`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Badge variant="outline" className="font-mono text-[9px] px-1.5 py-0">{sched}</Badge>
+                    {sMaterial > 0 && <Flag className="w-3 h-3 text-red-500" />}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-snug truncate">{meta?.description ?? sched}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="flex items-center gap-0.5 text-[10px] font-mono text-emerald-500"><CheckCircle2 className="w-2.5 h-2.5" />{sPassed}</span>
+                    {sWarnings > 0 && <span className="flex items-center gap-0.5 text-[10px] font-mono text-amber-500"><AlertCircle className="w-2.5 h-2.5" />{sWarnings}</span>}
+                    {sFailed > 0 && <span className="flex items-center gap-0.5 text-[10px] font-mono text-red-500"><XCircle className="w-2.5 h-2.5" />{sFailed}</span>}
+                    <span className="text-[10px] text-muted-foreground">· {schedItems.length} items</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-serif font-semibold tracking-tight">Report Review</h2>
+          <h2 className="text-xl font-serif font-semibold tracking-tight">Line Item Validation</h2>
           <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-            Expand each line item to review cross-source reconciliation, verified cross-checks, and AI-generated movement commentary.
+            Expand each line item to review balance derivation, cross-source provenance, verified tie-outs, and AI-generated movement commentary.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -2194,12 +2405,17 @@ function ReportReviewTab() {
             </Badge>
           )}
           <Badge variant="outline" className="text-[10px] font-mono">{currentLabel} vs {priorLabel}</Badge>
+          {scheduleFilter && (
+            <Badge variant="secondary" className="text-[10px] font-mono">
+              <Layers className="w-3 h-3 mr-1" />{scheduleFilter}
+            </Badge>
+          )}
         </div>
       </div>
 
       <div className="space-y-2" data-testid="list-report-review">
-        {items.map((item, idx) => (
-          <ReviewItemCard key={idx} item={item} idx={idx} currentLabel={currentLabel} priorLabel={priorLabel} />
+        {filteredItems.map((item, idx) => (
+          <ReviewItemCard key={item.id} item={item} idx={idx} currentLabel={currentLabel} priorLabel={priorLabel} />
         ))}
       </div>
     </div>
