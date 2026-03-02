@@ -214,6 +214,8 @@ export async function registerRoutes(
         chargeOffRate: r.ELNANTR,
         totalCapitalRatio: r.IDTRCR,
         loanToDeposit: computeLoanToDeposit(r),
+        totalEquity: r.EQ,
+        totalLiabilities: r.LIAB,
       })),
     };
   }

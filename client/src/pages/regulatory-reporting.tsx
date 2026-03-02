@@ -1192,6 +1192,8 @@ interface HistoricalRecord {
   chargeOffRate?: number;
   totalCapitalRatio?: number;
   loanToDeposit?: number;
+  totalEquity?: number;
+  totalLiabilities?: number;
 }
 
 function fmtDollar(valInThousands: number): string {
@@ -1898,13 +1900,14 @@ function buildLiveReviewItems(current: HistoricalRecord, prior: HistoricalRecord
       { source: "UBPR", field: "Total Assets", status: "passed", detail: "Peer-relative asset size verified against UBPR" },
     ]);
 
-  const equityVal = fry9cEquity ?? (current.totalAssets - current.totalDeposits) * 0.1 + current.totalDeposits * 0.01;
-  const priorEquityVal = fry9cEquity ? equityVal * (prior.totalAssets / current.totalAssets) : (prior.totalAssets - prior.totalDeposits) * 0.1 + prior.totalDeposits * 0.01;
-  add("HC-2", "Total Equity Capital", "HC", equityVal, priorEquityVal, "passed",
-    "FR Y-9C BHCK3210", "Total equity capital including retained earnings and AOCI.",
+  const equityVal = current.totalEquity ?? fry9cEquity ?? 0;
+  const priorEquityVal = prior.totalEquity ?? (fry9cEquity ? fry9cEquity * (prior.totalAssets / current.totalAssets) : 0);
+  const hasRealEquity = !!(current.totalEquity || fry9cEquity);
+  add("HC-2", "Total Equity Capital", "HC", equityVal, priorEquityVal, hasRealEquity ? "passed" : "warning",
+    current.totalEquity ? "FDIC EQ" : "FR Y-9C BHCK3210", "Total equity capital including retained earnings and AOCI.",
     [
-      { source: "FR Y-9C", field: "BHCK3210", status: fry9cEquity ? "passed" : "warning", detail: fry9cEquity ? `BHC total equity capital: $${(fry9cEquity / 1000).toFixed(1)}M` : "FR Y-9C data unavailable — derived from FDIC equity components" },
-      { source: "FDIC Call Report", field: "EQ", status: "passed", detail: "Bank-level equity cross-referenced" },
+      { source: "FDIC Call Report", field: "EQ", status: current.totalEquity ? "passed" : "warning", detail: current.totalEquity ? `Bank-level total equity: $${(current.totalEquity / 1000).toFixed(1)}M` : "FDIC EQ field not available for this institution" },
+      { source: "FR Y-9C", field: "BHCK3210", status: fry9cEquity ? "passed" : "warning", detail: fry9cEquity ? `BHC total equity capital: $${(fry9cEquity / 1000).toFixed(1)}M` : "FR Y-9C data unavailable" },
     ]);
 
   if (fry9cNII !== null && fry9cNII !== undefined) {
@@ -2237,15 +2240,13 @@ function ReportReviewTab() {
 
   const totalAssets = isLive ? current.totalAssets : items.find(i => i.lineItem === "Total Assets")?.currentVal ?? 0;
   const totalDeposits = isLive ? current.totalDeposits : items.find(i => i.lineItem === "Total Deposits")?.currentVal ?? 0;
-  const equityItem = items.find(i => i.lineItem === "Total Equity Capital");
-  const equityVal = equityItem?.currentVal ?? 0;
-  const hasEquity = !!equityItem;
-  const otherLiabilities = totalAssets * 0.08;
-  const totalLiabilities = totalDeposits + otherLiabilities;
-  const reconstructedTotal = totalLiabilities + equityVal;
+  const totalEquity = isLive && current.totalEquity ? current.totalEquity : 0;
+  const totalLiabilities = isLive && current.totalLiabilities ? current.totalLiabilities : 0;
+  const hasBalanceSheetData = totalEquity > 0 && totalLiabilities > 0;
+  const reconstructedTotal = totalLiabilities + totalEquity;
   const tieOutDiff = totalAssets - reconstructedTotal;
   const tieOutPct = totalAssets > 0 ? Math.abs(tieOutDiff / totalAssets) * 100 : 0;
-  const tieOutPassed = tieOutPct < 2;
+  const tieOutPassed = hasBalanceSheetData && tieOutPct < 0.01;
 
   const scheduleGroups = items.reduce<Record<string, ReviewItem[]>>((acc, item) => {
     const sched = item.schedule;
@@ -2307,41 +2308,55 @@ function ReportReviewTab() {
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-2 justify-center flex-wrap">
-            <div className="text-center px-4 py-2.5 rounded-lg bg-foreground/[0.03] border border-border min-w-[130px]">
-              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Total Assets</p>
-              <p className="text-base font-mono font-medium mt-0.5">${(totalAssets / 1000000).toFixed(2)}B</p>
-              <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCFD2170</p>
+          {hasBalanceSheetData ? (
+            <div className="flex items-center gap-2 justify-center flex-wrap">
+              <div className="text-center px-4 py-2.5 rounded-lg bg-foreground/[0.03] border border-border min-w-[130px]">
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Total Assets</p>
+                <p className="text-base font-mono font-medium mt-0.5">${(totalAssets / 1000000).toFixed(2)}B</p>
+                <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCFD2170</p>
+              </div>
+              <span className="text-lg font-mono text-muted-foreground">=</span>
+              <div className="text-center px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50 min-w-[130px]">
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Total Liabilities</p>
+                <p className="text-base font-mono font-medium mt-0.5">${(totalLiabilities / 1000000).toFixed(2)}B</p>
+                <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCFD2948</p>
+              </div>
+              <span className="text-lg font-mono text-muted-foreground">+</span>
+              <div className="text-center px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50 min-w-[130px]">
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Total Equity</p>
+                <p className="text-base font-mono font-medium mt-0.5">${(totalEquity / 1000000).toFixed(2)}B</p>
+                <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCFD3210</p>
+              </div>
+              <span className="text-lg font-mono text-muted-foreground">=</span>
+              <div className={`text-center px-4 py-2.5 rounded-lg border min-w-[130px] ${tieOutPassed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20"}`}>
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Variance</p>
+                <p className={`text-base font-mono font-medium mt-0.5 ${tieOutPassed ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                  {Math.abs(tieOutDiff) < 1 ? "$0" : `$${(Math.abs(tieOutDiff) / 1000).toFixed(0)}M`}
+                </p>
+                <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{tieOutPassed ? "Balanced — Identity verified" : `${tieOutPct.toFixed(3)}% variance`}</p>
+              </div>
             </div>
-            <span className="text-lg font-mono text-muted-foreground">=</span>
-            <div className="text-center px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50 min-w-[130px]">
-              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Deposits</p>
-              <p className="text-base font-mono font-medium mt-0.5">${(totalDeposits / 1000000).toFixed(2)}B</p>
-              <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCON2200</p>
+          ) : (
+            <div className="flex items-center gap-2 justify-center flex-wrap">
+              <div className="text-center px-4 py-2.5 rounded-lg bg-foreground/[0.03] border border-border min-w-[130px]">
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Total Assets</p>
+                <p className="text-base font-mono font-medium mt-0.5">${(totalAssets / 1000000).toFixed(2)}B</p>
+                <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCFD2170</p>
+              </div>
+              <span className="text-lg font-mono text-muted-foreground">=</span>
+              <div className="text-center px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50 min-w-[130px]">
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Total Deposits</p>
+                <p className="text-base font-mono font-medium mt-0.5">${(totalDeposits / 1000000).toFixed(2)}B</p>
+                <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCON2200</p>
+              </div>
+              <span className="text-lg font-mono text-muted-foreground">+</span>
+              <div className="text-center px-4 py-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20 min-w-[160px]">
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Equity + Other Liabilities</p>
+                <p className="text-base font-mono font-medium mt-0.5 text-amber-600 dark:text-amber-400">Awaiting Data</p>
+                <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCFD3210 + RCFD2948</p>
+              </div>
             </div>
-            <span className="text-lg font-mono text-muted-foreground">+</span>
-            <div className="text-center px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50 min-w-[130px]">
-              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Other Liabilities</p>
-              <p className="text-base font-mono font-medium mt-0.5">${(otherLiabilities / 1000000).toFixed(2)}B</p>
-              <p className="text-[9px] text-muted-foreground font-mono mt-0.5">RCFD2948 est.</p>
-            </div>
-            <span className="text-lg font-mono text-muted-foreground">+</span>
-            <div className="text-center px-4 py-2.5 rounded-lg bg-muted/50 border border-border/50 min-w-[130px]">
-              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Equity</p>
-              <p className="text-base font-mono font-medium mt-0.5">
-                {hasEquity ? `$${(equityVal / 1000000).toFixed(2)}B` : "N/A"}
-              </p>
-              <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{hasEquity ? "RCFD3210" : "Pending"}</p>
-            </div>
-            <span className="text-lg font-mono text-muted-foreground">=</span>
-            <div className={`text-center px-4 py-2.5 rounded-lg border min-w-[130px] ${tieOutPassed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20"}`}>
-              <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Variance</p>
-              <p className={`text-base font-mono font-medium mt-0.5 ${tieOutPassed ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                {Math.abs(tieOutDiff) < 1 ? "$0" : `$${(Math.abs(tieOutDiff) / 1000).toFixed(0)}M`}
-              </p>
-              <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{tieOutPassed ? `${tieOutPct.toFixed(1)}% — Within tolerance` : `${tieOutPct.toFixed(1)}% — Review needed`}</p>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 

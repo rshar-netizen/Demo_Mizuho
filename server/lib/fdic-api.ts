@@ -22,6 +22,8 @@ export interface FDICFinancialRecord {
   LNATRES: number;
   DEPDOM: number;
   RBCT1J: number;
+  EQ: number;
+  LIAB: number;
 }
 
 export interface FDICAPIResponse {
@@ -33,7 +35,7 @@ export interface FDICAPIResponse {
 const FINANCIAL_FIELDS = [
   "CERT", "REPDTE", "INSTNAME", "ASSET", "DEP", "NETINC", "INTINC", "EINTEXP",
   "NTLNLS", "ROE", "ROA", "NIM", "IDT1CER", "IDTRCR", "EEFFR", "P3ASSET",
-  "ELNANTR", "LNLSNET", "SC", "LNATRES", "DEPDOM", "RBCT1J"
+  "ELNANTR", "LNLSNET", "SC", "LNATRES", "DEPDOM", "RBCT1J", "EQ", "LIAB"
 ].join(",");
 
 export const PEER_BANKS: Record<string, number> = {
