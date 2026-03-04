@@ -3195,8 +3195,10 @@ function buildLiveReviewItems(current: HistoricalRecord, prior: HistoricalRecord
   return items;
 }
 
-function ReviewItemCard({ item, idx, currentLabel, priorLabel }: { item: ReviewItem; idx: number; currentLabel: string; priorLabel: string }) {
+function ReviewItemCard({ item, idx, currentLabel, priorLabel, userCommentary, onCommentaryChange }: { item: ReviewItem; idx: number; currentLabel: string; priorLabel: string; userCommentary?: string; onCommentaryChange?: (id: string, text: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [editingCommentary, setEditingCommentary] = useState(false);
+  const [draftCommentary, setDraftCommentary] = useState(userCommentary || "");
   const materiality = computeMateriality(item);
 
   const formatVal = (v: number, isRatio: boolean) => {
@@ -3314,7 +3316,7 @@ function ReviewItemCard({ item, idx, currentLabel, priorLabel }: { item: ReviewI
             <div className="space-y-2">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-primary" />
-                <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Movement Commentary</p>
+                <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">AI-Generated Movement Commentary</p>
               </div>
               <div className={`rounded-md px-3 py-2.5 border text-xs leading-relaxed ${
                 item.crossCheck === "warning"
@@ -3325,6 +3327,74 @@ function ReviewItemCard({ item, idx, currentLabel, priorLabel }: { item: ReviewI
               }`}>
                 {item.movementCommentary}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5 text-primary" />
+                  <p className="text-[10px] font-semibold tracking-wide uppercase text-primary">Management Commentary</p>
+                  {userCommentary && !editingCommentary && (
+                    <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[9px] ml-1">
+                      <Check className="w-2.5 h-2.5 mr-0.5" />Added
+                    </Badge>
+                  )}
+                </div>
+                {!editingCommentary && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => { setEditingCommentary(true); setDraftCommentary(userCommentary || ""); }}
+                    data-testid={`button-add-commentary-${idx}`}
+                  >
+                    <Pencil className="w-3 h-3 mr-1" />
+                    {userCommentary ? "Edit" : "Add Commentary"}
+                  </Button>
+                )}
+              </div>
+              {editingCommentary ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={draftCommentary}
+                    onChange={(e) => setDraftCommentary(e.target.value)}
+                    placeholder="Enter management commentary explaining the variance, its drivers, and any remediation actions..."
+                    className="w-full min-h-[80px] rounded-md border border-border bg-background px-3 py-2 text-xs leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-primary"
+                    data-testid={`textarea-commentary-${idx}`}
+                  />
+                  <div className="flex items-center gap-2 justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-3 text-[10px]"
+                      onClick={() => { setEditingCommentary(false); setDraftCommentary(userCommentary || ""); }}
+                      data-testid={`button-cancel-commentary-${idx}`}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 px-3 text-[10px]"
+                      onClick={() => {
+                        onCommentaryChange?.(item.id, draftCommentary);
+                        setEditingCommentary(false);
+                      }}
+                      data-testid={`button-save-commentary-${idx}`}
+                    >
+                      <Check className="w-3 h-3 mr-1" />
+                      Save Commentary
+                    </Button>
+                  </div>
+                </div>
+              ) : userCommentary ? (
+                <div className="rounded-md px-3 py-2.5 border border-primary/20 bg-primary/[0.03] text-xs leading-relaxed text-foreground/80">
+                  {userCommentary}
+                </div>
+              ) : (
+                <div className="rounded-md px-3 py-2 border border-dashed border-border text-xs text-muted-foreground italic">
+                  No management commentary added. Click "Add Commentary" to provide an explanation for this variance.
+                </div>
+              )}
             </div>
           </div>
         </Collapsible.Content>
@@ -3560,6 +3630,15 @@ function ReportReviewTab() {
   const [checkMode, setCheckMode] = useState<"variance" | "intra" | "inter">("variance");
   const [varianceThreshold, setVarianceThreshold] = useState(10);
   const [scheduleFilter, setScheduleFilter] = useState<string | null>(null);
+  const [commentaryMap, setCommentaryMap] = useState<Record<string, string>>({});
+  const handleCommentaryChange = (id: string, text: string) => {
+    setCommentaryMap(prev => {
+      const next = { ...prev };
+      if (text.trim()) { next[id] = text; } else { delete next[id]; }
+      return next;
+    });
+  };
+  const flaggedCommentaryCount = Object.keys(commentaryMap).filter(k => commentaryMap[k]?.trim() && items.some(i => i.id === k && Math.abs(i.changePercent) >= varianceThreshold)).length;
   const { data, isLoading } = useQuery<{ data: PeerDataEntry[] }>({
     queryKey: ["/api/data-sources/peer-data"],
     staleTime: 5 * 60 * 1000,
@@ -3799,10 +3878,16 @@ function ReportReviewTab() {
             <div>
               <h2 className="text-xl font-serif font-semibold tracking-tight">Flagged Line Items (≥{varianceThreshold}% QoQ)</h2>
               <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-                {flaggedByThreshold.length} items exceed the {varianceThreshold}% threshold. Expand each to review source provenance, cross-checks, and AI-generated commentary.
+                {flaggedByThreshold.length} items exceed the {varianceThreshold}% threshold. Expand each to review source provenance, cross-checks, and add management commentary.
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {flaggedCommentaryCount > 0 && (
+                <Badge variant="secondary" className="bg-primary/10 text-primary border-0 text-[10px]" data-testid="badge-commentary-count">
+                  <MessageSquare className="w-3 h-3 mr-1" />
+                  {flaggedCommentaryCount}/{flaggedByThreshold.length} commented
+                </Badge>
+              )}
               {isLive && (
                 <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
                   <Wifi className="w-3 h-3 mr-1" />
@@ -3816,7 +3901,7 @@ function ReportReviewTab() {
           {filteredItems.length > 0 ? (
             <div className="space-y-2" data-testid="list-report-review">
               {filteredItems.map((item, idx) => (
-                <ReviewItemCard key={item.id} item={item} idx={idx} currentLabel={currentLabel} priorLabel={priorLabel} />
+                <ReviewItemCard key={item.id} item={item} idx={idx} currentLabel={currentLabel} priorLabel={priorLabel} userCommentary={commentaryMap[item.id]} onCommentaryChange={handleCommentaryChange} />
               ))}
             </div>
           ) : (
@@ -3838,7 +3923,7 @@ function ReportReviewTab() {
               </div>
               <div className="space-y-2 opacity-60" data-testid="list-within-threshold">
                 {unflaggedItems.map((item, idx) => (
-                  <ReviewItemCard key={item.id} item={item} idx={flaggedByThreshold.length + idx} currentLabel={currentLabel} priorLabel={priorLabel} />
+                  <ReviewItemCard key={item.id} item={item} idx={flaggedByThreshold.length + idx} currentLabel={currentLabel} priorLabel={priorLabel} userCommentary={commentaryMap[item.id]} onCommentaryChange={handleCommentaryChange} />
                 ))}
               </div>
             </>
