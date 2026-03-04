@@ -28,7 +28,7 @@ Demo application for Mizuho Financial Group CFO presentation (March 2026). Showc
 3. **Regulatory Reporting** (`/regulatory-reporting`) - Use Case 1 with 6 tabs:
    - Instructions Analysis (report selector dropdown: FFIEC 031 Call Report, FFIEC 102 Market Risk; QoQ instruction change summary with impact levels; schedule requirements browser; report-specific AI assistant with pre-built and custom queries; out-of-scope redirection)
    - Data & Dictionary
-   - Variance Analysis (renamed from Pattern Detection)
+   - Variance Analysis (pre-submission analysis with draft report card, current-quarter trend highlighting with ±1.5σ bands, pattern detection log with deviation metrics)
    - Report Review & Validation (balance sheet tie-out, schedule drill-down, source provenance trails, materiality thresholds, cross-checks)
    - Review & Approval (QoQ variance summaries, CFO memorandum generation & approval workflow)
    - Trend Analysis (multi-period charts)

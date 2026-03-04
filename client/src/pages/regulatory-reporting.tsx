@@ -110,6 +110,7 @@ import {
   AreaChart,
   Area,
   Cell,
+  ReferenceLine,
 } from "recharts";
 
 const steps = [
@@ -2417,29 +2418,129 @@ function buildAnomalyLog(anomalies: AnomalyRecord[]): AnomalyLogEntry[] {
   });
 }
 
+interface DraftReportLine {
+  schedule: string;
+  lineItem: string;
+  mdrm: string;
+  currentValue: number | null;
+  priorValue: number | null;
+  changePercent: number | null;
+  source: string;
+  status: "populated" | "mapped" | "review";
+  flagged: boolean;
+  flagReason?: string;
+}
+
+function buildDraftReport(current: HistoricalRecord | null, prior: HistoricalRecord | null, anomalies: AnomalyRecord[]): DraftReportLine[] {
+  if (!current) return [];
+  const flaggedMetrics = new Set(anomalies.filter(a => a.severity === "high" || a.severity === "medium").map(a => a.metric));
+  const pct = (c: number, p: number) => p !== 0 ? ((c - p) / Math.abs(p)) * 100 : null;
+  const p = prior;
+
+  const lines: DraftReportLine[] = [
+    { schedule: "RC", lineItem: "Cash and balances due", mdrm: "RCON0010", currentValue: current.totalAssets ? Math.round(current.totalAssets * 0.08) : null, priorValue: p ? Math.round(p.totalAssets * 0.09) : null, changePercent: null, source: "GL_Extract.Cash_Balances", status: "populated", flagged: false },
+    { schedule: "RC", lineItem: "Securities — HTM", mdrm: "RCON1754", currentValue: current.securities ? Math.round(current.securities * 0.4) : null, priorValue: p?.securities ? Math.round(p.securities * 0.4) : null, changePercent: null, source: "Trading_Positions.HTM_Securities", status: "populated", flagged: false },
+    { schedule: "RC", lineItem: "Securities — AFS", mdrm: "RCON1773", currentValue: current.securities ? Math.round(current.securities * 0.6) : null, priorValue: p?.securities ? Math.round(p.securities * 0.6) : null, changePercent: null, source: "GL_Extract.Investment_Securities", status: "populated", flagged: flaggedMetrics.has("Securities Portfolio Change"), flagReason: "Securities portfolio deviation from trailing average" },
+    { schedule: "RC", lineItem: "Federal funds sold", mdrm: "RCON0276", currentValue: Math.round(current.totalAssets * 0.015), priorValue: p ? Math.round(p.totalAssets * 0.012) : null, changePercent: null, source: "Treasury.FedFunds_Sold", status: "populated", flagged: false },
+    { schedule: "RC-C", lineItem: "Loans and leases, net", mdrm: "RCON2122", currentValue: current.totalLoans, priorValue: p?.totalLoans ?? null, changePercent: p ? pct(current.totalLoans, p.totalLoans) : null, source: "Loan_Portfolio.Outstanding_Balance", status: "populated", flagged: flaggedMetrics.has("Net Loans QoQ Growth"), flagReason: "Loan growth exceeds trailing average deviation threshold" },
+    { schedule: "RC", lineItem: "Trading assets", mdrm: "RCON3545", currentValue: Math.round(current.totalAssets * 0.03), priorValue: p ? Math.round(p.totalAssets * 0.025) : null, changePercent: null, source: "Trading_Positions.Net_Position", status: "mapped", flagged: false },
+    { schedule: "RC", lineItem: "Premises and fixed assets", mdrm: "RCON2145", currentValue: Math.round(current.totalAssets * 0.005), priorValue: p ? Math.round(p.totalAssets * 0.005) : null, changePercent: null, source: "GL_Extract.Fixed_Assets", status: "mapped", flagged: false },
+    { schedule: "RC", lineItem: "Other real estate owned", mdrm: "RCON2150", currentValue: 0, priorValue: 0, changePercent: null, source: "Loan_Portfolio.OREO", status: "populated", flagged: false },
+    { schedule: "RC", lineItem: "Total assets", mdrm: "RCON2170", currentValue: current.totalAssets, priorValue: p?.totalAssets ?? null, changePercent: p ? pct(current.totalAssets, p.totalAssets) : null, source: "MDRM_Taxonomy.RCON2170", status: "populated", flagged: flaggedMetrics.has("Total Assets QoQ Growth"), flagReason: "Total assets QoQ change exceeds historical norm" },
+    { schedule: "RC-E", lineItem: "Total deposits", mdrm: "RCON2200", currentValue: current.totalDeposits, priorValue: p?.totalDeposits ?? null, changePercent: p ? pct(current.totalDeposits, p.totalDeposits) : null, source: "GL_Extract.Deposit_Balances", status: "populated", flagged: false },
+    { schedule: "RC", lineItem: "Federal funds purchased", mdrm: "RCON0277", currentValue: Math.round(current.totalAssets * 0.02), priorValue: p ? Math.round(p.totalAssets * 0.018) : null, changePercent: null, source: "Treasury.FedFunds_Purchased", status: "mapped", flagged: false },
+    { schedule: "RC", lineItem: "Other borrowed money", mdrm: "RCON3190", currentValue: Math.round(current.totalAssets * 0.04), priorValue: p ? Math.round(p.totalAssets * 0.038) : null, changePercent: null, source: "Treasury.FHLB_Borrowings", status: "review", flagged: false },
+    { schedule: "RC", lineItem: "Total equity capital", mdrm: "RCON3210", currentValue: current.totalEquity ?? Math.round(current.totalAssets * 0.15), priorValue: p ? (p.totalEquity ?? Math.round(p.totalAssets * 0.14)) : null, changePercent: null, source: "GL_Extract.Equity_Detail", status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Total interest income", mdrm: "RIAD4107", currentValue: current.netIncome ? Math.round(current.netIncome * 3.2) : null, priorValue: p?.netIncome ? Math.round(p.netIncome * 3.1) : null, changePercent: null, source: "GL_Extract.Interest_Receivable", status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Total interest expense", mdrm: "RIAD4073", currentValue: current.netIncome ? Math.round(current.netIncome * 1.8) : null, priorValue: p?.netIncome ? Math.round(p.netIncome * 1.7) : null, changePercent: null, source: "GL_Extract.Interest_Payable", status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Provision for credit losses", mdrm: "RIAD4230", currentValue: current.loanLossReserve ?? Math.round(current.totalLoans * 0.003), priorValue: p?.loanLossReserve ?? (p ? Math.round(p.totalLoans * 0.003) : null), changePercent: null, source: "Loan_Portfolio.Provision_Expense", status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Net income", mdrm: "RIAD4340", currentValue: current.netIncome, priorValue: p?.netIncome ?? null, changePercent: p ? pct(current.netIncome, p.netIncome) : null, source: "GL_Extract.Net_Income", status: "populated", flagged: false },
+    { schedule: "RC-R", lineItem: "Tier 1 capital ratio", mdrm: "RBC1AAJ", currentValue: current.tier1Ratio * 100, priorValue: p ? p.tier1Ratio * 100 : null, changePercent: null, source: "Risk_Metrics.CET1_Capital", status: "populated", flagged: flaggedMetrics.has("Tier 1 Capital Ratio"), flagReason: "Capital ratio deviation from trailing average" },
+    { schedule: "RC-R", lineItem: "Efficiency ratio", mdrm: "EEFF", currentValue: current.efficiencyRatio ? current.efficiencyRatio * 100 : null, priorValue: p?.efficiencyRatio ? p.efficiencyRatio * 100 : null, changePercent: null, source: "Derived: EEFF/(INTINC+NONII)", status: "populated", flagged: flaggedMetrics.has("Efficiency Ratio"), flagReason: "Efficiency ratio outside historical operating range" },
+    { schedule: "RC-N", lineItem: "Nonaccrual loans", mdrm: "RCON1403", currentValue: 0, priorValue: 0, changePercent: null, source: "Loan_Portfolio.Nonaccrual", status: "populated", flagged: false },
+    { schedule: "RC-L", lineItem: "Derivatives notional amount", mdrm: "RCONA126", currentValue: Math.round(current.totalAssets * 0.5), priorValue: p ? Math.round(p.totalAssets * 0.45) : null, changePercent: null, source: "Trading_Positions.Derivative_Notional", status: "mapped", flagged: false },
+  ];
+
+  lines.forEach(l => {
+    if (l.changePercent === null && l.currentValue !== null && l.priorValue !== null && l.priorValue !== 0) {
+      l.changePercent = ((l.currentValue - l.priorValue) / Math.abs(l.priorValue)) * 100;
+    }
+  });
+
+  return lines;
+}
+
 function AnomaliesTab() {
   const { anomalies, isLive, historicalData } = useLiveAnomalies();
   const [activeMetric, setActiveMetric] = useState(0);
+  const [draftOpen, setDraftOpen] = useState(false);
   const anomalyLog = buildAnomalyLog(anomalies);
 
   const totalFindings = anomalyLog.length;
+  const highCount = anomalyLog.filter(a => a.severity === "high").length;
+  const medCount = anomalyLog.filter(a => a.severity === "medium").length;
+  const lowCount = anomalyLog.filter(a => a.severity === "low").length;
 
-  const chartData = historicalData.map(r => ({
+  const fallbackCurrent: HistoricalRecord = {
+    period: "Q4 2025", rawDate: "20251231", totalAssets: 5495218, totalDeposits: 4009422,
+    totalLoans: 1799302, netIncome: 93899, roe: 7.26, roa: 1.36, nim: 2.33,
+    tier1Ratio: 19.74, efficiencyRatio: 67.83, npaRatio: 0, securities: 23011,
+    loanLossReserve: 6437, loanToDeposit: 44.88,
+  };
+  const fallbackPrior: HistoricalRecord = {
+    period: "Q3 2025", rawDate: "20250930", totalAssets: 6595194, totalDeposits: 5132937,
+    totalLoans: 2407287, netIncome: 63808, roe: 6.64, roa: 1.17, nim: 2.27,
+    tier1Ratio: 17.91, efficiencyRatio: 68.28, npaRatio: 0, securities: 22934,
+    loanLossReserve: 2462, loanToDeposit: 46.90,
+  };
+  const currentRecord = historicalData.length > 0 ? historicalData[historicalData.length - 1] : fallbackCurrent;
+  const priorRecord = historicalData.length > 1 ? historicalData[historicalData.length - 2] : fallbackPrior;
+  const currentPeriod = currentRecord?.period ?? "Current";
+
+  const draftLines = buildDraftReport(currentRecord, priorRecord, anomalies);
+  const populatedCount = draftLines.filter(l => l.status === "populated").length;
+  const flaggedCount = draftLines.filter(l => l.flagged).length;
+  const activeMappings = DATA_MAPPINGS.filter(m => m.status === "Active").length;
+
+  const chartData = historicalData.map((r, idx) => ({
     period: r.period,
     value: r[anomalyTrendMetrics[activeMetric].key] as number | undefined,
+    isCurrent: idx === historicalData.length - 1,
   })).filter(d => d.value !== undefined);
 
   const values = chartData.map(d => d.value as number);
   const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
-  const chartDataWithAvg = chartData.map(d => ({ ...d, average: parseFloat(avg.toFixed(2)) }));
+  const stdDev = values.length > 1 ? Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / values.length) : 0;
+  const upperBand = parseFloat((avg + 1.5 * stdDev).toFixed(2));
+  const lowerBand = parseFloat((avg - 1.5 * stdDev).toFixed(2));
+  const chartDataWithAvg = chartData.map(d => ({
+    ...d,
+    average: parseFloat(avg.toFixed(2)),
+    upperBand,
+    lowerBand,
+  }));
+
+  const CustomDot = (props: { cx?: number; cy?: number; payload?: { isCurrent?: boolean; value?: number }; index?: number }) => {
+    const { cx, cy, payload } = props;
+    if (!cx || !cy) return <circle cx={0} cy={0} r={0} fill="none" />;
+    if (payload?.isCurrent) {
+      return (
+        <g>
+          <circle cx={cx} cy={cy} r={7} fill="hsl(351, 85%, 52%)" fillOpacity={0.15} stroke="none" />
+          <circle cx={cx} cy={cy} r={4.5} fill="hsl(351, 85%, 52%)" stroke="white" strokeWidth={2} />
+        </g>
+      );
+    }
+    return <circle cx={cx} cy={cy} r={3} fill={anomalyTrendMetrics[activeMetric].color} />;
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-serif font-semibold tracking-tight">Multi-Period Pattern Analysis</h2>
+          <h2 className="text-xl font-serif font-semibold tracking-tight">Pre-Submission Variance Analysis</h2>
           <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
-            Historical Call Report data across 8+ quarters is analyzed for statistical anomalies, trend breaks, and outlier movements before report processing. Patterns that deviate from trailing averages are flagged with severity and recommended actions.
+            Current quarter data from ingested sources is analyzed against {historicalData.length > 0 ? historicalData.length - 1 : 7} trailing quarters for statistical anomalies, trend breaks, and outlier movements before report processing. Patterns deviating from trailing averages are flagged with severity levels and recommended actions for the filing team.
           </p>
         </div>
         {isLive && (
@@ -2450,22 +2551,154 @@ function AnomaliesTab() {
         )}
       </div>
 
+      <Card
+        className="cursor-pointer border-primary/20 bg-gradient-to-r from-primary/[0.03] to-transparent hover:border-primary/40 hover:shadow-md transition-all"
+        onClick={() => setDraftOpen(true)}
+        data-testid="card-draft-report"
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="rounded-lg bg-primary/10 p-2.5">
+                <FileText className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-foreground">FFIEC 031 Call Report — Draft ({currentPeriod})</p>
+                  <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0 text-[10px]">
+                    Draft
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Baseline report generated from {populatedCount}/{draftLines.length} populated line items across {activeMappings} active data mappings
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <p className="text-lg font-mono font-normal text-foreground">{draftLines.length}</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Line Items</p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-mono font-normal text-destructive">{flaggedCount}</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Flagged</p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={draftOpen} onOpenChange={setDraftOpen}>
+        <DialogContent className="max-w-[900px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-serif">FFIEC 031 Call Report — Draft Version ({currentPeriod})</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Baseline draft compiled from ingested data sources, data dictionary mappings, and transformation rules. {flaggedCount} line items flagged for variance review before submission.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-3 pb-2">
+            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[10px]">
+              <CheckCircle2 className="w-3 h-3 mr-1" />{populatedCount} Populated
+            </Badge>
+            <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[10px]">
+              <Layers className="w-3 h-3 mr-1" />{draftLines.filter(l => l.status === "mapped").length} Mapped
+            </Badge>
+            <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[10px]">
+              <AlertCircle className="w-3 h-3 mr-1" />{draftLines.filter(l => l.status === "review").length} Review
+            </Badge>
+            <Badge variant="secondary" className="bg-red-500/10 text-red-600 border-0 text-[10px]">
+              <Flag className="w-3 h-3 mr-1" />{flaggedCount} Flagged
+            </Badge>
+          </div>
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs w-[60px]">Schedule</TableHead>
+                  <TableHead className="text-xs">Line Item</TableHead>
+                  <TableHead className="text-xs font-mono w-[90px]">MDRM</TableHead>
+                  <TableHead className="text-xs text-right w-[100px]">{currentPeriod}</TableHead>
+                  <TableHead className="text-xs text-right w-[100px]">{priorRecord?.period ?? "Prior"}</TableHead>
+                  <TableHead className="text-xs text-right w-[70px]">QoQ %</TableHead>
+                  <TableHead className="text-xs w-[70px] text-center">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {draftLines.map((line, idx) => (
+                  <TableRow key={idx} className={line.flagged ? "bg-red-500/[0.03]" : ""} data-testid={`draft-line-${idx}`}>
+                    <TableCell className="py-2">
+                      <Badge variant="outline" className="text-[10px] font-mono">{line.schedule}</Badge>
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <div className="flex items-center gap-1.5">
+                        {line.flagged && <Flag className="w-3 h-3 text-red-500 shrink-0" />}
+                        <span className="text-xs text-foreground">{line.lineItem}</span>
+                      </div>
+                      {line.flagged && line.flagReason && (
+                        <p className="text-[10px] text-red-500/80 mt-0.5 ml-[18px]">{line.flagReason}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <span className="text-[10px] font-mono text-muted-foreground">{line.mdrm}</span>
+                    </TableCell>
+                    <TableCell className="py-2 text-right">
+                      <span className="text-xs font-mono text-foreground">
+                        {line.currentValue !== null ? (line.mdrm === "RBC1AAJ" || line.mdrm === "EEFF" ? `${(line.currentValue / 100).toFixed(2)}%` : fmtDollar(line.currentValue)) : "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-2 text-right">
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {line.priorValue !== null ? (line.mdrm === "RBC1AAJ" || line.mdrm === "EEFF" ? `${(line.priorValue / 100).toFixed(2)}%` : fmtDollar(line.priorValue)) : "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-2 text-right">
+                      {line.changePercent !== null ? (
+                        <span className={`text-xs font-mono ${line.changePercent > 0 ? "text-emerald-600" : line.changePercent < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                          {line.changePercent >= 0 ? "+" : ""}{line.changePercent.toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2 text-center">
+                      {line.status === "populated" && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[9px]">Auto</Badge>}
+                      {line.status === "mapped" && <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[9px]">Mapped</Badge>}
+                      {line.status === "review" && <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[9px]">Review</Badge>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+          <DialogFooter className="pt-3 border-t">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mr-auto">
+              <Info className="w-3.5 h-3.5" />
+              Source: Data Ingestion + Data Dictionary mappings + {activeMappings} transformation rules
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setDraftOpen(false)} data-testid="button-close-draft">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-4 gap-3">
         <Card data-testid="card-anomaly-high">
           <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-destructive">{anomalyLog.filter(a => a.severity === "high").length}</p>
+            <p className="text-2xl font-mono font-normal text-destructive">{highCount}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">High Severity</p>
           </CardContent>
         </Card>
         <Card data-testid="card-anomaly-medium">
           <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-amber-500">{anomalyLog.filter(a => a.severity === "medium").length}</p>
+            <p className="text-2xl font-mono font-normal text-amber-500">{medCount}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Medium Severity</p>
           </CardContent>
         </Card>
         <Card data-testid="card-anomaly-low">
           <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-muted-foreground">{anomalyLog.filter(a => a.severity === "low").length}</p>
+            <p className="text-2xl font-mono font-normal text-muted-foreground">{lowCount}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Low Severity</p>
           </CardContent>
         </Card>
@@ -2480,7 +2713,12 @@ function AnomaliesTab() {
       <Card data-testid="card-anomaly-trend">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <CardTitle className="text-sm">Multi-Period Trend — Deviation from Historical Average</CardTitle>
+            <div>
+              <CardTitle className="text-sm">Current Quarter vs. Historical Trend — Deviation Analysis</CardTitle>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {currentPeriod} data point highlighted in red. Dashed lines show ±1.5σ deviation bands from trailing average.
+              </p>
+            </div>
             <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
               {anomalyTrendMetrics.map((m, i) => (
                 <button
@@ -2500,7 +2738,7 @@ function AnomaliesTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[260px]">
+          <div className="h-[280px]">
             {chartDataWithAvg.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartDataWithAvg}>
@@ -2511,7 +2749,17 @@ function AnomaliesTab() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                  <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                  <XAxis
+                    dataKey="period"
+                    tick={({ x, y, payload }: { x: number; y: number; payload: { value: string; index: number } }) => {
+                      const isCurrentQ = payload.index === chartDataWithAvg.length - 1;
+                      return (
+                        <text x={x} y={y + 12} textAnchor="middle" fontSize={10} fontWeight={isCurrentQ ? 700 : 400} fill={isCurrentQ ? "hsl(351, 85%, 52%)" : "currentColor"}>
+                          {payload.value}
+                        </text>
+                      );
+                    }}
+                  />
                   <YAxis
                     tick={{ fontSize: 10 }}
                     domain={['auto', 'auto']}
@@ -2526,10 +2774,16 @@ function AnomaliesTab() {
                     }}
                     formatter={(value: number, name: string) => [
                       `${value.toFixed(2)}${anomalyTrendMetrics[activeMetric].unit}`,
-                      name === "value" ? anomalyTrendMetrics[activeMetric].label : "Historical Average",
+                      name === "value" ? anomalyTrendMetrics[activeMetric].label : name === "average" ? "Trailing Average" : name,
                     ]}
+                    labelFormatter={(label: string) => {
+                      const isCurrentQ = chartDataWithAvg.findIndex(d => d.period === label) === chartDataWithAvg.length - 1;
+                      return isCurrentQ ? `${label} (Current Quarter)` : label;
+                    }}
                   />
                   <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <ReferenceLine y={upperBand} stroke="hsl(var(--destructive))" strokeDasharray="4 4" strokeWidth={1} strokeOpacity={0.4} />
+                  <ReferenceLine y={lowerBand} stroke="hsl(var(--destructive))" strokeDasharray="4 4" strokeWidth={1} strokeOpacity={0.4} />
                   <Area
                     type="monotone"
                     dataKey="value"
@@ -2537,12 +2791,12 @@ function AnomaliesTab() {
                     stroke={anomalyTrendMetrics[activeMetric].color}
                     fill="url(#anomalyFill)"
                     strokeWidth={2}
-                    dot={{ r: 3, fill: anomalyTrendMetrics[activeMetric].color }}
+                    dot={<CustomDot />}
                   />
                   <Line
                     type="monotone"
                     dataKey="average"
-                    name="Historical Average"
+                    name="Trailing Average"
                     stroke="hsl(var(--muted-foreground))"
                     strokeDasharray="6 3"
                     strokeWidth={1.5}
@@ -2554,32 +2808,72 @@ function AnomaliesTab() {
               <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Loading trend data...</div>
             )}
           </div>
+          <div className="flex items-center gap-4 mt-2 px-1">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-[hsl(351,85%,52%)] border-2 border-white shadow-sm" />
+              <span className="text-[10px] text-muted-foreground">Current Quarter ({currentPeriod})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-6 h-px border-t-2 border-dashed border-destructive/40" />
+              <span className="text-[10px] text-muted-foreground">±1.5σ Band</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-6 h-px border-t-2 border-dashed border-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">Trailing Avg ({avg.toFixed(2)}{anomalyTrendMetrics[activeMetric].unit})</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       <Card data-testid="card-anomaly-log">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Pattern Detection Log — Latest Quarter</CardTitle>
-            <Badge variant="outline" className="text-xs font-mono">{totalFindings} findings</Badge>
+            <div>
+              <CardTitle className="text-sm">Pre-Submission Pattern Detection Log — {currentPeriod}</CardTitle>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Anomalies flagged against trailing {historicalData.length > 1 ? historicalData.length - 1 : 7}-quarter averages. Findings inform the draft report review before regulatory submission.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {highCount > 0 && <Badge variant="destructive" className="text-[10px]">{highCount} critical</Badge>}
+              <Badge variant="outline" className="text-xs font-mono">{totalFindings} findings</Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {anomalyLog.map((entry, idx) => (
-              <div key={idx} className="p-3 rounded-md border border-border/60 bg-muted/20" data-testid={`anomaly-log-${idx}`}>
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <SeverityBadge severity={entry.severity} />
-                  <span className="text-sm font-medium">{entry.metric}</span>
-                  <Badge variant="outline" className="text-[10px] font-mono">{entry.period}</Badge>
+            {anomalyLog.map((entry, idx) => {
+              const anomaly = anomalies[idx];
+              const deviationStr = anomaly ? `${anomaly.deviation >= 0 ? "+" : ""}${anomaly.deviation.toFixed(2)}` : null;
+              const expectedStr = anomaly ? anomaly.expected.toFixed(2) : null;
+
+              return (
+                <div key={idx} className={`p-3 rounded-md border ${entry.severity === "high" ? "border-red-500/30 bg-red-500/[0.03]" : "border-border/60 bg-muted/20"}`} data-testid={`anomaly-log-${idx}`}>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <SeverityBadge severity={entry.severity} />
+                    <span className="text-sm font-medium">{entry.metric}</span>
+                    <Badge variant="outline" className="text-[10px] font-mono">{entry.period}</Badge>
+                    {anomaly && (
+                      <Badge variant="outline" className={`text-[10px] font-mono ${Math.abs(anomaly.deviation) > 3 ? "border-red-500/40 text-red-500" : "border-amber-500/40 text-amber-600"}`}>
+                        {deviationStr} deviation
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{entry.observation}</p>
+                  {anomaly && (
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <span className="text-[10px] font-mono text-muted-foreground">Actual: <span className="text-foreground">{anomaly.value}</span></span>
+                      <span className="text-[10px] font-mono text-muted-foreground">Expected: <span className="text-foreground">{expectedStr}</span></span>
+                      <span className="text-[10px] font-mono text-muted-foreground">Deviation: <span className={Math.abs(anomaly.deviation) > 3 ? "text-red-500" : "text-amber-600"}>{deviationStr}</span></span>
+                    </div>
+                  )}
+                  <div className="mt-2 p-2.5 rounded-md bg-primary/5 border border-primary/10">
+                    <p className="text-[10px] font-semibold tracking-wide uppercase text-primary mb-1">Recommended Action</p>
+                    <p className="text-xs text-foreground/80 leading-relaxed">{entry.action}</p>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{entry.observation}</p>
-                <div className="mt-2 p-2.5 rounded-md bg-primary/5 border border-primary/10">
-                  <p className="text-[10px] font-semibold tracking-wide uppercase text-primary mb-1">Recommended Action</p>
-                  <p className="text-xs text-foreground/80 leading-relaxed">{entry.action}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -4067,12 +4361,48 @@ function TrendAnalysisTab() {
   const isPercent = activeMetric === "tier1Capital";
   const formatValue = (value: number) => isPercent ? `${value}%` : `$${value.toLocaleString()}M`;
 
+  const currentQPeriod = trendData.length > 0 ? trendData[trendData.length - 1].period : "";
+  const trendDataMarked = trendData.map((d, i) => ({ ...d, isCurrent: i === trendData.length - 1 }));
+
+  const TrendDot = (baseColor: string) => (props: { cx?: number; cy?: number; index?: number }) => {
+    const { cx, cy, index } = props;
+    if (!cx || !cy) return <circle cx={0} cy={0} r={0} fill="none" />;
+    if (index === trendDataMarked.length - 1) {
+      return (
+        <g>
+          <circle cx={cx} cy={cy} r={7} fill="hsl(351, 85%, 52%)" fillOpacity={0.15} stroke="none" />
+          <circle cx={cx} cy={cy} r={4.5} fill="hsl(351, 85%, 52%)" stroke="white" strokeWidth={2} />
+        </g>
+      );
+    }
+    return <circle cx={cx} cy={cy} r={3} fill={baseColor} />;
+  };
+
   const renderChart = () => {
-    const commonProps = { data: trendData };
-    const xAxis = <XAxis dataKey="period" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={55} />;
+    const commonProps = { data: trendDataMarked };
+    const xAxis = (
+      <XAxis
+        dataKey="period"
+        tick={({ x, y, payload }: { x: number; y: number; payload: { value: string; index: number } }) => {
+          const isCurrentQ = payload.value === currentQPeriod;
+          return (
+            <text x={x} y={y + 12} textAnchor="end" fontSize={11} fontWeight={isCurrentQ ? 700 : 400} fill={isCurrentQ ? "hsl(351, 85%, 52%)" : "currentColor"} transform={`rotate(-30, ${x}, ${y + 12})`}>
+              {payload.value}
+            </text>
+          );
+        }}
+        height={55}
+      />
+    );
     const yAxis = <YAxis tick={{ fontSize: 11 }} domain={isPercent ? ["auto", "auto"] : ["dataMin - 2000", "dataMax + 2000"]} />;
     const grid = <CartesianGrid strokeDasharray="3 3" opacity={0.1} />;
-    const tooltip = <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [formatValue(value), ""]} />;
+    const tooltip = (
+      <Tooltip
+        contentStyle={tooltipStyle}
+        formatter={(value: number) => [formatValue(value), ""]}
+        labelFormatter={(label: string) => label === currentQPeriod ? `${label} (Current Quarter)` : label}
+      />
+    );
 
     if (activeMetric === "loansDeposits") {
       if (chartType === "bar") {
@@ -4080,8 +4410,16 @@ function TrendAnalysisTab() {
           <BarChart {...commonProps}>
             {grid}{xAxis}{yAxis}{tooltip}
             <Legend wrapperStyle={{ fontSize: "11px" }} />
-            <Bar dataKey="totalLoans" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} name="Total Loans" />
-            <Bar dataKey="totalDeposits" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} name="Total Deposits" />
+            <Bar dataKey="totalLoans" radius={[4, 4, 0, 0]} name="Total Loans">
+              {trendDataMarked.map((entry, idx) => (
+                <Cell key={idx} fill={entry.isCurrent ? "hsl(351, 85%, 52%)" : "hsl(var(--chart-2))"} fillOpacity={entry.isCurrent ? 1 : 0.85} />
+              ))}
+            </Bar>
+            <Bar dataKey="totalDeposits" radius={[4, 4, 0, 0]} name="Total Deposits">
+              {trendDataMarked.map((entry, idx) => (
+                <Cell key={idx} fill={entry.isCurrent ? "hsl(351, 65%, 62%)" : "hsl(var(--chart-3))"} fillOpacity={entry.isCurrent ? 1 : 0.85} />
+              ))}
+            </Bar>
           </BarChart>
         );
       }
@@ -4090,8 +4428,8 @@ function TrendAnalysisTab() {
           <AreaChart {...commonProps}>
             {grid}{xAxis}{yAxis}{tooltip}
             <Legend wrapperStyle={{ fontSize: "11px" }} />
-            <Area type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" fillOpacity={0.1} strokeWidth={2} name="Total Loans" />
-            <Area type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.1} strokeWidth={2} name="Total Deposits" />
+            <Area type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" fillOpacity={0.1} strokeWidth={2} name="Total Loans" dot={TrendDot("hsl(var(--chart-2))")} />
+            <Area type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.1} strokeWidth={2} name="Total Deposits" dot={TrendDot("hsl(var(--chart-3))")} />
           </AreaChart>
         );
       }
@@ -4099,8 +4437,8 @@ function TrendAnalysisTab() {
         <LineChart {...commonProps}>
           {grid}{xAxis}{yAxis}{tooltip}
           <Legend wrapperStyle={{ fontSize: "11px" }} />
-          <Line type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 3 }} name="Total Loans" />
-          <Line type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 3 }} name="Total Deposits" />
+          <Line type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={TrendDot("hsl(var(--chart-2))")} name="Total Loans" />
+          <Line type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={TrendDot("hsl(var(--chart-3))")} name="Total Deposits" />
         </LineChart>
       );
     }
@@ -4113,7 +4451,11 @@ function TrendAnalysisTab() {
       return (
         <BarChart {...commonProps}>
           {grid}{xAxis}{yAxis}{tooltip}
-          <Bar dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]} name={name} />
+          <Bar dataKey={dataKey} radius={[4, 4, 0, 0]} name={name}>
+            {trendDataMarked.map((entry, idx) => (
+              <Cell key={idx} fill={entry.isCurrent ? "hsl(351, 85%, 52%)" : color} fillOpacity={entry.isCurrent ? 1 : 0.85} />
+            ))}
+          </Bar>
         </BarChart>
       );
     }
@@ -4121,14 +4463,14 @@ function TrendAnalysisTab() {
       return (
         <LineChart {...commonProps}>
           {grid}{xAxis}{yAxis}{tooltip}
-          <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={{ r: 3 }} name={name} />
+          <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={TrendDot(color)} name={name} />
         </LineChart>
       );
     }
     return (
       <AreaChart {...commonProps}>
         {grid}{xAxis}{yAxis}{tooltip}
-        <Area type="monotone" dataKey={dataKey} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={2} name={name} />
+        <Area type="monotone" dataKey={dataKey} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={2} name={name} dot={TrendDot(color)} />
       </AreaChart>
     );
   };
@@ -4187,6 +4529,14 @@ function TrendAnalysisTab() {
                 {renderChart()}
               </ResponsiveContainer>
             </div>
+          </div>
+          <div className="flex items-center gap-4 mt-1 px-1">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-[hsl(351,85%,52%)] border-2 border-white shadow-sm" />
+              <span className="text-[10px] text-muted-foreground">Current Quarter ({currentQPeriod})</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground/60">|</span>
+            <span className="text-[10px] text-muted-foreground">Includes current quarter ingested data alongside {trendData.length - 1} historical periods</span>
           </div>
           <Separator />
           <div className="flex items-start gap-2 px-2">
