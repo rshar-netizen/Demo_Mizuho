@@ -1363,6 +1363,153 @@ const DATA_MAPPINGS: DataMapping[] = [
   { sourceField: "MDRM_Taxonomy.RCON2170", reportLineItem: "RC: Total assets", transformation: "VALIDATION_CHECK(SUM(RC.1 thru RC.11))", status: "Active", schedule: "RC", confidence: 100 },
 ];
 
+interface SourceDictionaryColumn {
+  name: string;
+  type: string;
+  table: string;
+  nullable: boolean;
+  description: string;
+}
+
+interface SourceDictionary {
+  sourceSystem: string;
+  columns: SourceDictionaryColumn[];
+  recordCount: number;
+  lastUpdated: string;
+  qualityScore: number;
+  nullRate: number;
+}
+
+const SOURCE_DICTIONARIES: Record<string, SourceDictionary> = {
+  "Core Banking": {
+    sourceSystem: "Core Banking",
+    columns: [
+      { name: "GL_Account_ID", type: "VARCHAR(20)", table: "Chart_of_Accounts", nullable: false, description: "General ledger account identifier" },
+      { name: "GL_Account_Name", type: "VARCHAR(255)", table: "Chart_of_Accounts", nullable: false, description: "Account description per chart of accounts" },
+      { name: "GL_Balance", type: "DECIMAL(18,2)", table: "Trial_Balance", nullable: false, description: "Period-end ledger balance (USD)" },
+      { name: "GL_Balance_Prior", type: "DECIMAL(18,2)", table: "Trial_Balance", nullable: true, description: "Prior period ledger balance for variance" },
+      { name: "Cost_Center", type: "VARCHAR(10)", table: "Trial_Balance", nullable: false, description: "Cost center or department code" },
+      { name: "Entity_Code", type: "VARCHAR(10)", table: "Trial_Balance", nullable: false, description: "Legal entity identifier" },
+      { name: "Currency", type: "CHAR(3)", table: "Trial_Balance", nullable: false, description: "ISO 4217 currency code" },
+      { name: "Cash_Balances", type: "DECIMAL(18,2)", table: "Cash_Positions", nullable: false, description: "End-of-day cash position by account" },
+      { name: "Investment_Securities", type: "DECIMAL(18,2)", table: "Securities_Ledger", nullable: true, description: "Investment securities at fair value" },
+      { name: "AFS_Unrealized_GL", type: "DECIMAL(18,2)", table: "Securities_Ledger", nullable: true, description: "Available-for-sale unrealized gain/loss" },
+      { name: "Interest_Receivable", type: "DECIMAL(18,2)", table: "Accruals", nullable: true, description: "Accrued interest receivable" },
+      { name: "Interest_Payable", type: "DECIMAL(18,2)", table: "Accruals", nullable: true, description: "Accrued interest payable" },
+      { name: "AOCI_Balance", type: "DECIMAL(18,2)", table: "Equity_Detail", nullable: true, description: "Accumulated other comprehensive income" },
+      { name: "Deposit_Balances", type: "DECIMAL(18,2)", table: "Deposit_Ledger", nullable: false, description: "Total deposit balances by type" },
+      { name: "NonInterest_Expense", type: "DECIMAL(18,2)", table: "Expense_Ledger", nullable: false, description: "Non-interest expense period total" },
+      { name: "Posting_Date", type: "DATE", table: "Journal_Entries", nullable: false, description: "Transaction posting date" },
+    ],
+    recordCount: 24850,
+    lastUpdated: "2025-12-31",
+    qualityScore: 97.2,
+    nullRate: 1.4,
+  },
+  "Trading Systems": {
+    sourceSystem: "Trading Systems",
+    columns: [
+      { name: "Trade_ID", type: "VARCHAR(30)", table: "Trade_Blotter", nullable: false, description: "Unique trade identifier" },
+      { name: "Instrument_Type", type: "VARCHAR(20)", table: "Trade_Blotter", nullable: false, description: "Asset class (Equity, FI, FX, Derivative)" },
+      { name: "CUSIP", type: "CHAR(9)", table: "Trade_Blotter", nullable: true, description: "CUSIP identifier for securities" },
+      { name: "Net_Position", type: "DECIMAL(18,2)", table: "Position_Summary", nullable: false, description: "Net position mark-to-market value" },
+      { name: "Side", type: "VARCHAR(5)", table: "Position_Summary", nullable: false, description: "Position direction (Long/Short)" },
+      { name: "MTM_Value", type: "DECIMAL(18,2)", table: "Position_Summary", nullable: false, description: "Mark-to-market valuation" },
+      { name: "Notional_Amount", type: "DECIMAL(18,2)", table: "Derivatives", nullable: true, description: "Derivative notional principal amount" },
+      { name: "Derivative_Type", type: "VARCHAR(20)", table: "Derivatives", nullable: true, description: "Derivative instrument type (Swap, Option, Future)" },
+      { name: "Counterparty_ID", type: "VARCHAR(20)", table: "Derivatives", nullable: true, description: "Counterparty legal entity identifier" },
+      { name: "CVA_Adjustment", type: "DECIMAL(18,2)", table: "Derivatives", nullable: true, description: "Credit valuation adjustment" },
+      { name: "Trade_Date", type: "DATE", table: "Trade_Blotter", nullable: false, description: "Trade execution date" },
+      { name: "Settlement_Date", type: "DATE", table: "Trade_Blotter", nullable: true, description: "Expected settlement date" },
+    ],
+    recordCount: 15620,
+    lastUpdated: "2025-12-31",
+    qualityScore: 94.8,
+    nullRate: 2.1,
+  },
+  "Loan Origination": {
+    sourceSystem: "Loan Origination",
+    columns: [
+      { name: "Loan_ID", type: "VARCHAR(20)", table: "Loan_Master", nullable: false, description: "Unique loan identifier" },
+      { name: "Borrower_ID", type: "VARCHAR(20)", table: "Loan_Master", nullable: false, description: "Borrower entity identifier" },
+      { name: "Outstanding_Balance", type: "DECIMAL(18,2)", table: "Loan_Balances", nullable: false, description: "Current outstanding principal balance" },
+      { name: "Original_Amount", type: "DECIMAL(18,2)", table: "Loan_Master", nullable: false, description: "Original loan commitment amount" },
+      { name: "Loan_Type", type: "VARCHAR(20)", table: "Loan_Master", nullable: false, description: "Loan classification (CRE, C&I, Consumer, Resi)" },
+      { name: "Interest_Rate", type: "DECIMAL(8,4)", table: "Loan_Master", nullable: false, description: "Current contractual interest rate" },
+      { name: "Maturity_Date", type: "DATE", table: "Loan_Master", nullable: false, description: "Loan maturity date" },
+      { name: "Days_Past_Due", type: "INTEGER", table: "Delinquency", nullable: false, description: "Days past due (0 = current)" },
+      { name: "Accrual_Status", type: "VARCHAR(15)", table: "Delinquency", nullable: false, description: "Accrual status (Accrual/Nonaccrual)" },
+      { name: "Risk_Rating", type: "VARCHAR(5)", table: "Credit_Risk", nullable: false, description: "Internal risk rating (1-10 scale)" },
+      { name: "CECL_Reserve", type: "DECIMAL(18,2)", table: "Reserves", nullable: true, description: "CECL allowance allocation for this loan" },
+      { name: "Provision_Expense", type: "DECIMAL(18,2)", table: "Reserves", nullable: true, description: "Quarterly provision expense allocation" },
+      { name: "Collateral_Value", type: "DECIMAL(18,2)", table: "Collateral", nullable: true, description: "Appraised collateral value" },
+      { name: "LTV_Ratio", type: "DECIMAL(6,2)", table: "Collateral", nullable: true, description: "Loan-to-value ratio (%)" },
+      { name: "Delinquent_30_89", type: "DECIMAL(18,2)", table: "Delinquency", nullable: true, description: "Balance of loans 30-89 days past due" },
+      { name: "Nonaccrual", type: "DECIMAL(18,2)", table: "Delinquency", nullable: true, description: "Balance of nonaccrual loans" },
+    ],
+    recordCount: 31240,
+    lastUpdated: "2025-12-31",
+    qualityScore: 95.6,
+    nullRate: 1.8,
+  },
+  "Treasury": {
+    sourceSystem: "Treasury",
+    columns: [
+      { name: "Position_ID", type: "VARCHAR(20)", table: "Cash_Management", nullable: false, description: "Treasury position identifier" },
+      { name: "FedFunds_Sold", type: "DECIMAL(18,2)", table: "Interbank", nullable: true, description: "Federal funds sold balance" },
+      { name: "FedFunds_Purchased", type: "DECIMAL(18,2)", table: "Interbank", nullable: true, description: "Federal funds purchased balance" },
+      { name: "Repo_Balance", type: "DECIMAL(18,2)", table: "Repo_Positions", nullable: true, description: "Securities sold under repo" },
+      { name: "Reverse_Repo", type: "DECIMAL(18,2)", table: "Repo_Positions", nullable: true, description: "Securities purchased under resale" },
+      { name: "FHLB_Borrowings", type: "DECIMAL(18,2)", table: "Wholesale_Funding", nullable: true, description: "FHLB advance borrowings" },
+      { name: "Funding_Rate", type: "DECIMAL(8,4)", table: "Wholesale_Funding", nullable: true, description: "Weighted average funding rate" },
+      { name: "Maturity_Bucket", type: "VARCHAR(10)", table: "Liquidity", nullable: false, description: "Maturity time bucket for ALM" },
+    ],
+    recordCount: 4820,
+    lastUpdated: "2025-12-31",
+    qualityScore: 88.5,
+    nullRate: 4.2,
+  },
+  "Risk Systems": {
+    sourceSystem: "Risk Systems",
+    columns: [
+      { name: "Risk_Metric_ID", type: "VARCHAR(20)", table: "Capital_Metrics", nullable: false, description: "Risk metric identifier" },
+      { name: "CET1_Capital", type: "DECIMAL(18,2)", table: "Capital_Metrics", nullable: false, description: "Common Equity Tier 1 capital" },
+      { name: "Tier1_Capital", type: "DECIMAL(18,2)", table: "Capital_Metrics", nullable: false, description: "Total Tier 1 capital" },
+      { name: "Tier2_Capital", type: "DECIMAL(18,2)", table: "Capital_Metrics", nullable: false, description: "Tier 2 capital components" },
+      { name: "RWA_Credit", type: "DECIMAL(18,2)", table: "RWA_Breakdown", nullable: false, description: "Credit risk-weighted assets" },
+      { name: "RWA_Market", type: "DECIMAL(18,2)", table: "RWA_Breakdown", nullable: false, description: "Market risk-weighted assets" },
+      { name: "RWA_Operational", type: "DECIMAL(18,2)", table: "RWA_Breakdown", nullable: false, description: "Operational risk-weighted assets" },
+      { name: "Tier1_Leverage", type: "DECIMAL(6,2)", table: "Ratios", nullable: false, description: "Tier 1 leverage ratio (%)" },
+      { name: "LCR", type: "DECIMAL(6,2)", table: "Liquidity_Risk", nullable: true, description: "Liquidity coverage ratio (%)" },
+      { name: "NSFR", type: "DECIMAL(6,2)", table: "Liquidity_Risk", nullable: true, description: "Net stable funding ratio (%)" },
+      { name: "VaR_99", type: "DECIMAL(18,2)", table: "Market_Risk", nullable: true, description: "Value at Risk at 99% confidence" },
+      { name: "Stress_Loss", type: "DECIMAL(18,2)", table: "Stress_Testing", nullable: true, description: "Severely adverse stress scenario loss" },
+    ],
+    recordCount: 18930,
+    lastUpdated: "2025-12-31",
+    qualityScore: 98.1,
+    nullRate: 0.8,
+  },
+  "Regulatory Reference": {
+    sourceSystem: "Regulatory Reference",
+    columns: [
+      { name: "MDRM_Code", type: "VARCHAR(15)", table: "MDRM_Master", nullable: false, description: "MDRM (Micro Data Reference Manual) code" },
+      { name: "Item_Name", type: "VARCHAR(255)", table: "MDRM_Master", nullable: false, description: "Regulatory line item name" },
+      { name: "Schedule", type: "VARCHAR(10)", table: "MDRM_Master", nullable: false, description: "Report schedule (RC, RI, RC-R, etc.)" },
+      { name: "Line_Number", type: "VARCHAR(10)", table: "MDRM_Master", nullable: false, description: "Line item number within schedule" },
+      { name: "Data_Type", type: "VARCHAR(20)", table: "MDRM_Master", nullable: false, description: "Expected data type and precision" },
+      { name: "Start_Date", type: "DATE", table: "MDRM_History", nullable: false, description: "Effective date for this MDRM code" },
+      { name: "End_Date", type: "DATE", table: "MDRM_History", nullable: true, description: "Sunset date (null = currently active)" },
+      { name: "Validation_Rule", type: "TEXT", table: "Validation_Rules", nullable: true, description: "Cross-check or validation formula" },
+      { name: "Report_Form", type: "VARCHAR(10)", table: "MDRM_Master", nullable: false, description: "Report form (031, 041, 051)" },
+    ],
+    recordCount: 45000,
+    lastUpdated: "2025-12-15",
+    qualityScore: 100.0,
+    nullRate: 0.0,
+  },
+};
+
 function CoverageBar({ coverage }: { coverage: number }) {
   return (
     <div className="flex items-center gap-2">
@@ -1419,6 +1566,7 @@ function DataDictionaryTab() {
   const [selectedSourceSystem, setSelectedSourceSystem] = useState("");
   const [selectedQuarter, setSelectedQuarter] = useState("Q4 2025");
   const [dragActive, setDragActive] = useState(false);
+  const [activeDictSource, setActiveDictSource] = useState("Core Banking");
 
   const visibleBaseSources = INGESTED_SOURCES.filter((_, idx) => !removedBaseIndices.has(idx));
   const uploadedCount = uploadedSources.length;
@@ -1642,6 +1790,90 @@ function DataDictionaryTab() {
               ))}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-data-dictionary">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-primary" />
+              <CardTitle className="text-sm">Data Dictionary</CardTitle>
+              <Badge variant="outline" className="text-xs font-mono">
+                {SOURCE_DICTIONARIES[activeDictSource]?.columns.length || 0} fields
+              </Badge>
+            </div>
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5 flex-wrap">
+              {visibleBaseSources.map((src) => (
+                <button
+                  key={src.sourceSystem}
+                  onClick={() => setActiveDictSource(src.sourceSystem)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+                    activeDictSource === src.sourceSystem
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`button-dict-tab-${src.sourceSystem.replace(/\s+/g, "-").toLowerCase()}`}
+                >
+                  {src.sourceSystem}
+                </button>
+              ))}
+            </div>
+          </div>
+          {SOURCE_DICTIONARIES[activeDictSource] && (
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <Badge variant="secondary" className="text-[10px]">
+                {SOURCE_DICTIONARIES[activeDictSource].recordCount.toLocaleString()} records
+              </Badge>
+              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
+                Quality: {SOURCE_DICTIONARIES[activeDictSource].qualityScore}%
+              </Badge>
+              <Badge variant="secondary" className="text-[10px]">
+                Null Rate: {SOURCE_DICTIONARIES[activeDictSource].nullRate}%
+              </Badge>
+              <Badge variant="outline" className="text-[10px]">
+                Updated: {SOURCE_DICTIONARIES[activeDictSource].lastUpdated}
+              </Badge>
+            </div>
+          )}
+        </CardHeader>
+        <CardContent>
+          {SOURCE_DICTIONARIES[activeDictSource] ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Field</TableHead>
+                  <TableHead className="text-xs">Type</TableHead>
+                  <TableHead className="text-xs">Table</TableHead>
+                  <TableHead className="text-xs text-center">Nullable</TableHead>
+                  <TableHead className="text-xs">Description</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {SOURCE_DICTIONARIES[activeDictSource].columns.map((col, cidx) => (
+                  <TableRow key={cidx} data-testid={`dict-field-${cidx}`}>
+                    <TableCell className="font-mono text-xs py-2 font-medium">{col.name}</TableCell>
+                    <TableCell className="text-xs py-2">
+                      <Badge variant="outline" className="font-mono text-[10px]">{col.type}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs py-2 text-muted-foreground">{col.table}</TableCell>
+                    <TableCell className="text-xs py-2 text-center">
+                      {col.nullable ? (
+                        <span className="text-muted-foreground">Yes</span>
+                      ) : (
+                        <span className="text-foreground font-medium">No</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs py-2 text-muted-foreground">{col.description}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-sm text-muted-foreground">No dictionary available for this source.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
