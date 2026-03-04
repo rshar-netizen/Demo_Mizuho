@@ -63,6 +63,7 @@ import {
   BookOpen,
   ListChecks,
   Info,
+  ExternalLink,
 } from "lucide-react";
 import {
   reportingInstructions,
@@ -665,6 +666,8 @@ interface ReportType {
   priorVersion: string;
   effectiveDate: string;
   scheduleKeys: string[];
+  referenceUrl: string;
+  instructionsUrl: string;
 }
 
 const REPORT_TYPES: ReportType[] = [
@@ -678,6 +681,8 @@ const REPORT_TYPES: ReportType[] = [
     priorVersion: "December 2025",
     effectiveDate: "Report date: December 31, 2025",
     scheduleKeys: ["RC", "RC-C", "RC-R", "RC-E", "RC-N", "RC-L", "RI"],
+    referenceUrl: "https://www.ffiec.gov/forms031.htm",
+    instructionsUrl: "https://www.ffiec.gov/pdf/FFIEC_forms/FFIEC031_FFIEC041_202503_i.pdf",
   },
   {
     id: "ffiec-102",
@@ -689,6 +694,8 @@ const REPORT_TYPES: ReportType[] = [
     priorVersion: "December 2025",
     effectiveDate: "Report date: December 31, 2025",
     scheduleKeys: ["MRR-A", "MRR-B", "MRR-C", "MRR-D", "MRR-E", "MRR-F"],
+    referenceUrl: "https://www.ffiec.gov/forms102.htm",
+    instructionsUrl: "https://www.ffiec.gov/pdf/FFIEC_forms/FFIEC102_202503_i.pdf",
   },
 ];
 
@@ -911,6 +918,7 @@ function InstructionsTab() {
   const [selectedReport, setSelectedReport] = useState<string>("ffiec-031");
   const [isFetchingInstructions, setIsFetchingInstructions] = useState(false);
   const [instructionsFetched, setInstructionsFetched] = useState<Record<string, boolean>>({ "ffiec-031": true });
+  const [schedulesExpanded, setSchedulesExpanded] = useState(false);
 
   const { data: callReportData } = useQuery<{ data: CallReportRecord[] }>({
     queryKey: ["/api/data-sources/call-reports", 21843],
@@ -951,6 +959,7 @@ function InstructionsTab() {
   const handleReportSelect = (reportId: string) => {
     setSelectedReport(reportId);
     setSelectedQuery(null);
+    setSchedulesExpanded(false);
     if (!instructionsFetched[reportId]) {
       setIsFetchingInstructions(true);
       setTimeout(() => {
@@ -1015,6 +1024,29 @@ function InstructionsTab() {
               <span>{activeReport.effectiveDate}</span>
               <span>|</span>
               <span>Version: {activeReport.currentVersion}</span>
+            </div>
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/40">
+              <a
+                href={activeReport.referenceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-[11px] font-medium text-primary hover:underline"
+                data-testid="link-report-form"
+              >
+                <ExternalLink className="w-3 h-3" />
+                View Report Form on FFIEC.gov
+              </a>
+              <span className="text-border">|</span>
+              <a
+                href={activeReport.instructionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-[11px] font-medium text-primary hover:underline"
+                data-testid="link-report-instructions"
+              >
+                <Download className="w-3 h-3" />
+                Download Filing Instructions (PDF)
+              </a>
             </div>
           </div>
         </CardContent>
@@ -1115,26 +1147,6 @@ function InstructionsTab() {
               </CardContent>
             </Card>
           )}
-
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-sm">Schedule Requirements — {activeReport.label}</CardTitle>
-                </div>
-                <Badge variant="outline" className="text-xs font-mono">{reportSchedules.length} schedules</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[280px]">
-                <div className="space-y-2">
-                  {reportSchedules.map((inst, idx) => (
-                    <InstructionCard key={idx} inst={inst} idx={idx} />
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
 
           <Card>
             <CardHeader className="pb-3">
@@ -1242,6 +1254,42 @@ function InstructionsTab() {
               </div>
             </CardContent>
           </Card>
+
+          <Collapsible.Root open={schedulesExpanded} onOpenChange={setSchedulesExpanded}>
+            <Card data-testid="card-schedule-requirements">
+              <Collapsible.Trigger asChild>
+                <button className="w-full text-left" data-testid="button-toggle-schedules">
+                  <CardHeader className="pb-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-primary" />
+                        <CardTitle className="text-sm">Schedule Requirements — {activeReport.label}</CardTitle>
+                        <Badge variant="outline" className="text-xs font-mono">{reportSchedules.length} schedules</Badge>
+                        {schedulesNeedingReview > 0 && (
+                          <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30 text-[10px]">
+                            {schedulesNeedingReview} need review
+                          </Badge>
+                        )}
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${schedulesExpanded ? "rotate-180" : ""}`} />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Expand to browse all report schedules, filing requirements, and human review flags
+                    </p>
+                  </CardHeader>
+                </button>
+              </Collapsible.Trigger>
+              <Collapsible.Content>
+                <CardContent>
+                  <div className="space-y-2">
+                    {reportSchedules.map((inst, idx) => (
+                      <InstructionCard key={idx} inst={inst} idx={idx} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Collapsible.Content>
+            </Card>
+          </Collapsible.Root>
         </>
       )}
     </div>
