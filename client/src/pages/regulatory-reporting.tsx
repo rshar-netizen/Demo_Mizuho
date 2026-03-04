@@ -1414,18 +1414,20 @@ function DataDictionaryTab() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
   const [uploadedSources, setUploadedSources] = useState<UploadedSource[]>([]);
+  const [removedBaseIndices, setRemovedBaseIndices] = useState<Set<number>>(new Set());
   const [selectedFileName, setSelectedFileName] = useState("");
   const [selectedSourceSystem, setSelectedSourceSystem] = useState("");
   const [selectedQuarter, setSelectedQuarter] = useState("Q4 2025");
   const [dragActive, setDragActive] = useState(false);
 
+  const visibleBaseSources = INGESTED_SOURCES.filter((_, idx) => !removedBaseIndices.has(idx));
   const uploadedCount = uploadedSources.length;
-  const totalSources = INGESTED_SOURCES.length + uploadedCount;
-  const totalTables = INGESTED_SOURCES.reduce((s, d) => s + d.tables, 0) + uploadedSources.reduce((s, u) => s + u.tables, 0);
-  const totalFields = INGESTED_SOURCES.reduce((s, d) => s + d.fields, 0) + uploadedSources.reduce((s, u) => s + u.fields, 0);
-  const allCoverages = [...INGESTED_SOURCES.map(s => s.coverage), ...uploadedSources.map(u => u.coverage)];
-  const avgCoverage = Math.round(allCoverages.reduce((s, c) => s + c, 0) / allCoverages.length);
-  const partialSources = INGESTED_SOURCES.filter(s => s.status === "Partial").length + uploadedSources.filter(u => u.status !== "Mapped").length;
+  const totalSources = visibleBaseSources.length + uploadedCount;
+  const totalTables = visibleBaseSources.reduce((s, d) => s + d.tables, 0) + uploadedSources.reduce((s, u) => s + u.tables, 0);
+  const totalFields = visibleBaseSources.reduce((s, d) => s + d.fields, 0) + uploadedSources.reduce((s, u) => s + u.fields, 0);
+  const allCoverages = [...visibleBaseSources.map(s => s.coverage), ...uploadedSources.map(u => u.coverage)];
+  const avgCoverage = allCoverages.length > 0 ? Math.round(allCoverages.reduce((s, c) => s + c, 0) / allCoverages.length) : 0;
+  const partialSources = visibleBaseSources.filter(s => s.status === "Partial").length + uploadedSources.filter(u => u.status !== "Mapped").length;
 
   const activeMappings = DATA_MAPPINGS.filter(m => m.status === "Active").length;
   const reviewMappings = DATA_MAPPINGS.filter(m => m.status === "Review").length;
@@ -1483,6 +1485,10 @@ function DataDictionaryTab() {
 
   const handleDeleteUploaded = (id: string) => {
     setUploadedSources(prev => prev.filter(u => u.id !== id));
+  };
+
+  const handleDeleteBase = (originalIdx: number) => {
+    setRemovedBaseIndices(prev => new Set([...prev, originalIdx]));
   };
 
   return (
@@ -1547,39 +1553,51 @@ function DataDictionaryTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {INGESTED_SOURCES.map((source, idx) => (
-                <TableRow key={idx} data-testid={`source-row-${idx}`}>
-                  <TableCell className="py-3">
-                    <p className="text-sm font-medium">{source.sourceSystem}</p>
-                  </TableCell>
-                  <TableCell className="py-3">
-                    <p className="text-xs font-mono text-muted-foreground">{source.fileName}</p>
-                  </TableCell>
-                  <TableCell className="py-3 text-center">
-                    <span className="text-sm font-mono">{source.tables}</span>
-                  </TableCell>
-                  <TableCell className="py-3 text-center">
-                    <span className="text-sm font-mono">{source.fields}</span>
-                  </TableCell>
-                  <TableCell className="py-3 text-center">
-                    <Badge
-                      variant="secondary"
-                      className={`text-[11px] border-0 ${
-                        source.status === "Mapped"
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                          : source.status === "Partial"
-                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                            : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {source.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="py-3">
-                    <CoverageBar coverage={source.coverage} />
-                  </TableCell>
-                </TableRow>
-              ))}
+              {INGESTED_SOURCES.map((source, idx) => {
+                if (removedBaseIndices.has(idx)) return null;
+                return (
+                  <TableRow key={idx} data-testid={`source-row-${idx}`}>
+                    <TableCell className="py-3">
+                      <p className="text-sm font-medium">{source.sourceSystem}</p>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <p className="text-xs font-mono text-muted-foreground">{source.fileName}</p>
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <span className="text-sm font-mono">{source.tables}</span>
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <span className="text-sm font-mono">{source.fields}</span>
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <Badge
+                        variant="secondary"
+                        className={`text-[11px] border-0 ${
+                          source.status === "Mapped"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : source.status === "Partial"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {source.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <div className="flex items-center gap-2">
+                        <CoverageBar coverage={source.coverage} />
+                        <button
+                          onClick={() => handleDeleteBase(idx)}
+                          className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                          data-testid={`button-delete-source-${idx}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {uploadedSources.map((uploaded) => (
                 <TableRow key={uploaded.id} className="bg-primary/5" data-testid={`uploaded-row-${uploaded.id}`}>
                   <TableCell className="py-3">
