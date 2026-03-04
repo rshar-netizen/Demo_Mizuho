@@ -16,6 +16,16 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -64,6 +74,10 @@ import {
   ListChecks,
   Info,
   ExternalLink,
+  Upload,
+  Trash2,
+  X,
+  FileUp,
 } from "lucide-react";
 import {
   reportingInstructions,
@@ -1363,26 +1377,112 @@ function CoverageBar({ coverage }: { coverage: number }) {
   );
 }
 
-function DataDictionaryTab() {
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+interface UploadedSource {
+  id: string;
+  sourceSystem: string;
+  fileName: string;
+  fileSize: string;
+  quarter: string;
+  tables: number;
+  fields: number;
+  status: "Profiling" | "Mapped" | "Partial";
+  coverage: number;
+  uploadedAt: string;
+}
 
-  const uploadedCount = uploadedFiles.length;
+const SOURCE_SYSTEM_OPTIONS = [
+  "Core Banking",
+  "Trading Systems",
+  "Loan Origination",
+  "Treasury",
+  "Risk Systems",
+  "Regulatory Reference",
+  "Custom / Other",
+];
+
+const QUARTER_OPTIONS = ["Q4 2025", "Q3 2025", "Q2 2025", "Q1 2025", "Q4 2024"];
+
+const FILE_TYPE_LABELS: Record<string, string> = {
+  xlsx: "Excel Workbook",
+  xls: "Excel Spreadsheet",
+  csv: "CSV File",
+  pdf: "PDF Document",
+  txt: "Text File",
+};
+
+function DataDictionaryTab() {
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [isIngesting, setIsIngesting] = useState(false);
+  const [uploadedSources, setUploadedSources] = useState<UploadedSource[]>([]);
+  const [selectedFileName, setSelectedFileName] = useState("");
+  const [selectedSourceSystem, setSelectedSourceSystem] = useState("");
+  const [selectedQuarter, setSelectedQuarter] = useState("Q4 2025");
+  const [dragActive, setDragActive] = useState(false);
+
+  const uploadedCount = uploadedSources.length;
   const totalSources = INGESTED_SOURCES.length + uploadedCount;
-  const totalTables = INGESTED_SOURCES.reduce((s, d) => s + d.tables, 0) + (uploadedCount * 3);
-  const totalFields = INGESTED_SOURCES.reduce((s, d) => s + d.fields, 0) + (uploadedCount * 47);
-  const avgCoverage = Math.round((INGESTED_SOURCES.reduce((s, d) => s + d.coverage, 0) + (uploadedCount * 45)) / totalSources);
-  const partialSources = INGESTED_SOURCES.filter(s => s.status === "Partial").length + uploadedCount;
+  const totalTables = INGESTED_SOURCES.reduce((s, d) => s + d.tables, 0) + uploadedSources.reduce((s, u) => s + u.tables, 0);
+  const totalFields = INGESTED_SOURCES.reduce((s, d) => s + d.fields, 0) + uploadedSources.reduce((s, u) => s + u.fields, 0);
+  const allCoverages = [...INGESTED_SOURCES.map(s => s.coverage), ...uploadedSources.map(u => u.coverage)];
+  const avgCoverage = Math.round(allCoverages.reduce((s, c) => s + c, 0) / allCoverages.length);
+  const partialSources = INGESTED_SOURCES.filter(s => s.status === "Partial").length + uploadedSources.filter(u => u.status !== "Mapped").length;
 
   const activeMappings = DATA_MAPPINGS.filter(m => m.status === "Active").length;
   const reviewMappings = DATA_MAPPINGS.filter(m => m.status === "Review").length;
 
-  const handleUploadSimulation = () => {
-    setIsUploading(true);
+  const resetUploadForm = () => {
+    setSelectedFileName("");
+    setSelectedSourceSystem("");
+    setSelectedQuarter("Q4 2025");
+    setDragActive(false);
+  };
+
+  const handleOpenDialog = () => {
+    resetUploadForm();
+    setUploadDialogOpen(true);
+  };
+
+  const handleFileSelect = (name: string) => {
+    setSelectedFileName(name);
+    const lower = name.toLowerCase();
+    let detected = "";
+    if (lower.includes("gl") || lower.includes("extract")) detected = "Core Banking";
+    else if (lower.includes("trading") || lower.includes("position")) detected = "Trading Systems";
+    else if (lower.includes("loan")) detected = "Loan Origination";
+    else if (lower.includes("treasury")) detected = "Treasury";
+    else if (lower.includes("risk")) detected = "Risk Systems";
+    else if (lower.includes("mdrm") || lower.includes("taxonomy")) detected = "Regulatory Reference";
+    if (detected) setSelectedSourceSystem(detected);
+  };
+
+  const handleIngest = () => {
+    if (!selectedFileName) return;
+    setIsIngesting(true);
     setTimeout(() => {
-      setIsUploading(false);
-      setUploadedFiles(prev => [...prev, `Custom_Extract_${Date.now().toString(36)}.xlsx`]);
-    }, 2000);
+      const ext = selectedFileName.split(".").pop()?.toLowerCase() || "xlsx";
+      const tables = ext === "csv" || ext === "txt" ? 1 : Math.floor(Math.random() * 6) + 2;
+      const fields = tables * (Math.floor(Math.random() * 20) + 15);
+      const newSource: UploadedSource = {
+        id: Date.now().toString(36),
+        sourceSystem: selectedSourceSystem || "Custom / Other",
+        fileName: selectedFileName,
+        fileSize: `${(Math.random() * 15 + 0.5).toFixed(1)} MB`,
+        quarter: selectedQuarter,
+        tables,
+        fields,
+        status: "Profiling",
+        coverage: Math.floor(Math.random() * 30) + 35,
+        uploadedAt: new Date().toISOString(),
+      };
+      setUploadedSources(prev => [...prev, newSource]);
+      setIsIngesting(false);
+      setUploadDialogOpen(false);
+      resetUploadForm();
+    }, 2200);
+  };
+
+  const handleDeleteUploaded = (id: string) => {
+    setUploadedSources(prev => prev.filter(u => u.id !== id));
   };
 
   return (
@@ -1423,21 +1523,11 @@ function DataDictionaryTab() {
               variant="outline"
               size="sm"
               className="h-7 text-xs"
-              onClick={handleUploadSimulation}
-              disabled={isUploading}
+              onClick={handleOpenDialog}
               data-testid="button-upload-source"
             >
-              {isUploading ? (
-                <>
-                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                  Ingesting...
-                </>
-              ) : (
-                <>
-                  <Download className="w-3 h-3 mr-1 rotate-180" />
-                  Upload Source File
-                </>
-              )}
+              <Upload className="w-3 h-3 mr-1" />
+              Upload Source File
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
@@ -1490,30 +1580,45 @@ function DataDictionaryTab() {
                   </TableCell>
                 </TableRow>
               ))}
-              {uploadedFiles.map((file, idx) => (
-                <TableRow key={`uploaded-${idx}`} className="bg-primary/5" data-testid={`uploaded-row-${idx}`}>
+              {uploadedSources.map((uploaded) => (
+                <TableRow key={uploaded.id} className="bg-primary/5" data-testid={`uploaded-row-${uploaded.id}`}>
                   <TableCell className="py-3">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">User Upload</p>
+                      <p className="text-sm font-medium">{uploaded.sourceSystem}</p>
                       <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-0">New</Badge>
                     </div>
                   </TableCell>
                   <TableCell className="py-3">
-                    <p className="text-xs font-mono text-muted-foreground">{file}</p>
+                    <p className="text-xs font-mono text-muted-foreground">{uploaded.fileName}</p>
                   </TableCell>
                   <TableCell className="py-3 text-center">
-                    <span className="text-sm font-mono">3</span>
+                    <span className="text-sm font-mono">{uploaded.tables}</span>
                   </TableCell>
                   <TableCell className="py-3 text-center">
-                    <span className="text-sm font-mono">47</span>
+                    <span className="text-sm font-mono">{uploaded.fields}</span>
                   </TableCell>
                   <TableCell className="py-3 text-center">
-                    <Badge variant="secondary" className="text-[11px] border-0 bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                      Profiling
+                    <Badge variant="secondary" className={`text-[11px] border-0 ${
+                      uploaded.status === "Mapped"
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : uploaded.status === "Partial"
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                    }`}>
+                      {uploaded.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="py-3">
-                    <CoverageBar coverage={45} />
+                    <div className="flex items-center gap-2">
+                      <CoverageBar coverage={uploaded.coverage} />
+                      <button
+                        onClick={() => handleDeleteUploaded(uploaded.id)}
+                        className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                        data-testid={`button-delete-upload-${uploaded.id}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -1587,6 +1692,136 @@ function DataDictionaryTab() {
           </ScrollArea>
         </CardContent>
       </Card>
+
+      <Dialog open={uploadDialogOpen} onOpenChange={(open) => { if (!isIngesting) setUploadDialogOpen(open); }}>
+        <DialogContent className="sm:max-w-[520px]" data-testid="dialog-upload-source">
+          <DialogHeader>
+            <DialogTitle className="text-base font-serif">Upload Source File</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Upload a data file to ingest, profile, and map to regulatory report fields. Supported formats: Excel (.xlsx, .xls), CSV, PDF, TXT.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div
+              className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                dragActive
+                  ? "border-primary bg-primary/5"
+                  : selectedFileName
+                    ? "border-emerald-400/60 bg-emerald-500/5"
+                    : "border-border hover:border-primary/40"
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragActive(false);
+                const file = e.dataTransfer.files?.[0];
+                if (file) handleFileSelect(file.name);
+              }}
+              data-testid="dropzone-file"
+            >
+              {selectedFileName ? (
+                <div className="flex items-center justify-center gap-3">
+                  <FileText className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium font-mono">{selectedFileName}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {FILE_TYPE_LABELS[selectedFileName.split(".").pop()?.toLowerCase() || ""] || "Data File"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSelectedFileName(""); setSelectedSourceSystem(""); }}
+                    className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    data-testid="button-clear-file"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="cursor-pointer block">
+                  <FileUp className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Drag and drop a file here, or <span className="text-primary font-medium underline underline-offset-2">browse</span>
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1">.xlsx, .xls, .csv, .pdf, .txt</p>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".xlsx,.xls,.csv,.pdf,.txt"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileSelect(file.name);
+                    }}
+                    data-testid="input-file-upload"
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Source System</Label>
+                <Select value={selectedSourceSystem} onValueChange={setSelectedSourceSystem}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-source-system">
+                    <SelectValue placeholder="Select system..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SOURCE_SYSTEM_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Reporting Quarter</Label>
+                <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-quarter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {QUARTER_OPTIONS.map((q) => (
+                      <SelectItem key={q} value={q} className="text-xs">{q}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={() => setUploadDialogOpen(false)}
+              disabled={isIngesting}
+              data-testid="button-cancel-upload"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="text-xs"
+              onClick={handleIngest}
+              disabled={!selectedFileName || isIngesting}
+              data-testid="button-ingest-file"
+            >
+              {isIngesting ? (
+                <>
+                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                  Ingesting...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-3 h-3 mr-1" />
+                  Ingest File
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
