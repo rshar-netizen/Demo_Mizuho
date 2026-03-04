@@ -86,9 +86,9 @@ import {
 } from "recharts";
 
 const steps = [
-  { id: "instructions", label: "Regulatory Instructions", icon: Search, step: 1 },
+  { id: "instructions", label: "Instructions Analysis", icon: Search, step: 1 },
   { id: "data", label: "Data & Dictionary", icon: Database, step: 2 },
-  { id: "anomalies", label: "Multi-Period Analysis", icon: AlertTriangle, step: 3 },
+  { id: "anomalies", label: "Variance Analysis", icon: AlertTriangle, step: 3 },
   { id: "review", label: "Report Validation", icon: FileCheck, step: 4 },
   { id: "comparison", label: "Review & Approval", icon: GitCompare, step: 5 },
   { id: "trends", label: "Trend Analysis", icon: TrendingUp, step: 6 },

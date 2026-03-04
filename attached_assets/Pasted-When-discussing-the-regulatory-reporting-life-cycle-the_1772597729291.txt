@@ -1,0 +1,12 @@
+When discussing the regulatory reporting life cycle, the key capability is that all necessary capabilities are available to support the user throughout the process, including analysis, data processing, and reporting.
+When a new requirement is introduced, the user should be able to upload it to the tool, let the tool analyze it, and then query it to understand its complexity and what is entailed in preparing the report.
+The tool should give the user an interactive way to deal with regulatory reports, avoiding the time-consuming process of manually reading hundreds of pages and searching for answers to queries.
+When discussing the data dictionary, the tool should show how it reads different sources of data, such as Excel sheets, creates a data dictionary from them, and handles interlinkages to help prepare the report.
+The data dictionary capabilities should also include showing how to ingest data files, link them, and use them to create a report format with numbers and balances, covering the full life cycle from reading the instruction to report creation.
+The analysis section needs to highlight the variance analysis capability, specifically the period-over-period variance analysis and trending.
+In the report validation section, the key checks that should be included are:
+Variance Analysis: Period-over-period variance analysis where users can set their own parameters, such as a 10% change quarter-over-quarter, to flag material items requiring commentary.
+Intra-Report Checks: Validations defined by the Fed, such as cross-checking numbers between schedules within a single report.9
+Inter-Report Checks: Tie-outs across multiple reports (e.g., a bank Call Report and the IHC Y9C) to ensure numbers are consistent.
+The demonstration should follow a clear sequence, starting with the report view and the final numbers, then showing the variance from the prior quarter and any provided explanations for material changes. This should allow the audience (like the CFO) to query the data and ask for the derivation of numbers or the regulatory rule that requires reporting in a certain way.
+For the demo, focus on the current reports ingested, like the Call Report and the Y9C, to clearly convey the concept, with the note that the capability can be expanded to other reports later.
