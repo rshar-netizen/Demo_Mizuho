@@ -16,6 +16,13 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Search,
   Database,
   AlertTriangle,
@@ -51,6 +58,11 @@ import {
   Layers,
   ShieldCheck,
   Flag,
+  Download,
+  RefreshCw,
+  BookOpen,
+  ListChecks,
+  Info,
 } from "lucide-react";
 import {
   reportingInstructions,
@@ -323,6 +335,96 @@ const SCHEDULE_INSTRUCTIONS: Record<string, ReportingInstruction> = {
       "Classify by issuer type: U.S. Treasury, agency, municipal, corporate, MBS",
     ],
   },
+  "MRR-A": {
+    id: "FFIEC 102",
+    section: "Schedule A — Regulatory Market Risk: VaR-Based Measure",
+    description: "Value-at-Risk (VaR) calculations using approved internal models. Reports previous day's VaR, 60-day high/low, and 60-day average for general and specific risk across asset categories.",
+    schedule: "MRR-A",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Report VaR using a 99% confidence interval and 10-business-day holding period",
+      "Calculate at close of business each day using most recent 60 trading days",
+      "Separately report general risk and specific risk components",
+      "Include interest rate, equity, foreign exchange, and commodity positions",
+    ],
+  },
+  "MRR-B": {
+    id: "FFIEC 102",
+    section: "Schedule B — Regulatory Market Risk: Stressed VaR-Based Measure",
+    description: "Stressed VaR calculation using a continuous 12-month period of significant financial stress relevant to the institution's portfolio composition.",
+    schedule: "MRR-B",
+    frequency: "Quarterly",
+    status: "analyzed",
+    humanReview: true,
+    reviewReason: "Stress period selection and calibration require judgment — the 12-month stress window must be relevant to the current portfolio composition and validated against multiple crisis periods",
+    requirements: [
+      "Use same internal model parameters as non-stressed VaR",
+      "Calibrate to a continuous 12-month stress period approved by primary regulator",
+      "Report previous day's stressed VaR, 60-day high/low, and 60-day average",
+      "Validate that stress period remains appropriate as portfolio composition evolves",
+    ],
+  },
+  "MRR-C": {
+    id: "FFIEC 102",
+    section: "Schedule C — Regulatory Market Risk: Incremental Risk Capital Charge",
+    description: "Incremental risk capital (IRC) for default and migration risk in the correlation trading portfolio, calculated over a one-year horizon at 99.9% confidence.",
+    schedule: "MRR-C",
+    frequency: "Quarterly",
+    status: "pending",
+    humanReview: true,
+    reviewReason: "IRC model validation requires specialized credit risk expertise — default and migration probabilities, correlation assumptions, and liquidity horizons involve significant modeling judgment",
+    requirements: [
+      "Calculate over a one-year capital horizon at 99.9% confidence level",
+      "Capture default risk and credit migration risk",
+      "Apply liquidity horizons that reflect the time to hedge or liquidate each position",
+      "Report most recent IRC, 12-week average, and 12-week high",
+    ],
+  },
+  "MRR-D": {
+    id: "FFIEC 102",
+    section: "Schedule D — Regulatory Market Risk: Comprehensive Risk Measure",
+    description: "Comprehensive risk measure for correlation trading positions, capturing price risk including default, migration, spread, basis, recovery rate, and correlation risk.",
+    schedule: "MRR-D",
+    frequency: "Quarterly",
+    status: "pending",
+    humanReview: true,
+    reviewReason: "Comprehensive risk modeling for correlation products requires advanced quantitative expertise — correlation skew, tranche-level recovery assumptions, and basis risk between indices and single-name CDS are complex to validate",
+    requirements: [
+      "Model all material price risk factors for correlation trading positions",
+      "Capture risks not covered by VaR: default, recovery rate, correlation, basis",
+      "Report at 99.9% confidence level with appropriate liquidity horizons",
+      "Surcharge: floor at 8% of standardized specific risk charge if model is unvalidated",
+    ],
+  },
+  "MRR-E": {
+    id: "FFIEC 102",
+    section: "Schedule E — Regulatory Market Risk: Standardized Specific Risk",
+    description: "Standardized specific risk charges for debt and securitization positions not captured by approved internal models.",
+    schedule: "MRR-E",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Apply regulatory-specified risk weights to debt positions by issuer category",
+      "Government securities: 0% to 12.5% based on remaining maturity and rating",
+      "Qualifying securities (investment-grade corporates): 0.25% to 1.6%",
+      "Securitization exposures: apply risk weights per Basel III securitization framework",
+    ],
+  },
+  "MRR-F": {
+    id: "FFIEC 102",
+    section: "Schedule F — Regulatory Market Risk: De Minimis Exemption",
+    description: "Calculation of aggregate trading assets and liabilities to determine whether the institution qualifies for the de minimis exemption from market risk capital requirements.",
+    schedule: "MRR-F",
+    frequency: "Quarterly",
+    status: "analyzed",
+    requirements: [
+      "Trading activity must be less than 10% of total assets to qualify",
+      "Also qualify if aggregate trading assets and liabilities are less than $1 billion",
+      "Calculate on a consolidated basis including all subsidiaries",
+      "If exemption applies, institution is not required to file Schedules A through E",
+    ],
+  },
 };
 
 const FIELD_TO_SCHEDULE: Record<string, string> = {
@@ -528,9 +630,13 @@ const SCOPE_PHRASES = [
   "classify", "classification", "hvcre", "accrual", "charge-off",
   "securities", "impairment", "regulatory", "compliance",
   "quarterly", "frequency", "deadline", "submission",
+  "var", "value-at-risk", "value at risk", "stressed var", "market risk",
+  "incremental risk", "irc", "correlation trading", "comprehensive risk",
+  "de minimis", "backtesting", "trading book", "specific risk",
+  "general risk", "multiplication factor", "frtb", "102",
 ];
 
-const SCOPE_EXACT_WORDS = ["rc", "ri", "hc", "rwa", "gaap", "asc", "cre", "tdr", "htm", "afs", "aoci"];
+const SCOPE_EXACT_WORDS = ["rc", "ri", "hc", "rwa", "gaap", "asc", "cre", "tdr", "htm", "afs", "aoci", "mrr", "var", "cva", "frtb"];
 
 function isInScope(query: string): boolean {
   const lower = query.toLowerCase();
@@ -549,9 +655,262 @@ const OUT_OF_SCOPE_RESPONSE: AIQueryItem = {
   ],
 };
 
+interface ReportType {
+  id: string;
+  label: string;
+  fullName: string;
+  description: string;
+  agency: string;
+  currentVersion: string;
+  priorVersion: string;
+  effectiveDate: string;
+  scheduleKeys: string[];
+}
+
+const REPORT_TYPES: ReportType[] = [
+  {
+    id: "ffiec-031",
+    label: "FFIEC 031 — Call Report",
+    fullName: "Consolidated Reports of Condition and Income (FFIEC 031)",
+    description: "Quarterly financial data for banks with domestic and foreign offices, filed with FDIC, OCC, and Federal Reserve.",
+    agency: "FFIEC / FDIC",
+    currentVersion: "March 2026",
+    priorVersion: "December 2025",
+    effectiveDate: "Report date: December 31, 2025",
+    scheduleKeys: ["RC", "RC-C", "RC-R", "RC-E", "RC-N", "RC-L", "RI"],
+  },
+  {
+    id: "ffiec-102",
+    label: "FFIEC 102 — Market Risk",
+    fullName: "Market Risk Regulatory Report for Institutions Subject to the Market Risk Capital Rule (FFIEC 102)",
+    description: "Quarterly report for institutions with significant trading activity, capturing market risk capital requirements under Basel III.",
+    agency: "FFIEC / OCC / Federal Reserve",
+    currentVersion: "March 2026",
+    priorVersion: "December 2025",
+    effectiveDate: "Report date: December 31, 2025",
+    scheduleKeys: ["MRR-A", "MRR-B", "MRR-C", "MRR-D", "MRR-E", "MRR-F"],
+  },
+];
+
+interface InstructionChange {
+  schedule: string;
+  section: string;
+  changeType: "new" | "revised" | "clarification" | "removed";
+  summary: string;
+  impact: "high" | "medium" | "low";
+  details: string[];
+}
+
+const REPORT_CHANGES: Record<string, InstructionChange[]> = {
+  "ffiec-031": [
+    {
+      schedule: "RC",
+      section: "Schedule RC — Balance Sheet",
+      changeType: "revised",
+      summary: "Updated consolidation guidance for variable interest entities (VIEs) to align with ASU 2024-03",
+      impact: "high",
+      details: [
+        "New requirement to disaggregate certain expenses on the face of the income statement per ASU 2024-03",
+        "Additional memo items for VIE assets and liabilities held by consolidated trusts",
+        "Clarified treatment of intercompany eliminations for multi-entity filers",
+      ],
+    },
+    {
+      schedule: "RC-R",
+      section: "Schedule RC-R — Regulatory Capital",
+      changeType: "revised",
+      summary: "Basel III endgame transitional provisions — updated risk-weight tables for select commercial real estate exposures",
+      impact: "high",
+      details: [
+        "Revised CRE risk weights: LTV-dependent granularity for income-producing properties",
+        "New reporting line items for operational risk capital under standardized approach",
+        "Updated AOCI opt-out transitional schedule for Category III and IV institutions",
+        "Credit valuation adjustment (CVA) capital charge calculation refinements",
+      ],
+    },
+    {
+      schedule: "RI",
+      section: "Schedule RI — Income Statement",
+      changeType: "clarification",
+      summary: "New disaggregation requirements for realized gains/losses on AFS securities and CECL day-2 provision methodology",
+      impact: "medium",
+      details: [
+        "Separate reporting of realized gains vs. losses on AFS debt securities (previously net)",
+        "Clarified CECL day-2 provision recognition for purchased credit-deteriorated assets",
+        "New memo item for unrealized gains/losses on equity securities with readily determinable fair values",
+      ],
+    },
+    {
+      schedule: "RC-E",
+      section: "Schedule RC-E — Deposit Liabilities",
+      changeType: "revised",
+      summary: "Enhanced uninsured deposit disclosure requirements per FDIC proposed rulemaking",
+      impact: "medium",
+      details: [
+        "New breakdowns for estimated uninsured deposits by depositor type (retail, wholesale, public funds)",
+        "Reciprocal deposit reporting threshold updated from $5B to the current FDIC-defined limit",
+        "Additional memo items for sweep arrangement deposit volumes",
+      ],
+    },
+    {
+      schedule: "RC-N",
+      section: "Schedule RC-N — Past Due and Nonaccrual",
+      changeType: "clarification",
+      summary: "Interagency guidance on nonaccrual treatment for loans modified under ASC 326-20 (post-TDR sunset)",
+      impact: "low",
+      details: [
+        "Clarified that loans modified for borrowers experiencing financial difficulty are no longer classified as TDRs under ASC 326-20",
+        "New disclosure requirements for modifications involving payment delays, term extensions, or interest rate reductions",
+        "Updated thresholds for reporting loans modified during the quarter in memo items",
+      ],
+    },
+  ],
+  "ffiec-102": [
+    {
+      schedule: "MRR-A",
+      section: "Schedule A — VaR-Based Measure",
+      changeType: "revised",
+      summary: "Updated VaR backtesting window expanded from 250 to 500 business days per Basel III.1 transition",
+      impact: "high",
+      details: [
+        "Backtesting exception count now evaluated over trailing 500 business days (phased from 250)",
+        "New multiplication factor schedule for VaR backtesting violations",
+        "Additional reporting of P&L attribution test results (risk-theoretical vs. hypothetical P&L)",
+      ],
+    },
+    {
+      schedule: "MRR-B",
+      section: "Schedule B — Stressed VaR-Based Measure",
+      changeType: "revised",
+      summary: "New stressed VaR calibration requirements — stress period must be revalidated quarterly with documented rationale",
+      impact: "high",
+      details: [
+        "Quarterly revalidation of stress period selection with documented rationale",
+        "New requirement to evaluate at least three candidate stress periods spanning different crisis types",
+        "Regulator may mandate a specific stress period if the institution's selection is deemed non-conservative",
+      ],
+    },
+    {
+      schedule: "MRR-C",
+      section: "Schedule C — Incremental Risk Capital Charge",
+      changeType: "clarification",
+      summary: "Clarified treatment of sovereign exposures in IRC calculation and liquidity horizon assignment",
+      impact: "medium",
+      details: [
+        "Sovereign positions must use rating-specific default probabilities (no assumed zero-default for investment-grade)",
+        "Liquidity horizons for less liquid positions extended from 3 months to 6 months minimum",
+        "New validation requirements for correlation assumptions in multi-factor models",
+      ],
+    },
+    {
+      schedule: "MRR-F",
+      section: "Schedule F — De Minimis Exemption",
+      changeType: "clarification",
+      summary: "Updated de minimis threshold calculation to include notional amounts of cleared derivative positions",
+      impact: "low",
+      details: [
+        "Centrally-cleared derivative notional amounts now included in aggregate trading activity calculation",
+        "Threshold remains at 10% of total assets or $1 billion aggregate trading activity",
+        "Institutions near the threshold boundary should monitor exposure growth quarterly",
+      ],
+    },
+  ],
+};
+
+const REPORT_AI_QUERIES: Record<string, AIQueryItem[]> = {
+  "ffiec-031": [
+    {
+      id: "q-031-change-1",
+      schedule: "RC-R",
+      question: "What are the key changes to Schedule RC-R capital requirements this quarter?",
+      answer: "The March 2026 filing instructions for Schedule RC-R include several significant updates related to the Basel III endgame transition:\n\n1. Risk-Weight Tables: Revised CRE risk weights now follow an LTV-dependent approach for income-producing commercial real estate. Properties with LTV ≤ 60% receive a 65% risk weight (previously 100%), while those with LTV > 80% receive 150%.\n\n2. Operational Risk Capital: New reporting line items for operational risk capital under the standardized measurement approach (SMA). This is a new charge that was not required in prior filings.\n\n3. AOCI Opt-Out Transition: The transitional schedule for AOCI opt-out has been updated for Category III and IV institutions. The phase-in percentage increases by 25pp per year.\n\n4. CVA Capital Charge: Refinements to the credit valuation adjustment (CVA) capital charge calculation now require the basic approach (BA-CVA) for institutions without approved internal models.\n\nThese changes will impact Mizuho's reported Tier 1 and Total Capital ratios. The regulatory capital team should evaluate the RWA impact of the new CRE risk weights against the current portfolio composition.",
+      sources: [
+        { label: "FFIEC Instructions", reference: "RC-R Parts I & II (March 2026)" },
+        { label: "Basel III Endgame", reference: "12 CFR Part 217 Transitional Rule" },
+      ],
+    },
+    {
+      id: "q-031-change-2",
+      schedule: "RC",
+      question: "How does ASU 2024-03 affect our Balance Sheet reporting?",
+      answer: "ASU 2024-03 (Income Statement — Reporting Comprehensive Income — Expense Disaggregation Disclosures) requires new disaggregation of certain expense categories:\n\n1. Balance Sheet Impact: The direct Schedule RC impact is limited, but associated memo items now require more granular breakdowns of accrued expenses and other liabilities.\n\n2. VIE Consolidation: Updated guidance requires additional memo items for:\n   - Total assets of consolidated VIEs not previously required to be separately identified\n   - Total liabilities of consolidated VIEs\n   - Maximum exposure to loss from unconsolidated VIE involvement\n\n3. Intercompany Eliminations: Clarified that multi-entity filers must eliminate all intercompany transactions, including those between bank subsidiaries and nonbank affiliates, before reporting consolidated totals.\n\n4. Filing Consideration: If Mizuho has any consolidated trust structures or VIE involvement, these new memo items will require coordination between Treasury, Financial Reporting, and the applicable business units.\n\nThe primary income statement disaggregation requirements under ASU 2024-03 are effective for large accelerated filers for annual periods beginning after December 15, 2026, but the FFIEC has incorporated certain disclosure elements into the Call Report ahead of the ASU effective date.",
+      sources: [
+        { label: "ASU 2024-03", reference: "Expense Disaggregation Disclosures" },
+        { label: "FFIEC Instructions", reference: "Schedule RC — General Instructions (March 2026)" },
+      ],
+    },
+    {
+      id: "q-031-change-3",
+      schedule: "RC-E",
+      question: "What are the new uninsured deposit disclosure requirements?",
+      answer: "Schedule RC-E has been updated to include enhanced uninsured deposit disclosures, driven by the FDIC's proposed rulemaking following the 2023 bank stress events:\n\n1. Depositor Type Breakdowns: Estimated uninsured deposits must now be disaggregated by:\n   - Retail depositors (individuals with balances exceeding $250,000 FDIC insurance limit)\n   - Wholesale / institutional depositors\n   - Public funds (state and municipal government deposits)\n   - Interbank / affiliate deposits\n\n2. Reciprocal Deposits: The reporting threshold for reciprocal deposits has been updated to align with the current FDIC-defined limit. Institutions must separately identify reciprocal deposits that qualify for the exclusion from brokered deposit classification.\n\n3. Sweep Arrangements: New memo items capture the volume of deposits held in sweep arrangements, including details on the sweep target (money market funds, repos, interbank placements).\n\n4. Concentration Metrics: While not a new line item, the instructions emphasize that institutions should be prepared to provide examiners with concentration analysis for the largest 20 uninsured depositors.\n\nFor Mizuho, this will require coordination with the Treasury team to classify depositors and the Operations team to quantify sweep volumes. The data for these new fields may need to be sourced from the core deposit system rather than the GL.",
+      sources: [
+        { label: "FFIEC Instructions", reference: "Schedule RC-E (March 2026)" },
+        { label: "FDIC", reference: "Proposed Rulemaking on Deposit Reporting (2025)" },
+      ],
+    },
+    ...aiQueries,
+  ],
+  "ffiec-102": [
+    {
+      id: "q-102-var-1",
+      schedule: "MRR-A",
+      question: "What methodology is required for VaR calculation under Schedule A?",
+      answer: "Schedule A requires reporting of Value-at-Risk (VaR) based measures using an internal models approach approved by the institution's primary federal regulator:\n\n1. Model Parameters:\n   - Confidence level: 99th percentile (one-tailed)\n   - Holding period: 10 business days (may be scaled from 1-day VaR using square root of time)\n   - Observation period: Minimum 1 year (252 trading days) of historical data\n   - Update frequency: VaR must be calculated at close of business each trading day\n\n2. Risk Factor Coverage:\n   - Interest rate risk (general and specific)\n   - Equity price risk (general and specific)\n   - Foreign exchange risk\n   - Commodity price risk\n   - For each category, report general risk and specific risk separately\n\n3. Reporting Items:\n   - Previous day's VaR\n   - 60-day high, low, and average VaR\n   - Capital charge = max(previous day VaR, multiplication factor × 60-day average VaR)\n   - The multiplication factor (minimum 3.0) is adjusted based on backtesting results\n\n4. March 2026 Update: The backtesting window has been expanded from 250 to 500 business days. Institutions must ensure their backtesting infrastructure captures this extended window and correctly counts exceptions against the new violation thresholds.\n\nThe P&L attribution test is now also required alongside backtesting — comparing risk-theoretical P&L against hypothetical P&L to validate model accuracy at the desk level.",
+      sources: [
+        { label: "FFIEC 102 Instructions", reference: "Schedule A — VaR-Based Measure" },
+        { label: "Basel III.1", reference: "Market Risk Framework FRTB Transition" },
+      ],
+    },
+    {
+      id: "q-102-stress-1",
+      schedule: "MRR-B",
+      question: "How should we select and validate the stressed VaR stress period?",
+      answer: "Schedule B requires a stressed VaR calculation calibrated to a continuous 12-month period of significant financial stress. Key requirements:\n\n1. Stress Period Selection:\n   - Must be a continuous 12-month period from the institution's history or reconstructed market data\n   - The period must be relevant to the institution's current portfolio composition\n   - Common reference periods: 2007-2008 (GFC), 2020 (COVID), 2022 (rate shock)\n   - The selected period must produce higher VaR than normal-period VaR for the current portfolio\n\n2. March 2026 Changes:\n   - Quarterly revalidation is now mandatory (previously annual)\n   - Institutions must evaluate at least three candidate stress periods spanning different crisis types\n   - Written documentation of the selection rationale must be maintained and available for examiner review\n   - The primary regulator may mandate a specific stress period if the institution's selection is deemed non-conservative\n\n3. Calculation Methodology:\n   - Use the same model structure (risk factors, correlations, distributional assumptions) as non-stressed VaR\n   - Only the calibration data window changes — risk factor returns are drawn from the stress period\n   - Report: previous day's stressed VaR, 60-day high/low, and 60-day average\n\n4. Capital Charge:\n   - Capital charge = max(previous day stressed VaR, multiplication factor × 60-day average stressed VaR)\n   - The multiplication factor for stressed VaR is fixed at 3.0 (no backtesting adjustment)\n\nFor Mizuho, the Model Risk Management team should coordinate with Market Risk to ensure the stress period selection process is documented per the new quarterly validation requirement.",
+      sources: [
+        { label: "FFIEC 102 Instructions", reference: "Schedule B — Stressed VaR (March 2026)" },
+        { label: "OCC", reference: "Supervisory Guidance on Market Risk (OCC 2025-XX)" },
+      ],
+    },
+    {
+      id: "q-102-irc-1",
+      schedule: "MRR-C",
+      question: "What are the IRC requirements for correlation trading positions?",
+      answer: "Schedule C captures the Incremental Risk Capital (IRC) charge, which covers default and credit migration risk for positions in the trading book that are not adequately captured by VaR:\n\n1. Scope: IRC applies to all positions subject to specific interest rate risk (credit risk) in the trading book, including:\n   - Corporate bonds and credit derivatives\n   - Sovereign debt positions\n   - Securitization exposures (non-correlation trading)\n\n2. Model Requirements:\n   - Capital horizon: 1 year\n   - Confidence level: 99.9%\n   - Must capture both default and migration (rating transition) risk\n   - Liquidity horizons must be position-specific (minimum 3 months, extended to 6 months per March 2026 update)\n   - Correlations between issuers must be modeled (typically using multi-factor models)\n\n3. Reporting:\n   - Most recent IRC value\n   - 12-week average IRC\n   - 12-week high IRC\n   - Capital charge = max(most recent IRC, 12-week average IRC)\n\n4. March 2026 Updates:\n   - Sovereign exposures must now use rating-specific default probabilities (no assumed zero-default for investment-grade sovereigns)\n   - Minimum liquidity horizon for less liquid positions extended from 3 to 6 months\n   - New validation requirements for correlation assumptions in multi-factor models\n\nThe IRC model should be independently validated by Model Risk Management at least annually, with the quarterly P&L backtesting results reviewed by the Market Risk Committee.",
+      sources: [
+        { label: "FFIEC 102 Instructions", reference: "Schedule C — IRC (March 2026)" },
+        { label: "Basel III", reference: "Market Risk Framework — Default Risk Charge" },
+      ],
+    },
+    {
+      id: "q-102-exempt-1",
+      schedule: "MRR-F",
+      question: "Does Mizuho qualify for the de minimis exemption from market risk reporting?",
+      answer: "Schedule F provides the calculation to determine whether an institution qualifies for the de minimis exemption from the market risk capital rule:\n\n1. Exemption Criteria (must meet EITHER threshold):\n   - Aggregate trading assets and liabilities < 10% of total consolidated assets, OR\n   - Aggregate trading assets and liabilities < $1 billion\n\n2. Calculation Methodology:\n   - Include all on-balance-sheet trading assets (fair value)\n   - Include all on-balance-sheet trading liabilities (fair value)\n   - Per March 2026 update: include notional amounts of centrally-cleared derivative positions in the aggregate trading activity calculation\n   - Calculate on a consolidated basis including all subsidiaries\n\n3. Consequences:\n   - If the exemption applies: the institution is NOT required to file Schedules A through E and is not subject to the market risk capital charge\n   - If the exemption does NOT apply: the institution must maintain market risk capital, file all applicable schedules, and comply with the internal models requirements\n\n4. For Mizuho Americas:\n   - Given Mizuho's trading activity levels (derivatives desk, foreign exchange operations, securities trading), the institution likely does NOT qualify for the de minimis exemption\n   - The 10% threshold and $1B absolute threshold should be monitored quarterly, especially given the March 2026 update requiring inclusion of cleared derivative notionals\n   - If trading activity is near the boundary, the institution should implement prospective monitoring to avoid unexpected compliance obligations\n\nConsult with the Market Risk team for current trading book composition and notional exposure levels.",
+      sources: [
+        { label: "FFIEC 102 Instructions", reference: "Schedule F — De Minimis Exemption" },
+        { label: "12 CFR Part 3/217/324", reference: "Market Risk Capital Rule" },
+      ],
+    },
+    {
+      id: "q-102-capital-1",
+      schedule: "MRR-A",
+      question: "How is the total market risk capital charge calculated?",
+      answer: "The total market risk capital charge is the sum of several components reported across Schedules A through E:\n\n1. VaR-Based Capital Charge (Schedule A):\n   max(Previous day VaR, mc × 60-day average VaR)\n   where mc = multiplication factor (minimum 3.0, increases with backtesting exceptions)\n\n2. Stressed VaR-Based Capital Charge (Schedule B):\n   max(Previous day stressed VaR, ms × 60-day average stressed VaR)\n   where ms = 3.0 (fixed, no backtesting adjustment)\n\n3. Incremental Risk Capital Charge (Schedule C):\n   max(Most recent IRC, 12-week average IRC)\n\n4. Comprehensive Risk Measure (Schedule D, if applicable):\n   max(Most recent CRM, 12-week average CRM)\n   Subject to a floor of 8% of the standardized specific risk charge\n\n5. Standardized Specific Risk Surcharge (Schedule E):\n   Applied to positions not covered by approved internal models\n\n6. Total Market Risk Capital = Sum of items 1 through 5\n\n7. Market Risk Equivalent Assets (MREA):\n   = Total Market Risk Capital × 12.5\n   This is added to credit risk RWA for the total capital ratio calculation on Schedule RC-R\n\nThe multiplication factor (mc) in the VaR charge starts at 3.0 and increases based on the number of backtesting exceptions observed over the trailing 250 (or now 500) business days. More than 4 exceptions triggers an increase, with maximum mc = 4.0 for 10+ exceptions.",
+      sources: [
+        { label: "FFIEC 102 Instructions", reference: "General Instructions — Capital Charge Calculation" },
+        { label: "Basel III", reference: "Market Risk Framework — Capital Requirements" },
+      ],
+    },
+  ],
+};
+
 function InstructionsTab() {
   const [selectedQuery, setSelectedQuery] = useState<AIQueryItem | null>(null);
   const [customQuery, setCustomQuery] = useState("");
+  const [selectedReport, setSelectedReport] = useState<string>("ffiec-031");
+  const [isFetchingInstructions, setIsFetchingInstructions] = useState(false);
+  const [instructionsFetched, setInstructionsFetched] = useState<Record<string, boolean>>({ "ffiec-031": true });
 
   const { data: callReportData } = useQuery<{ data: CallReportRecord[] }>({
     queryKey: ["/api/data-sources/call-reports", 21843],
@@ -577,167 +936,314 @@ function InstructionsTab() {
 
   const liveRecords = callReportData?.data || [];
   const fry9cRecord = fry9cData?.data ? Object.values(fry9cData.data)[0] || null : null;
-  const liveInstructions = liveRecords.length > 0
-    ? buildLiveInstructions(liveRecords[0], fry9cRecord)
-    : reportingInstructions;
   const isLive = liveRecords.length > 0;
-
-  const totalRecords = dataDictionaries.reduce((sum, d) => sum + d.recordCount, 0);
-  const totalFields = dataDictionaries.reduce((sum, d) => sum + d.quality.totalFields, 0);
-  const schedulesIndexed = liveInstructions.length;
-  const schedulesNeedingReview = liveInstructions.filter(i => i.humanReview).length;
   const reportDate = isLive ? liveRecords[0].reportDate : "Latest";
+
+  const activeReport = REPORT_TYPES.find(r => r.id === selectedReport) || REPORT_TYPES[0];
+  const reportSchedules = activeReport.scheduleKeys
+    .map(k => SCHEDULE_INSTRUCTIONS[k])
+    .filter(Boolean);
+  const reportChanges = REPORT_CHANGES[selectedReport] || [];
+  const reportQueries = REPORT_AI_QUERIES[selectedReport] || [];
+  const schedulesNeedingReview = reportSchedules.filter(i => i.humanReview).length;
+  const highImpactChanges = reportChanges.filter(c => c.impact === "high").length;
+
+  const handleReportSelect = (reportId: string) => {
+    setSelectedReport(reportId);
+    setSelectedQuery(null);
+    if (!instructionsFetched[reportId]) {
+      setIsFetchingInstructions(true);
+      setTimeout(() => {
+        setIsFetchingInstructions(false);
+        setInstructionsFetched(prev => ({ ...prev, [reportId]: true }));
+      }, 2200);
+    }
+  };
+
+  const changeTypeStyles: Record<string, { label: string; color: string }> = {
+    new: { label: "New", color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-400/30" },
+    revised: { label: "Revised", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-400/30" },
+    clarification: { label: "Clarification", color: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30" },
+    removed: { label: "Removed", color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/30" },
+  };
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-instructions-title">Reviewing Regulatory Instructions</h2>
+        <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-instructions-title">Instructions Analysis</h2>
         <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
-          AI-assisted interpretation of reporting requirements. Regulatory instructions are ingested and made interactively queryable, reducing reliance on manual review of primary source documentation.
+          Select a regulatory report to review. The system fetches the latest instructions and reporting form, analyzes changes from the prior quarter, and provides an AI assistant for interactive guidance.
         </p>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { value: schedulesIndexed.toString(), label: "Schedules Indexed", sub: isLive ? `FFIEC 031 + FR Y-9C (${reportDate})` : `${reportingInstructions.filter(r => r.id === "FFIEC-031").length} FFIEC 031` },
-          { value: isLive ? liveRecords.length.toString() : dataDictionaries.length.toString(), label: isLive ? "Periods Ingested" : "Reports Ingested", sub: isLive ? `${liveRecords[liveRecords.length - 1]?.reportDate} – ${reportDate}` : "Call Report data" },
-          { value: totalFields.toLocaleString(), label: "Data Fields Mapped", sub: `${totalRecords} records across sources` },
-          { value: schedulesNeedingReview.toString(), label: "Flagged for Review", sub: `${schedulesIndexed - schedulesNeedingReview} schedules auto-cleared` },
-        ].map((m, i) => (
-          <Card key={i} className={i === 3 ? "ring-1 ring-amber-400/40 dark:ring-amber-500/30" : ""} data-testid={`card-instr-metric-${i}`}>
-            <CardContent className="p-4">
-              <p className={`text-2xl font-mono font-normal ${i === 3 ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}>{m.value}</p>
-              <p className={`text-[10px] font-semibold tracking-wide uppercase mt-1 ${i === 3 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>{m.label}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{m.sub}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card>
+      <Card data-testid="card-report-selector">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-sm">Regulatory Filing Requirements</CardTitle>
-            </div>
-            <Badge variant="outline" className="text-xs font-mono">{liveInstructions.length} schedules</Badge>
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-primary" />
+            <CardTitle className="text-sm">Select Report for Review</CardTitle>
           </div>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[280px]">
-            <div className="space-y-2">
-              {liveInstructions.map((inst, idx) => (
-                <InstructionCard key={idx} inst={inst} idx={idx} />
+        <CardContent className="space-y-3">
+          <Select value={selectedReport} onValueChange={handleReportSelect}>
+            <SelectTrigger className="w-full" data-testid="select-report-type">
+              <SelectValue placeholder="Select a regulatory report..." />
+            </SelectTrigger>
+            <SelectContent>
+              {REPORT_TYPES.map((report) => (
+                <SelectItem key={report.id} value={report.id} data-testid={`select-item-${report.id}`}>
+                  {report.label}
+                </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Badge variant="default" className="text-xs font-mono">
+                {activeReport.id.toUpperCase().replace("FFIEC-", "FFIEC ")}
+              </Badge>
+              {instructionsFetched[selectedReport] && (
+                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">
+                  <CheckCircle2 className="w-2.5 h-2.5 mr-1" />Instructions Loaded
+                </Badge>
+              )}
             </div>
-          </ScrollArea>
+            <p className="text-sm font-medium">{activeReport.fullName}</p>
+            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{activeReport.description}</p>
+            <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
+              <span>{activeReport.agency}</span>
+              <span>|</span>
+              <span>{activeReport.effectiveDate}</span>
+              <span>|</span>
+              <span>Version: {activeReport.currentVersion}</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-primary" />
-              <CardTitle className="text-sm">AI Assistant</CardTitle>
+      {isFetchingInstructions && (
+        <Card>
+          <CardContent className="p-8">
+            <div className="flex flex-col items-center justify-center text-center space-y-3">
+              <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+              <div>
+                <p className="text-sm font-medium">Fetching {activeReport.label} Instructions</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Connecting to {activeReport.agency} portal to retrieve latest filing instructions and reporting form...
+                </p>
+              </div>
             </div>
-            <Badge variant="outline" className="text-xs font-mono">{aiQueries.length} queries available</Badge>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isFetchingInstructions && instructionsFetched[selectedReport] && (
+        <>
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { value: reportSchedules.length.toString(), label: "Schedules Indexed", sub: `${activeReport.label} (${activeReport.currentVersion})` },
+              { value: reportChanges.length.toString(), label: "Changes Detected", sub: `vs. ${activeReport.priorVersion} instructions`, highlight: reportChanges.length > 0 },
+              { value: highImpactChanges.toString(), label: "High Impact", sub: `${reportChanges.length - highImpactChanges} medium/low impact`, highlight: highImpactChanges > 0, isWarning: true },
+              { value: schedulesNeedingReview.toString(), label: "Flagged for Review", sub: `${reportSchedules.length - schedulesNeedingReview} schedules auto-cleared`, isWarning: true },
+            ].map((m, i) => (
+              <Card key={i} className={m.isWarning && parseInt(m.value) > 0 ? "ring-1 ring-amber-400/40 dark:ring-amber-500/30" : ""} data-testid={`card-instr-metric-${i}`}>
+                <CardContent className="p-4">
+                  <p className={`text-2xl font-mono font-normal ${m.isWarning && parseInt(m.value) > 0 ? "text-amber-700 dark:text-amber-400" : m.highlight ? "text-blue-700 dark:text-blue-400" : "text-foreground"}`}>{m.value}</p>
+                  <p className={`text-[10px] font-semibold tracking-wide uppercase mt-1 ${m.isWarning && parseInt(m.value) > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>{m.label}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{m.sub}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Ask questions about reporting requirements, filing instructions, and schedule-specific guidance</p>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="flex border-t">
-            <div className="w-[45%] border-r flex flex-col">
-              <ScrollArea className="flex-1 h-[330px]">
-                <div className="p-3 space-y-2">
-                  {aiQueries.map((q) => (
-                    <button
-                      key={q.id}
-                      onClick={() => setSelectedQuery(q)}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-xs leading-relaxed transition-all cursor-pointer border ${
-                        selectedQuery?.id === q.id
-                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                          : "bg-muted/30 hover:bg-muted/60 text-foreground border-border/50 hover:border-border"
-                      }`}
-                      data-testid={`button-query-${q.id}`}
-                    >
-                      {q.question}
-                    </button>
+
+          {reportChanges.length > 0 && (
+            <Card data-testid="card-instruction-changes">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ListChecks className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm">Changes from Prior Quarter</CardTitle>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {activeReport.currentVersion} vs. {activeReport.priorVersion}
+                    </Badge>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-mono">{reportChanges.length} schedules affected</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  AI-identified changes between the current and prior quarter filing instructions. Review these changes to assess impact on data preparation and filing workflows.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[320px]">
+                  <div className="space-y-3">
+                    {reportChanges.map((change, idx) => {
+                      const typeStyle = changeTypeStyles[change.changeType];
+                      return (
+                        <div key={idx} className="rounded-lg border border-border/60 bg-muted/20 p-4" data-testid={`change-item-${idx}`}>
+                          <div className="flex items-start gap-3">
+                            <div className={`mt-0.5 rounded-full p-1.5 shrink-0 ${change.impact === "high" ? "bg-red-500/10 text-red-500" : change.impact === "medium" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}>
+                              <AlertCircle className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant="outline" className="font-mono text-[10px]">{change.schedule}</Badge>
+                                <Badge variant="secondary" className={`text-[10px] border ${typeStyle.color}`}>
+                                  {typeStyle.label}
+                                </Badge>
+                                <Badge
+                                  variant="secondary"
+                                  className={`text-[10px] border-0 ${change.impact === "high" ? "bg-red-500/10 text-red-500" : change.impact === "medium" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}
+                                >
+                                  {change.impact} impact
+                                </Badge>
+                              </div>
+                              <p className="text-xs font-medium text-foreground/80 mt-1.5">{change.summary}</p>
+                              <div className="mt-2 space-y-1">
+                                {change.details.map((detail, didx) => (
+                                  <div key={didx} className="flex items-start gap-2 text-[11px] text-muted-foreground">
+                                    <ChevronRight className="w-3 h-3 mt-0.5 shrink-0 text-primary/60" />
+                                    <span>{detail}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm">Schedule Requirements — {activeReport.label}</CardTitle>
+                </div>
+                <Badge variant="outline" className="text-xs font-mono">{reportSchedules.length} schedules</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[280px]">
+                <div className="space-y-2">
+                  {reportSchedules.map((inst, idx) => (
+                    <InstructionCard key={idx} inst={inst} idx={idx} />
                   ))}
                 </div>
               </ScrollArea>
-              <div className="p-3 border-t">
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={customQuery}
-                    onChange={(e) => setCustomQuery(e.target.value)}
-                    placeholder="Ask about filing requirements or schedule instructions..."
-                    className="flex-1 h-8 rounded-md border bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    data-testid="input-custom-query"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        const btn = document.querySelector('[data-testid="button-send-custom-query"]') as HTMLButtonElement;
-                        btn?.click();
-                      }
-                    }}
-                  />
-                  <Button
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    data-testid="button-send-custom-query"
-                    onClick={() => {
-                      if (!customQuery.trim()) return;
-                      if (isInScope(customQuery)) {
-                        const queryLower = customQuery.toLowerCase();
-                        const significantWords = queryLower.split(/\s+/).filter(w => w.length > 3);
-                        const matched = significantWords.length > 0
-                          ? aiQueries.find(q => {
-                              const qLower = q.question.toLowerCase();
-                              const matchCount = significantWords.filter(w => qLower.includes(w)).length;
-                              return matchCount >= 2 || queryLower.includes(q.schedule.toLowerCase());
-                            })
-                          : aiQueries.find(q => queryLower.includes(q.schedule.toLowerCase()));
-                        if (matched) {
-                          setSelectedQuery(matched);
-                        } else {
-                          setSelectedQuery({
-                            id: "custom-scope",
-                            schedule: "General",
-                            question: customQuery,
-                            answer: "Your question is within the scope of regulatory reporting requirements. Based on the filing instructions indexed in this system:\n\nPlease review the schedule-specific guidance cards above for detailed requirements. Each schedule card contains the applicable FFIEC or FR Y-9C filing rules, common pitfalls, and cross-reference points.\n\nFor more targeted guidance, try selecting one of the predefined questions on the left, or refine your question to reference a specific schedule (e.g., RC-R, RC-N, HC-R, RI).\n\nIf your question involves interpretation of a specific filing rule that is not covered here, consult:\n- FFIEC Call Report Instruction Books (available at ffiec.gov)\n- Federal Reserve FR Y-9C Instructions (available at federalreserve.gov)\n- Your institution's Regulatory Reporting team for entity-specific interpretations",
-                            sources: [
-                              { label: "FFIEC", reference: "Call Report Instructions" },
-                              { label: "Federal Reserve", reference: "FR Y-9C Instructions" },
-                            ],
-                          });
-                        }
-                      } else {
-                        setSelectedQuery({
-                          ...OUT_OF_SCOPE_RESPONSE,
-                          question: customQuery,
-                        });
-                      }
-                      setCustomQuery("");
-                    }}
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                  </Button>
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  <CardTitle className="text-sm">AI Assistant — {activeReport.label}</CardTitle>
+                </div>
+                <Badge variant="outline" className="text-xs font-mono">{reportQueries.length} queries available</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Ask questions about {activeReport.label} requirements, filing instructions, and schedule-specific guidance. Questions outside reporting scope will be redirected.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="flex border-t">
+                <div className="w-[45%] border-r flex flex-col">
+                  <ScrollArea className="flex-1 h-[330px]">
+                    <div className="p-3 space-y-2">
+                      {reportQueries.map((q) => (
+                        <button
+                          key={q.id}
+                          onClick={() => setSelectedQuery(q)}
+                          className={`w-full text-left px-3 py-2.5 rounded-lg text-xs leading-relaxed transition-all cursor-pointer border ${
+                            selectedQuery?.id === q.id
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-muted/30 hover:bg-muted/60 text-foreground border-border/50 hover:border-border"
+                          }`}
+                          data-testid={`button-query-${q.id}`}
+                        >
+                          {q.question}
+                        </button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                  <div className="p-3 border-t">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={customQuery}
+                        onChange={(e) => setCustomQuery(e.target.value)}
+                        placeholder={`Ask about ${activeReport.label} instructions...`}
+                        className="flex-1 h-8 rounded-md border bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                        data-testid="input-custom-query"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const btn = document.querySelector('[data-testid="button-send-custom-query"]') as HTMLButtonElement;
+                            btn?.click();
+                          }
+                        }}
+                      />
+                      <Button
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        data-testid="button-send-custom-query"
+                        onClick={() => {
+                          if (!customQuery.trim()) return;
+                          if (isInScope(customQuery)) {
+                            const queryLower = customQuery.toLowerCase();
+                            const significantWords = queryLower.split(/\s+/).filter(w => w.length > 3);
+                            const matched = significantWords.length > 0
+                              ? reportQueries.find(q => {
+                                  const qLower = q.question.toLowerCase();
+                                  const matchCount = significantWords.filter(w => qLower.includes(w)).length;
+                                  return matchCount >= 2 || queryLower.includes(q.schedule.toLowerCase());
+                                })
+                              : reportQueries.find(q => queryLower.includes(q.schedule.toLowerCase()));
+                            if (matched) {
+                              setSelectedQuery(matched);
+                            } else {
+                              setSelectedQuery({
+                                id: "custom-scope",
+                                schedule: "General",
+                                question: customQuery,
+                                answer: `Your question is within the scope of ${activeReport.label} reporting requirements. Based on the filing instructions indexed in this system:\n\nPlease review the schedule-specific guidance cards above for detailed requirements. Each schedule card contains the applicable filing rules, common pitfalls, and cross-reference points.\n\nFor more targeted guidance, try selecting one of the predefined questions on the left, or refine your question to reference a specific schedule.\n\nIf your question involves interpretation of a specific filing rule that is not covered here, consult:\n- FFIEC Instruction Books (available at ffiec.gov)\n- Federal Reserve Instructions (available at federalreserve.gov)\n- Your institution's Regulatory Reporting team for entity-specific interpretations`,
+                                sources: [
+                                  { label: "FFIEC", reference: `${activeReport.label} Instructions` },
+                                  { label: activeReport.agency.split(" / ")[0], reference: "Filing Guidance" },
+                                ],
+                              });
+                            }
+                          } else {
+                            setSelectedQuery({
+                              ...OUT_OF_SCOPE_RESPONSE,
+                              question: customQuery,
+                            });
+                          }
+                          setCustomQuery("");
+                        }}
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1">
+                  <ScrollArea className="h-[380px]">
+                    <div className="p-4">
+                      <AIResponsePanel query={selectedQuery} />
+                    </div>
+                  </ScrollArea>
                 </div>
               </div>
-            </div>
-
-            <div className="flex-1">
-              <ScrollArea className="h-[380px]">
-                <div className="p-4">
-                  <AIResponsePanel query={selectedQuery} />
-                </div>
-              </ScrollArea>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
