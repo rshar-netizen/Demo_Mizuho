@@ -1338,29 +1338,30 @@ interface DataMapping {
   status: "Active" | "Review" | "Inactive" | "Draft";
   schedule: string;
   confidence: number;
+  linkedSources?: string[];
 }
 
 const DATA_MAPPINGS: DataMapping[] = [
-  { sourceField: "GL_Extract.Cash_Balances", reportLineItem: "RC-1: Cash and balances", transformation: "SUM(GL.1000-1099)", status: "Active", schedule: "RC", confidence: 99 },
-  { sourceField: "GL_Extract.Investment_Securities", reportLineItem: "RC-2: Securities", transformation: "SUM(GL.1200-1299) + AFS_Adjustment", status: "Active", schedule: "RC", confidence: 97 },
-  { sourceField: "Trading_Positions.Net_Position", reportLineItem: "RC-5: Trading assets", transformation: "SUM(Position.MTM) WHERE Side='Long'", status: "Active", schedule: "RC", confidence: 95 },
-  { sourceField: "Loan_Portfolio.Outstanding_Balance", reportLineItem: "RC-4: Loans and leases", transformation: "SUM(Loans.Balance) - ALLL", status: "Active", schedule: "RC-C", confidence: 98 },
+  { sourceField: "GL_Extract.Cash_Balances", reportLineItem: "RC-1: Cash and balances", transformation: "SUM(GL.1000-1099)", status: "Active", schedule: "RC", confidence: 99, linkedSources: ["Treasury.FedFunds_Sold", "MDRM_Taxonomy.RCON0010"] },
+  { sourceField: "GL_Extract.Investment_Securities", reportLineItem: "RC-2: Securities", transformation: "SUM(GL.1200-1299) + AFS_Adjustment", status: "Active", schedule: "RC", confidence: 97, linkedSources: ["Trading_Positions.HTM_Securities", "Risk_Metrics.AFS_FairValue"] },
+  { sourceField: "Trading_Positions.Net_Position", reportLineItem: "RC-5: Trading assets", transformation: "SUM(Position.MTM) WHERE Side='Long'", status: "Active", schedule: "RC", confidence: 95, linkedSources: ["GL_Extract.Trading_GL", "Risk_Metrics.VaR_99"] },
+  { sourceField: "Loan_Portfolio.Outstanding_Balance", reportLineItem: "RC-4: Loans and leases", transformation: "SUM(Loans.Balance) - ALLL", status: "Active", schedule: "RC-C", confidence: 98, linkedSources: ["GL_Extract.Loan_GL_Balances", "Risk_Metrics.CECL_Reserve"] },
   { sourceField: "Treasury.FedFunds_Sold", reportLineItem: "RC-3: Federal funds sold", transformation: "DIRECT_MAP(Treasury.FF_Sold)", status: "Active", schedule: "RC", confidence: 100 },
-  { sourceField: "GL_Extract.Interest_Receivable", reportLineItem: "RI-1: Interest income", transformation: "SUM(GL.4000-4099) QTD", status: "Active", schedule: "RI", confidence: 96 },
-  { sourceField: "GL_Extract.Interest_Payable", reportLineItem: "RI-2: Interest expense", transformation: "SUM(GL.5000-5099) QTD", status: "Active", schedule: "RI", confidence: 96 },
-  { sourceField: "Loan_Portfolio.Provision_Expense", reportLineItem: "RI-4: Provision for credit losses", transformation: "SUM(Provision.CECL_Charge) QTD", status: "Active", schedule: "RI", confidence: 94 },
-  { sourceField: "Risk_Metrics.CET1_Capital", reportLineItem: "RC-R-1: CET1 capital", transformation: "CET1_Components - Deductions", status: "Active", schedule: "RC-R", confidence: 92 },
-  { sourceField: "Risk_Metrics.RWA_Credit", reportLineItem: "RC-R-2: Risk-weighted assets", transformation: "SUM(RWA.Credit + RWA.Market + RWA.Op)", status: "Active", schedule: "RC-R", confidence: 91 },
-  { sourceField: "GL_Extract.Deposit_Balances", reportLineItem: "RC-E: Total deposits", transformation: "SUM(GL.6000-6299)", status: "Active", schedule: "RC-E", confidence: 98 },
-  { sourceField: "Loan_Portfolio.Delinquent_30_89", reportLineItem: "RC-N: Past due 30-89 days", transformation: "SUM(Loans.PastDue) WHERE DPD BETWEEN 30 AND 89", status: "Active", schedule: "RC-N", confidence: 93 },
-  { sourceField: "Loan_Portfolio.Nonaccrual", reportLineItem: "RC-N: Nonaccrual loans", transformation: "SUM(Loans.Balance) WHERE Status='Nonaccrual'", status: "Active", schedule: "RC-N", confidence: 90 },
-  { sourceField: "Trading_Positions.Derivative_Notional", reportLineItem: "RC-L: Derivatives notional", transformation: "SUM(Deriv.Notional) BY Type", status: "Active", schedule: "RC-L", confidence: 88 },
-  { sourceField: "Treasury.FHLB_Borrowings", reportLineItem: "RC-14: Other borrowed money", transformation: "DIRECT_MAP(Treasury.FHLB)", status: "Review", schedule: "RC", confidence: 85 },
+  { sourceField: "GL_Extract.Interest_Receivable", reportLineItem: "RI-1: Interest income", transformation: "SUM(GL.4000-4099) QTD", status: "Active", schedule: "RI", confidence: 96, linkedSources: ["Loan_Portfolio.Interest_Accrued", "Trading_Positions.Coupon_Income", "Treasury.Invest_Income"] },
+  { sourceField: "GL_Extract.Interest_Payable", reportLineItem: "RI-2: Interest expense", transformation: "SUM(GL.5000-5099) QTD", status: "Active", schedule: "RI", confidence: 96, linkedSources: ["Treasury.Funding_Cost", "Treasury.FHLB_Interest"] },
+  { sourceField: "Loan_Portfolio.Provision_Expense", reportLineItem: "RI-4: Provision for credit losses", transformation: "SUM(Provision.CECL_Charge) QTD", status: "Active", schedule: "RI", confidence: 94, linkedSources: ["Risk_Metrics.ECL_Model_Output", "GL_Extract.Provision_GL"] },
+  { sourceField: "Risk_Metrics.CET1_Capital", reportLineItem: "RC-R-1: CET1 capital", transformation: "CET1_Components - Deductions", status: "Active", schedule: "RC-R", confidence: 92, linkedSources: ["GL_Extract.Equity_Detail", "GL_Extract.AOCI_Balance", "MDRM_Taxonomy.RCONA223"] },
+  { sourceField: "Risk_Metrics.RWA_Credit", reportLineItem: "RC-R-2: Risk-weighted assets", transformation: "SUM(RWA.Credit + RWA.Market + RWA.Op)", status: "Active", schedule: "RC-R", confidence: 91, linkedSources: ["Loan_Portfolio.Risk_Weights", "Trading_Positions.Market_RWA"] },
+  { sourceField: "GL_Extract.Deposit_Balances", reportLineItem: "RC-E: Total deposits", transformation: "SUM(GL.6000-6299)", status: "Active", schedule: "RC-E", confidence: 98, linkedSources: ["Treasury.Wholesale_Deposits"] },
+  { sourceField: "Loan_Portfolio.Delinquent_30_89", reportLineItem: "RC-N: Past due 30-89 days", transformation: "SUM(Loans.PastDue) WHERE DPD BETWEEN 30 AND 89", status: "Active", schedule: "RC-N", confidence: 93, linkedSources: ["Risk_Metrics.DPD_Buckets"] },
+  { sourceField: "Loan_Portfolio.Nonaccrual", reportLineItem: "RC-N: Nonaccrual loans", transformation: "SUM(Loans.Balance) WHERE Status='Nonaccrual'", status: "Active", schedule: "RC-N", confidence: 90, linkedSources: ["Risk_Metrics.Impaired_Assets", "GL_Extract.Nonaccrual_GL"] },
+  { sourceField: "Trading_Positions.Derivative_Notional", reportLineItem: "RC-L: Derivatives notional", transformation: "SUM(Deriv.Notional) BY Type", status: "Active", schedule: "RC-L", confidence: 88, linkedSources: ["Risk_Metrics.Counterparty_Exposure", "Treasury.Hedge_Positions"] },
+  { sourceField: "Treasury.FHLB_Borrowings", reportLineItem: "RC-14: Other borrowed money", transformation: "DIRECT_MAP(Treasury.FHLB)", status: "Review", schedule: "RC", confidence: 85, linkedSources: ["GL_Extract.Borrowings_GL"] },
   { sourceField: "GL_Extract.NonInterest_Expense", reportLineItem: "RI-7: Noninterest expense", transformation: "SUM(GL.7000-7999) QTD", status: "Active", schedule: "RI", confidence: 95 },
-  { sourceField: "Risk_Metrics.Tier1_Leverage", reportLineItem: "RC-R: Leverage ratio", transformation: "Tier1_Capital / Avg_Total_Assets", status: "Active", schedule: "RC-R", confidence: 93 },
-  { sourceField: "Treasury.Repo_Positions", reportLineItem: "RC-14.a: Securities sold under repo", transformation: "SUM(Repo.Balance) WHERE Type='Repo'", status: "Review", schedule: "RC", confidence: 78 },
-  { sourceField: "GL_Extract.AOCI_Balance", reportLineItem: "RC-R: AOCI component", transformation: "GL.3600 (AFS unrealized G/L)", status: "Review", schedule: "RC-R", confidence: 82 },
-  { sourceField: "MDRM_Taxonomy.RCON2170", reportLineItem: "RC: Total assets", transformation: "VALIDATION_CHECK(SUM(RC.1 thru RC.11))", status: "Active", schedule: "RC", confidence: 100 },
+  { sourceField: "Risk_Metrics.Tier1_Leverage", reportLineItem: "RC-R: Leverage ratio", transformation: "Tier1_Capital / Avg_Total_Assets", status: "Active", schedule: "RC-R", confidence: 93, linkedSources: ["GL_Extract.Avg_Assets", "Risk_Metrics.CET1_Capital"] },
+  { sourceField: "Treasury.Repo_Positions", reportLineItem: "RC-14.a: Securities sold under repo", transformation: "SUM(Repo.Balance) WHERE Type='Repo'", status: "Review", schedule: "RC", confidence: 78, linkedSources: ["GL_Extract.Repo_GL", "Trading_Positions.Collateral_Pledged"] },
+  { sourceField: "GL_Extract.AOCI_Balance", reportLineItem: "RC-R: AOCI component", transformation: "GL.3600 (AFS unrealized G/L)", status: "Review", schedule: "RC-R", confidence: 82, linkedSources: ["Trading_Positions.AFS_Unrealized", "Risk_Metrics.AOCI_Deduction"] },
+  { sourceField: "MDRM_Taxonomy.RCON2170", reportLineItem: "RC: Total assets", transformation: "VALIDATION_CHECK(SUM(RC.1 thru RC.11))", status: "Active", schedule: "RC", confidence: 100, linkedSources: ["GL_Extract.Total_Assets_GL", "Risk_Metrics.Consolidated_Assets"] },
 ];
 
 interface SourceDictionaryColumn {
@@ -1911,17 +1912,28 @@ function DataDictionaryTab() {
                   <TableRow key={idx} data-testid={`mapping-row-${idx}`}>
                     <TableCell className="py-3">
                       <p className="text-xs font-mono text-foreground">{mapping.sourceField}</p>
+                      {mapping.linkedSources && mapping.linkedSources.length > 0 && (
+                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                          <Link2 className="w-3 h-3 text-muted-foreground shrink-0" />
+                          {mapping.linkedSources.map((ls, lIdx) => (
+                            <Badge key={lIdx} variant="outline" className="font-mono text-[9px] py-0 px-1.5 text-muted-foreground border-border/60">
+                              {ls}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </TableCell>
-                    <TableCell className="py-3 text-center">
+                    <TableCell className="py-3 text-center align-top pt-3.5">
                       <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
                     </TableCell>
                     <TableCell className="py-3">
                       <p className="text-xs font-medium text-foreground">{mapping.reportLineItem}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{mapping.schedule}</p>
                     </TableCell>
                     <TableCell className="py-3">
                       <p className="text-xs font-mono text-muted-foreground">{mapping.transformation}</p>
                     </TableCell>
-                    <TableCell className="py-3 text-center">
+                    <TableCell className="py-3 text-center align-top pt-3.5">
                       <Badge
                         variant="secondary"
                         className={`text-[11px] border-0 ${
