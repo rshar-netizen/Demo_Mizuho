@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,9 @@ import {
   Plus,
   Trash2,
   Loader2,
+  Check,
+  Users,
+  Info,
 } from "lucide-react";
 import {
   type PeerBank,
@@ -61,15 +64,63 @@ interface PeerConfig {
   name: string;
   rssd: string;
   cert: number;
+  group?: string;
 }
 
-const DEFAULT_PEERS: PeerConfig[] = [
-  { name: "Mizuho Americas", rssd: "229913", cert: 21843 },
-  { name: "PNC Bank, N.A.", rssd: "817824", cert: 6384 },
-  { name: "U.S. Bank N.A.", rssd: "504713", cert: 6548 },
-  { name: "Citizens Bank, N.A.", rssd: "3303298", cert: 57957 },
-  { name: "KeyBank N.A.", rssd: "280110", cert: 17534 },
-  { name: "M&T Bank", rssd: "3284070", cert: 57803 },
+interface PeerGroup {
+  id: string;
+  label: string;
+  description: string;
+  peers: PeerConfig[];
+}
+
+const PEER_GROUPS: PeerGroup[] = [
+  {
+    id: "japanese",
+    label: "Japanese FBOs",
+    description: "Japanese bank US subsidiaries filing FFIEC Call Reports",
+    peers: [
+      { name: "Mizuho Americas", rssd: "229913", cert: 21843, group: "japanese" },
+      { name: "MUFG Union Bank", rssd: "", cert: 32633, group: "japanese" },
+      { name: "Manufacturers Bank", rssd: "", cert: 22538, group: "japanese" },
+    ],
+  },
+  {
+    id: "european",
+    label: "European FBOs",
+    description: "European bank US subsidiaries with FDIC-insured operations",
+    peers: [
+      { name: "Mizuho Americas", rssd: "229913", cert: 21843, group: "european" },
+      { name: "Deutsche Bank Trust", rssd: "", cert: 623, group: "european" },
+      { name: "Barclays Bank Delaware", rssd: "", cert: 57062, group: "european" },
+    ],
+  },
+  {
+    id: "gsib",
+    label: "US G-SIBs",
+    description: "US Global Systemically Important Banks (trading & sales focus)",
+    peers: [
+      { name: "Mizuho Americas", rssd: "229913", cert: 21843, group: "gsib" },
+      { name: "JPMorgan Chase Bank", rssd: "", cert: 628, group: "gsib" },
+      { name: "Citibank", rssd: "", cert: 7213, group: "gsib" },
+      { name: "Goldman Sachs Bank", rssd: "", cert: 33124, group: "gsib" },
+      { name: "Morgan Stanley Bank", rssd: "", cert: 32992, group: "gsib" },
+      { name: "Bank of America", rssd: "", cert: 3510, group: "gsib" },
+    ],
+  },
+  {
+    id: "regional",
+    label: "US Regional Banks",
+    description: "US super-regional banks comparable in business mix",
+    peers: [
+      { name: "Mizuho Americas", rssd: "229913", cert: 21843, group: "regional" },
+      { name: "PNC Bank, N.A.", rssd: "817824", cert: 6384, group: "regional" },
+      { name: "U.S. Bank N.A.", rssd: "504713", cert: 6548, group: "regional" },
+      { name: "Citizens Bank, N.A.", rssd: "3303298", cert: 57957, group: "regional" },
+      { name: "KeyBank N.A.", rssd: "280110", cert: 17534, group: "regional" },
+      { name: "M&T Bank", rssd: "3284070", cert: 57803, group: "regional" },
+    ],
+  },
 ];
 
 const PEER_DISPLAY_MAP: Record<number, string> = {
@@ -79,6 +130,15 @@ const PEER_DISPLAY_MAP: Record<number, string> = {
   57957: "Citizens Financial",
   17534: "KeyCorp",
   57803: "M&T Bank",
+  32633: "MUFG Americas",
+  22538: "SMBC (Manufacturers)",
+  623: "Deutsche Bank Americas",
+  57062: "Barclays US",
+  628: "JPMorgan Chase",
+  7213: "Citibank",
+  33124: "Goldman Sachs",
+  32992: "Morgan Stanley",
+  3510: "Bank of America",
 };
 
 const tickerMap: Record<string, string> = {
@@ -88,6 +148,15 @@ const tickerMap: Record<string, string> = {
   "Citizens Financial": "CFG",
   "KeyCorp": "KEY",
   "M&T Bank": "MTB",
+  "MUFG Americas": "MUFG",
+  "SMBC (Manufacturers)": "SMFG",
+  "Deutsche Bank Americas": "DB",
+  "Barclays US": "BCS",
+  "JPMorgan Chase": "JPM",
+  "Citibank": "C",
+  "Goldman Sachs": "GS",
+  "Morgan Stanley": "MS",
+  "Bank of America": "BAC",
 };
 
 interface LivePeerEntry {
@@ -105,10 +174,13 @@ interface LivePeerEntry {
     nim: number;
     tier1Ratio: number;
     tier1LeverageRatio: number | null;
+    totalCapitalRatio: number;
     efficiencyRatio: number;
     npaRatio: number;
     chargeOffRate: number;
     loanToDeposit: number;
+    securities: number;
+    equity: number;
   } | null;
   historicalData?: Array<{
     period: string;
@@ -139,6 +211,9 @@ function mapLiveToPeerBank(entry: LivePeerEntry): PeerBank | null {
     npaRatio: cr.npaRatio,
     loanToDeposit: cr.loanToDeposit,
     chargeOffRate: cr.chargeOffRate,
+    securities: cr.securities ? Math.round(cr.securities / 1000) : undefined,
+    equity: cr.equity ? Math.round(cr.equity / 1000) : undefined,
+    totalCapitalRatio: cr.totalCapitalRatio ?? undefined,
   };
 }
 
@@ -172,18 +247,16 @@ const chartColors = [
   "#65a30d",
   "#dc2626",
   "#d97706",
+  "#059669",
+  "#6366f1",
+  "#e11d48",
+  "#0284c7",
+  "#ca8a04",
 ];
 
 function getBankColor(name: string, idx: number): string {
-  const fixed: Record<string, string> = {
-    "Mizuho Americas": "hsl(var(--chart-1))",
-    "PNC Financial": "hsl(var(--chart-4))",
-    "U.S. Bancorp": "hsl(var(--chart-5))",
-    "Citizens Financial": "#7c3aed",
-    "KeyCorp": "#0891b2",
-    "M&T Bank": "#65a30d",
-  };
-  return fixed[name] || chartColors[idx % chartColors.length];
+  if (name === "Mizuho Americas") return "hsl(var(--chart-1))";
+  return chartColors[(idx + 1) % chartColors.length];
 }
 
 function buildRadarData(banks: PeerBank[]) {
@@ -201,13 +274,15 @@ function buildRadarData(banks: PeerBank[]) {
   ];
 }
 
-function PeerBankConfig({ peers, onAdd, onRemove }: {
+function PeerGroupSelector({ selectedGroup, onGroupChange, peers, onAddCustom, onRemovePeer }: {
+  selectedGroup: string;
+  onGroupChange: (groupId: string) => void;
   peers: PeerConfig[];
-  onAdd: (peer: PeerConfig) => void;
-  onRemove: (cert: number) => void;
+  onAddCustom: (peer: PeerConfig) => void;
+  onRemovePeer: (cert: number) => void;
 }) {
+  const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState("");
-  const [rssd, setRssd] = useState("");
   const [cert, setCert] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const [validationMsg, setValidationMsg] = useState<{ text: string; isError: boolean } | null>(null);
@@ -226,7 +301,6 @@ function PeerBankConfig({ peers, onAdd, onRemove }: {
       const json = await res.json();
       if (json.valid) {
         if (!name.trim()) setName(json.name);
-        if (!rssd.trim() && json.rssd) setRssd(String(json.rssd));
         setValidationMsg({ text: `Found: ${json.name} — $${(json.totalAssets / 1000).toFixed(0)}M assets (${json.reportDate})`, isError: false });
       } else {
         setValidationMsg({ text: `No institution found for CERT ${certNum}`, isError: true });
@@ -243,92 +317,121 @@ function PeerBankConfig({ peers, onAdd, onRemove }: {
     if (!certNum || isNaN(certNum)) return;
     if (peers.some(p => p.cert === certNum)) return;
     const peerName = name.trim() || `CERT ${certNum}`;
-    onAdd({ name: peerName, rssd: rssd.trim(), cert: certNum });
+    onAddCustom({ name: peerName, rssd: "", cert: certNum, group: "custom" });
     setName("");
-    setRssd("");
     setCert("");
     setValidationMsg(null);
+    setShowAddForm(false);
   };
+
+  const nonMizuhoPeers = peers.filter(p => p.cert !== 21843);
+  const customPeers = nonMizuhoPeers.filter(p => p.group === "custom");
+  const groupPeers = nonMizuhoPeers.filter(p => p.group !== "custom");
 
   return (
     <Card data-testid="card-peer-config">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold">Peer Bank Configuration</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <label className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mb-1 block">Institution name</label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Institution name"
-              className="h-9 text-sm"
-              data-testid="input-peer-name"
-            />
-          </div>
-          <div className="w-[140px]">
-            <label className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mb-1 block">RSSD ID</label>
-            <Input
-              value={rssd}
-              onChange={(e) => setRssd(e.target.value)}
-              placeholder="RSSD ID"
-              className="h-9 text-sm font-mono"
-              data-testid="input-peer-rssd"
-            />
-          </div>
-          <div className="w-[120px]">
-            <label className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mb-1 block">CERT</label>
-            <Input
-              value={cert}
-              onChange={(e) => setCert(e.target.value)}
-              onBlur={handleCertBlur}
-              onKeyDown={(e) => e.key === "Enter" && handleCertBlur()}
-              placeholder="CERT"
-              className="h-9 text-sm font-mono"
-              data-testid="input-peer-cert"
-            />
-          </div>
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-primary" />
+          <p className="text-xs font-semibold text-foreground">Peer Group Selection</p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {PEER_GROUPS.map(group => {
+            const isActive = selectedGroup === group.id;
+            return (
+              <button
+                key={group.id}
+                onClick={() => onGroupChange(group.id)}
+                className={`text-left p-3 rounded-lg border transition-all cursor-pointer ${
+                  isActive
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-border/50 hover:border-primary/30 hover:bg-muted/30"
+                }`}
+                data-testid={`button-group-${group.id}`}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-xs font-semibold text-foreground">{group.label}</span>
+                  {isActive && <Check className="w-3 h-3 text-primary ml-auto" />}
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-snug">{group.description}</p>
+                <p className="text-[10px] text-muted-foreground mt-1 font-mono">{group.peers.length} institutions</p>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Active Peers:</span>
+          {peers.map(peer => (
+            <div
+              key={peer.cert}
+              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-[11px] ${
+                peer.cert === 21843
+                  ? "bg-primary/10 border-primary/30 text-primary font-medium"
+                  : peer.group === "custom"
+                    ? "bg-amber-500/10 border-amber-500/20 text-foreground"
+                    : "bg-muted/40 border-border/40 text-foreground"
+              }`}
+              data-testid={`peer-chip-${peer.cert}`}
+            >
+              <span>{PEER_DISPLAY_MAP[peer.cert] || peer.name}</span>
+              <span className="text-[9px] text-muted-foreground font-mono">({peer.cert})</span>
+              {peer.cert !== 21843 && (
+                <button
+                  className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                  onClick={() => onRemovePeer(peer.cert)}
+                  data-testid={`button-remove-peer-${peer.cert}`}
+                >
+                  <Trash2 className="w-2.5 h-2.5" />
+                </button>
+              )}
+            </div>
+          ))}
           <Button
-            onClick={handleAdd}
-            disabled={!cert.trim() || isValidating}
-            className="h-9 shrink-0"
-            data-testid="button-add-peer"
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setShowAddForm(!showAddForm)}
+            data-testid="button-toggle-add-peer"
           >
-            {isValidating ? (
-              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Plus className="w-3.5 h-3.5 mr-1.5" />
-            )}
-            Add Peer
+            <Plus className="w-3 h-3 mr-1" />
+            Add Custom Peer
           </Button>
         </div>
 
-        {validationMsg && (
-          <p className={`text-xs ${validationMsg.isError ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"}`} data-testid="text-validation-msg">
-            {validationMsg.text}
-          </p>
-        )}
-
-        <div className="flex flex-wrap gap-1.5" data-testid="list-configured-peers">
-          {peers.map((peer) => (
-            <div
-              key={peer.cert}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/40 border border-border/40 text-xs"
-              data-testid={`peer-config-${peer.cert}`}
-            >
-              <span className="font-medium">{PEER_DISPLAY_MAP[peer.cert] || peer.name}</span>
-              <span className="text-[10px] text-muted-foreground font-mono">({peer.cert})</span>
-              <button
-                className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                onClick={() => onRemove(peer.cert)}
-                data-testid={`button-remove-peer-${peer.cert}`}
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+        {showAddForm && (
+          <div className="border border-border/50 rounded-lg p-3 space-y-2 bg-muted/20">
+            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground">Add Institution by FDIC CERT Number</p>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="text-[10px] text-muted-foreground mb-1 block">Name (auto-fills on validation)</label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Institution name" className="h-8 text-xs" data-testid="input-peer-name" />
+              </div>
+              <div className="w-[120px]">
+                <label className="text-[10px] text-muted-foreground mb-1 block">CERT Number</label>
+                <Input
+                  value={cert}
+                  onChange={(e) => setCert(e.target.value)}
+                  onBlur={handleCertBlur}
+                  onKeyDown={(e) => e.key === "Enter" && handleCertBlur()}
+                  placeholder="e.g. 628"
+                  className="h-8 text-xs font-mono"
+                  data-testid="input-peer-cert"
+                />
+              </div>
+              <Button onClick={handleAdd} disabled={!cert.trim() || isValidating} size="sm" className="h-8" data-testid="button-add-peer">
+                {isValidating ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
+                Add
+              </Button>
             </div>
-          ))}
-        </div>
+            {validationMsg && (
+              <p className={`text-xs ${validationMsg.isError ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"}`} data-testid="text-validation-msg">
+                {validationMsg.text}
+              </p>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -359,20 +462,19 @@ function MetricCard({ label, value, rank, total, positive }: { label: string; va
   );
 }
 
-function PeerComparisonTable({ banks, reportDate }: { banks: PeerBank[]; reportDate?: string }) {
-  const getRank = (bankName: string, metric: keyof PeerBank, higherIsBetter: boolean) => {
-    const sorted = [...banks].sort((a, b) =>
-      higherIsBetter ? (b[metric] as number) - (a[metric] as number) : (a[metric] as number) - (b[metric] as number)
-    );
-    return sorted.findIndex((b) => b.name === bankName) + 1;
-  };
-
+function BasicComparisonTable({ banks, reportDate }: { banks: PeerBank[]; reportDate?: string }) {
   return (
-    <Card data-testid="card-peer-comparison-table">
+    <Card data-testid="card-basic-comparison">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <CardTitle className="text-sm">Comprehensive Peer Comparison - {reportDate || "Q4 2024"}</CardTitle>
-          <Badge variant="secondary">Source: FDIC Call Reports</Badge>
+          <div>
+            <CardTitle className="text-sm">Basic Comparison — Call Report Data</CardTitle>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Raw regulatory data directly from submitted FFIEC 031/041 filings</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-[10px]">Source: FDIC Call Reports</Badge>
+            <Badge variant="outline" className="text-[10px] font-mono">{reportDate || "Latest"}</Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -380,52 +482,141 @@ function PeerComparisonTable({ banks, reportDate }: { banks: PeerBank[]; reportD
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs sticky left-0 bg-card z-10">Institution</TableHead>
+                <TableHead className="text-xs sticky left-0 bg-card z-10 min-w-[160px]">Institution</TableHead>
                 <TableHead className="text-xs text-right">Total Assets ($M)</TableHead>
                 <TableHead className="text-xs text-right">Total Loans ($M)</TableHead>
                 <TableHead className="text-xs text-right">Total Deposits ($M)</TableHead>
                 <TableHead className="text-xs text-right">Net Income ($M)</TableHead>
-                <TableHead className="text-xs text-right">ROE %</TableHead>
-                <TableHead className="text-xs text-right">ROA %</TableHead>
-                <TableHead className="text-xs text-right">NIM %</TableHead>
-                <TableHead className="text-xs text-right">Tier 1 %</TableHead>
-                <TableHead className="text-xs text-right">Efficiency %</TableHead>
-                <TableHead className="text-xs text-right">NPA %</TableHead>
-                <TableHead className="text-xs text-right">L/D Ratio %</TableHead>
+                <TableHead className="text-xs text-right">Securities ($M)</TableHead>
+                <TableHead className="text-xs text-right">Equity ($M)</TableHead>
+                <TableHead className="text-xs text-right">Loan/Deposit %</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {banks.map((bank, idx) => (
                 <TableRow
                   key={idx}
-                  className={bank.name === "Mizuho Americas" ? "bg-primary/5" : ""}
-                  data-testid={`row-peer-${idx}`}
+                  className={bank.name === "Mizuho Americas" ? "bg-primary/5 font-medium" : ""}
+                  data-testid={`row-basic-${idx}`}
                 >
-                  <TableCell className="text-xs py-2 font-medium sticky left-0 bg-card z-10">
+                  <TableCell className="text-xs py-2.5 font-medium sticky left-0 bg-card z-10">
                     <div className="flex items-center gap-2">
-                      {bank.name === "Mizuho Americas" && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                      )}
-                      <span>{bank.name}</span>
-                      <Badge variant="outline" className="text-xs font-mono">{bank.ticker}</Badge>
+                      {bank.name === "Mizuho Americas" && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                      <span className="truncate">{bank.name}</span>
+                      <Badge variant="outline" className="text-[10px] font-mono shrink-0">{bank.ticker}</Badge>
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{bank.totalAssets.toLocaleString()}</TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{bank.totalLoans.toLocaleString()}</TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{bank.totalDeposits.toLocaleString()}</TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{bank.netIncome.toLocaleString()}</TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{formatPercent(bank.roe)}</TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{formatPercent(bank.roa)}</TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{formatPercent(bank.nim)}</TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{formatPercent(bank.cet1Ratio)}</TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{formatPercent(bank.efficiencyRatio)}</TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{formatPercent(bank.npaRatio)}</TableCell>
-                  <TableCell className="text-xs py-2 text-right font-mono">{formatPercent(bank.loanToDeposit)}</TableCell>
+                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalAssets.toLocaleString()}</TableCell>
+                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalLoans.toLocaleString()}</TableCell>
+                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalDeposits.toLocaleString()}</TableCell>
+                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.netIncome.toLocaleString()}</TableCell>
+                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.securities != null ? bank.securities.toLocaleString() : "—"}</TableCell>
+                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.equity != null ? bank.equity.toLocaleString() : "—"}</TableCell>
+                  <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.loanToDeposit)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </ScrollArea>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          MDRM Fields: ASSET (RCFD2170), LNLSNET (RCFD2122), DEP (RCON2200), NETINC (RIAD4340), SC (RCFD8641), EQ (RCFD3210)
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MetricsComparisonTable({ banks, reportDate }: { banks: PeerBank[]; reportDate?: string }) {
+  const getRank = (bankName: string, metric: keyof PeerBank, higherIsBetter: boolean) => {
+    const sorted = [...banks].sort((a, b) =>
+      higherIsBetter ? (b[metric] as number) - (a[metric] as number) : (a[metric] as number) - (b[metric] as number)
+    );
+    return sorted.findIndex((b) => b.name === bankName) + 1;
+  };
+
+  const peerAvg = (fn: (b: PeerBank) => number) => {
+    const peers = banks.filter(b => b.name !== "Mizuho Americas");
+    return peers.reduce((s, b) => s + fn(b), 0) / (peers.length || 1);
+  };
+
+  return (
+    <Card data-testid="card-metrics-comparison">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle className="text-sm">Standard Metrics & Ratios — UBPR / Fed Assessment</CardTitle>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Key performance ratios used by the Federal Reserve in supervisory assessments (UBPR Page 1 equivalent)</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-[10px]">Source: FDIC + Derived</Badge>
+            <Badge variant="outline" className="text-[10px] font-mono">{reportDate || "Latest"}</Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="w-full">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs sticky left-0 bg-card z-10 min-w-[160px]">Institution</TableHead>
+                <TableHead className="text-xs text-right">ROE %</TableHead>
+                <TableHead className="text-xs text-right">ROA %</TableHead>
+                <TableHead className="text-xs text-right">NIM %</TableHead>
+                <TableHead className="text-xs text-right">Tier 1 %</TableHead>
+                <TableHead className="text-xs text-right">Total Cap %</TableHead>
+                <TableHead className="text-xs text-right">Efficiency %</TableHead>
+                <TableHead className="text-xs text-right">NPA %</TableHead>
+                <TableHead className="text-xs text-right">NCO Rate %</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {banks.map((bank, idx) => {
+                const isMizuho = bank.name === "Mizuho Americas";
+                return (
+                  <TableRow
+                    key={idx}
+                    className={isMizuho ? "bg-primary/5 font-medium" : ""}
+                    data-testid={`row-metrics-${idx}`}
+                  >
+                    <TableCell className="text-xs py-2.5 font-medium sticky left-0 bg-card z-10">
+                      <div className="flex items-center gap-2">
+                        {isMizuho && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                        <span className="truncate">{bank.name}</span>
+                        <Badge variant="outline" className="text-[10px] font-mono shrink-0">{bank.ticker}</Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell className={`text-xs py-2.5 text-right font-mono ${isMizuho && bank.roe < peerAvg(b => b.roe) ? "text-amber-600 dark:text-amber-400" : ""}`}>
+                      {formatPercent(bank.roe)}
+                    </TableCell>
+                    <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.roa)}</TableCell>
+                    <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.nim)}</TableCell>
+                    <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.cet1Ratio)}</TableCell>
+                    <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalCapitalRatio != null ? formatPercent(bank.totalCapitalRatio) : "—"}</TableCell>
+                    <TableCell className={`text-xs py-2.5 text-right font-mono ${bank.efficiencyRatio > 65 ? "text-amber-600 dark:text-amber-400" : ""}`}>
+                      {formatPercent(bank.efficiencyRatio)}
+                    </TableCell>
+                    <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.npaRatio)}</TableCell>
+                    <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.chargeOffRate)}</TableCell>
+                  </TableRow>
+                );
+              })}
+              <TableRow className="border-t-2 border-primary/20 bg-muted/30">
+                <TableCell className="text-xs py-2 font-semibold sticky left-0 bg-muted/30 z-10">Peer Average</TableCell>
+                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.roe))}</TableCell>
+                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.roa))}</TableCell>
+                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.nim))}</TableCell>
+                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.cet1Ratio))}</TableCell>
+                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.totalCapitalRatio ?? 0))}</TableCell>
+                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.efficiencyRatio))}</TableCell>
+                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.npaRatio))}</TableCell>
+                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.chargeOffRate))}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </ScrollArea>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          UBPR Fields: ROE, ROA, NIMY (NIM), RBC1AAJ (Tier 1), EEFF-derived (Efficiency), P3ASSET-derived (NPA), ELNANTR (NCO Rate)
+        </p>
       </CardContent>
     </Card>
   );
@@ -455,7 +646,7 @@ function TrendCharts({ trendROE, trendNIM, trendCET1, bankNames }: { trendROE: P
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[260px]">
+        <div className="h-[280px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={metricData}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
@@ -494,7 +685,7 @@ function RadarComparison({ banks }: { banks: PeerBank[] }) {
   return (
     <Card data-testid="card-radar-comparison">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm">Mizuho vs Peer Average - Performance Profile</CardTitle>
+        <CardTitle className="text-sm">Mizuho vs Peer Average — Performance Profile</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[240px]">
@@ -608,7 +799,7 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1">Source: FDIC Call Reports (FFIEC 031/041) — IDT1CER (Tier 1 ratio), RBCT1J/ASSET (leverage)</p>
+          <p className="text-[10px] text-muted-foreground mt-1">Source: FDIC Call Reports — RBC1AAJ (Tier 1), RBCT1J/ASSET (leverage)</p>
         </CardContent>
       </Card>
     </div>
@@ -617,13 +808,19 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
 
 export default function PeerAnalysis() {
   const queryClient = useQueryClient();
-  const [peers, setPeers] = useState<PeerConfig[]>(DEFAULT_PEERS);
+  const [selectedGroup, setSelectedGroup] = useState("japanese");
+  const [customPeers, setCustomPeers] = useState<PeerConfig[]>([]);
+  const [removedCerts, setRemovedCerts] = useState<Set<number>>(new Set());
 
-  const extraCerts = peers
-    .filter(p => !DEFAULT_PEERS.some(d => d.cert === p.cert))
-    .map(p => p.cert);
+  const activePeers = useMemo(() => {
+    const group = PEER_GROUPS.find(g => g.id === selectedGroup);
+    if (!group) return [];
+    const groupPeers = group.peers.filter(p => !removedCerts.has(p.cert));
+    return [...groupPeers, ...customPeers];
+  }, [selectedGroup, customPeers, removedCerts]);
 
-  const certsParam = extraCerts.length > 0 ? `?certs=${extraCerts.join(",")}` : "";
+  const allCerts = activePeers.map(p => p.cert);
+  const certsParam = allCerts.length > 0 ? `?certs=${allCerts.join(",")}` : "";
 
   const { data, isLoading, isError } = useQuery<{ data: LivePeerEntry[] }>({
     queryKey: ["/api/data-sources/peer-data", certsParam],
@@ -638,8 +835,8 @@ export default function PeerAnalysis() {
 
   const isLive = !isLoading && !isError && (data?.data?.length ?? 0) > 0;
 
-  const activeCerts = new Set(peers.map(p => p.cert));
-  const liveEntries = (data?.data || []).filter(e => activeCerts.has(e.cert));
+  const activeCertSet = new Set(allCerts);
+  const liveEntries = (data?.data || []).filter(e => activeCertSet.has(e.cert));
 
   const peerBanks: PeerBank[] = (() => {
     if (!isLive) return demoPeerBanks;
@@ -653,27 +850,33 @@ export default function PeerAnalysis() {
   const peerTrendCET1 = isLive ? buildLiveTrend(liveEntries, "tier1Ratio") : demoPeerTrendCET1;
   const reportDate = isLive && liveEntries[0]?.callReport?.reportDate ? liveEntries[0].callReport.reportDate : "Latest";
 
-  const handleAddPeer = useCallback((peer: PeerConfig) => {
-    setPeers(prev => [...prev, peer]);
+  const handleGroupChange = useCallback((groupId: string) => {
+    setSelectedGroup(groupId);
+    setRemovedCerts(new Set());
+    setCustomPeers([]);
+    queryClient.invalidateQueries({ queryKey: ["/api/data-sources/peer-data"] });
+  }, [queryClient]);
+
+  const handleAddCustom = useCallback((peer: PeerConfig) => {
+    setCustomPeers(prev => [...prev, peer]);
     queryClient.invalidateQueries({ queryKey: ["/api/data-sources/peer-data"] });
   }, [queryClient]);
 
   const handleRemovePeer = useCallback((cert: number) => {
-    setPeers(prev => prev.filter(p => p.cert !== cert));
+    setCustomPeers(prev => prev.filter(p => p.cert !== cert));
+    setRemovedCerts(prev => { const next = new Set(prev); next.add(cert); return next; });
   }, []);
 
   const mizuho = peerBanks.find(b => b.name === "Mizuho Americas") || peerBanks[0];
-  const peerAvgROE = peerBanks.filter(b => b.name !== "Mizuho Americas").reduce((sum, b) => sum + b.roe, 0) / Math.max(1, peerBanks.filter(b => b.name !== "Mizuho Americas").length);
-  const peerAvgNIM = peerBanks.filter(b => b.name !== "Mizuho Americas").reduce((sum, b) => sum + b.nim, 0) / Math.max(1, peerBanks.filter(b => b.name !== "Mizuho Americas").length);
-  const peerAvgCET1 = peerBanks.filter(b => b.name !== "Mizuho Americas").reduce((sum, b) => sum + b.cet1Ratio, 0) / Math.max(1, peerBanks.filter(b => b.name !== "Mizuho Americas").length);
-  const peerAvgEfficiency = peerBanks.filter(b => b.name !== "Mizuho Americas").reduce((sum, b) => sum + b.efficiencyRatio, 0) / Math.max(1, peerBanks.filter(b => b.name !== "Mizuho Americas").length);
+  const peersOnly = peerBanks.filter(b => b.name !== "Mizuho Americas");
+  const peerAvg = (fn: (b: PeerBank) => number) => peersOnly.reduce((s, b) => s + fn(b), 0) / Math.max(1, peersOnly.length);
 
   const roeRank = [...peerBanks].sort((a, b) => b.roe - a.roe).findIndex((b) => b.name === "Mizuho Americas") + 1;
   const nimRank = [...peerBanks].sort((a, b) => b.nim - a.nim).findIndex((b) => b.name === "Mizuho Americas") + 1;
   const cet1Rank = [...peerBanks].sort((a, b) => b.cet1Ratio - a.cet1Ratio).findIndex((b) => b.name === "Mizuho Americas") + 1;
   const effRank = [...peerBanks].sort((a, b) => a.efficiencyRatio - b.efficiencyRatio).findIndex((b) => b.name === "Mizuho Americas") + 1;
 
-  const dateLabel = reportDate || "Q4 2024";
+  const activeGroupLabel = PEER_GROUPS.find(g => g.id === selectedGroup)?.label || selectedGroup;
   const bankNames = peerBanks.map(b => b.name);
 
   return (
@@ -681,8 +884,8 @@ export default function PeerAnalysis() {
       <div className="max-w-[1200px] mx-auto p-6 space-y-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Peer Analysis</p>
-            <Badge variant="outline" className="text-[10px] font-mono">FDIC Dataset</Badge>
+            <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Use Case 2</p>
+            <Badge variant="outline" className="text-[10px] font-mono">Peer Comparison</Badge>
             {isLive && (
               <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
                 <Wifi className="w-3 h-3 mr-1" />
@@ -697,15 +900,21 @@ export default function PeerAnalysis() {
             )}
           </div>
           <h1 className="text-2xl font-serif font-semibold tracking-tight" data-testid="text-peer-title">
-            Peer Analysis & Comparison
+            Peer Comparison Analysis
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Benchmarking Mizuho Bank USA against selected peer institutions using FDIC Call Report data
-            {isLive && ` (as of ${dateLabel})`}
+          <p className="text-sm text-muted-foreground max-w-[720px]">
+            Benchmarking Mizuho Americas against {activeGroupLabel} using publicly available regulatory data from FDIC Call Reports (FFIEC 031/041) and derived UBPR-equivalent ratios.
+            {isLive && ` Live data as of ${reportDate}.`}
           </p>
         </div>
 
-        <PeerBankConfig peers={peers} onAdd={handleAddPeer} onRemove={handleRemovePeer} />
+        <PeerGroupSelector
+          selectedGroup={selectedGroup}
+          onGroupChange={handleGroupChange}
+          peers={activePeers}
+          onAddCustom={handleAddCustom}
+          onRemovePeer={handleRemovePeer}
+        />
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <MetricCard
@@ -713,14 +922,14 @@ export default function PeerAnalysis() {
             value={formatPercent(mizuho.roe)}
             rank={roeRank}
             total={peerBanks.length}
-            positive={mizuho.roe > peerAvgROE}
+            positive={mizuho.roe > peerAvg(b => b.roe)}
           />
           <MetricCard
             label="Net Interest Margin"
             value={formatPercent(mizuho.nim)}
             rank={nimRank}
             total={peerBanks.length}
-            positive={mizuho.nim > peerAvgNIM}
+            positive={mizuho.nim > peerAvg(b => b.nim)}
           />
           <MetricCard
             label="Tier 1 Capital Ratio"
@@ -734,14 +943,15 @@ export default function PeerAnalysis() {
             value={formatPercent(mizuho.efficiencyRatio)}
             rank={effRank}
             total={peerBanks.length}
-            positive={mizuho.efficiencyRatio < peerAvgEfficiency}
+            positive={mizuho.efficiencyRatio < peerAvg(b => b.efficiencyRatio)}
           />
         </div>
 
         <Tabs defaultValue="overview" className="space-y-3">
           <TabsList data-testid="tabs-peer-analysis">
             <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
-            <TabsTrigger value="detailed" data-testid="tab-detailed">Detailed Comparison</TabsTrigger>
+            <TabsTrigger value="basic" data-testid="tab-basic">Basic Comparison</TabsTrigger>
+            <TabsTrigger value="metrics" data-testid="tab-metrics">Standard Metrics</TabsTrigger>
             <TabsTrigger value="trends" data-testid="tab-trends">Trend Analysis</TabsTrigger>
           </TabsList>
 
@@ -750,7 +960,7 @@ export default function PeerAnalysis() {
               <RadarComparison banks={peerBanks} />
               <Card data-testid="card-peer-summary">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Peer Group Summary</CardTitle>
+                  <CardTitle className="text-sm">Peer Group Summary — {activeGroupLabel}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-[200px]">
@@ -790,8 +1000,38 @@ export default function PeerAnalysis() {
             <KeyMetricsBar banks={peerBanks} />
           </TabsContent>
 
-          <TabsContent value="detailed" className="space-y-4">
-            <PeerComparisonTable banks={peerBanks} reportDate={dateLabel} />
+          <TabsContent value="basic" className="space-y-4">
+            <BasicComparisonTable banks={peerBanks} reportDate={reportDate} />
+            <Card className="border-dashed border-primary/20 bg-primary/[0.02]" data-testid="card-expandability-note">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Extensible Data Model</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                      Additional Call Report fields (repo volume, off-balance sheet items, trading assets, derivative notionals) can be added to this comparison. Use the "Add Custom Peer" button above to include any FDIC-insured institution by CERT number. The FDIC BankFind Suite API provides access to all FFIEC 031/041 line items.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="metrics" className="space-y-4">
+            <MetricsComparisonTable banks={peerBanks} reportDate={reportDate} />
+            <Card className="border-dashed border-primary/20 bg-primary/[0.02]" data-testid="card-ratio-extensibility">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Configurable Ratios</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                      This view mirrors the UBPR (Uniform Bank Performance Report) metrics used by the Federal Reserve during supervisory assessments. Additional ratios such as Texas Ratio, Liquidity Coverage Ratio, and Net Stable Funding Ratio can be derived from the same Call Report data and added to this comparison as needed.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="trends" className="space-y-4">
@@ -801,9 +1041,10 @@ export default function PeerAnalysis() {
 
         <div className="border-t pt-4 pb-2">
           <p className="text-xs text-muted-foreground">
-            Data sourced from FDIC BankFind Suite API (Call Reports).
-            {isLive ? ` Live data as of ${dateLabel}.` : " All figures as of Q4 2024 unless otherwise noted."}
-            {" "}Peer group contains {peerBanks.length} institution{peerBanks.length !== 1 ? "s" : ""}.
+            Data sourced from FDIC BankFind Suite API (Call Reports FFIEC 031/041) and derived UBPR-equivalent ratios.
+            {isLive ? ` Live data as of ${reportDate}.` : " All figures as of latest available filing unless otherwise noted."}
+            {" "}Peer group: {activeGroupLabel} — {peerBanks.length} institution{peerBanks.length !== 1 ? "s" : ""}.
+            {" "}Additional peers and ratios can be added on demand.
           </p>
         </div>
       </div>

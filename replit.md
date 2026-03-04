@@ -32,11 +32,13 @@ Demo application for Mizuho Financial Group CFO presentation (March 2026). Showc
    - Report Review & Validation (three-mode toggle: Variance Analysis with configurable QoQ threshold slider and user-addable management commentary, Intra-Report Checks with 8 Fed-defined validation rules, Inter-Report Checks with 12 Call Report vs FR Y-9C tie-outs)
    - Review & Approval (QoQ variance summaries, CFO memorandum generation & approval workflow)
    - Trend Analysis (multi-period charts)
-4. **Peer Analysis** (`/peer-analysis`) - Use Case 2 with dynamic peer configuration:
-   - Peer Bank Configuration panel (add/remove peers by CERT number, auto-validates via FDIC)
-   - Overview (radar chart, peer summary, profitability/capital bars)
-   - Detailed Comparison (full peer table with live FDIC data)
-   - Trend Analysis (ROE, NIM, CET1 time-series)
+4. **Peer Analysis** (`/peer-analysis`) - Use Case 2 with pre-built peer groups:
+   - Peer Group Selector: Japanese FBOs, European FBOs, US G-SIBs, US Regional Banks
+   - Custom peer addition by CERT number with FDIC validation
+   - Overview tab (radar chart, peer summary, profitability/capital bar charts)
+   - Basic Comparison tab (raw Call Report data: assets, loans, deposits, income)
+   - Standard Metrics tab (UBPR-equivalent ratios: ROE, ROA, NIM, Tier 1, Efficiency, NPA, NCO with peer average row)
+   - Trend Analysis tab (ROE, NIM, Tier 1 time-series)
 
 ## Key Files
 - `server/lib/fdic-api.ts` - FDIC BankFind Suite API integration
@@ -62,7 +64,20 @@ Demo application for Mizuho Financial Group CFO presentation (March 2026). Showc
 - `POST /api/data-sources/refresh` - Clear cache and re-fetch all data
 
 ## Peer Bank Identifiers (FDIC)
+### Japanese FBOs
 - Mizuho Bank (USA): CERT 21843, RSSD 229913
+- MUFG Union Bank: CERT 32633
+- Manufacturers Bank (SMBC): CERT 22538
+### European FBOs
+- Deutsche Bank Trust: CERT 623
+- Barclays Bank Delaware: CERT 57062
+### US G-SIBs
+- JPMorgan Chase Bank: CERT 628
+- Citibank: CERT 7213
+- Goldman Sachs Bank: CERT 33124
+- Morgan Stanley Bank: CERT 32992
+- Bank of America: CERT 3510
+### US Regional Banks
 - PNC Bank, N.A.: CERT 6384, RSSD 817824
 - U.S. Bank N.A.: CERT 6548, RSSD 504713
 - Citizens Bank, N.A.: CERT 57957, RSSD 3303298

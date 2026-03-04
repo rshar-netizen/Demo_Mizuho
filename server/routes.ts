@@ -208,6 +208,8 @@ export async function registerRoutes(
         npaRatio: computeNPAPercent(latestReport),
         chargeOffRate: latestReport.ELNANTR,
         loanToDeposit: computeLoanToDeposit(latestReport),
+        securities: latestReport.SC,
+        equity: latestReport.EQ,
       } : null,
       ubpr: ubpr?.metrics || null,
       fry9c: fry9c?.metrics || null,

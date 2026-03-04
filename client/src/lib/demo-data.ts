@@ -93,6 +93,9 @@ export interface PeerBank {
   npaRatio: number;
   loanToDeposit: number;
   chargeOffRate: number;
+  securities?: number;
+  equity?: number;
+  totalCapitalRatio?: number;
 }
 
 export interface PeerTrendData {
