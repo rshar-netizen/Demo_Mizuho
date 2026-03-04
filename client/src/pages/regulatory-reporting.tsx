@@ -1296,332 +1296,225 @@ function InstructionsTab() {
   );
 }
 
-const dictionarySources = [
-  { key: "FFIEC_031_CALL_REPORT", label: "Call Report" },
-  { key: "FFIEC_UBPR_RATIOS", label: "UBPR" },
-  { key: "FR_Y9C_BHC_DATA", label: "FR Y-9C" },
+interface IngestedSource {
+  sourceSystem: string;
+  fileName: string;
+  tables: number;
+  fields: number;
+  status: "Mapped" | "Partial" | "Pending";
+  coverage: number;
+  quarter: string;
+  fileSize: string;
+  lastIngested: string;
+}
+
+const INGESTED_SOURCES: IngestedSource[] = [
+  { sourceSystem: "Core Banking", fileName: "GL_Extract_Q4_2025.xlsx", tables: 12, fields: 248, status: "Mapped", coverage: 94, quarter: "Q4 2025", fileSize: "14.2 MB", lastIngested: "2025-12-31 23:45:00" },
+  { sourceSystem: "Trading Systems", fileName: "Trading_Positions_Q4.xlsx", tables: 8, fields: 156, status: "Mapped", coverage: 88, quarter: "Q4 2025", fileSize: "8.7 MB", lastIngested: "2025-12-31 22:30:00" },
+  { sourceSystem: "Loan Origination", fileName: "Loan_Portfolio_Q4.xlsx", tables: 15, fields: 312, status: "Mapped", coverage: 91, quarter: "Q4 2025", fileSize: "22.1 MB", lastIngested: "2025-12-31 23:15:00" },
+  { sourceSystem: "Treasury", fileName: "Treasury_Data_Q4.xlsx", tables: 6, fields: 98, status: "Partial", coverage: 72, quarter: "Q4 2025", fileSize: "3.4 MB", lastIngested: "2025-12-31 21:00:00" },
+  { sourceSystem: "Risk Systems", fileName: "Risk_Metrics_Q4.xlsx", tables: 10, fields: 189, status: "Mapped", coverage: 96, quarter: "Q4 2025", fileSize: "11.3 MB", lastIngested: "2025-12-31 23:50:00" },
+  { sourceSystem: "Regulatory Reference", fileName: "MDRM_Taxonomy.xlsx", tables: 4, fields: 450, status: "Mapped", coverage: 100, quarter: "Q4 2025", fileSize: "5.8 MB", lastIngested: "2025-12-15 10:00:00" },
 ];
 
-const ISSUE_LABELS: Record<UnmappedField["issue"], { label: string; color: string }> = {
-  format_mismatch: { label: "Format Mismatch", color: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30" },
-  missing_source: { label: "Missing Source", color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/30" },
-  ambiguous_mapping: { label: "Ambiguous Mapping", color: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-400/30" },
-  deprecated_field: { label: "Deprecated Field", color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/30" },
-  null_population: { label: "Null Population", color: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-400/30" },
-  cross_source_conflict: { label: "Cross-Source Conflict", color: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-400/30" },
-};
+interface DataMapping {
+  sourceField: string;
+  reportLineItem: string;
+  transformation: string;
+  status: "Active" | "Review" | "Inactive" | "Draft";
+  schedule: string;
+  confidence: number;
+}
 
-const LINKAGE_TYPE_META: Record<string, { label: string; color: string; icon: string }> = {
-  reconciliation: { label: "Reconciliation", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-400/30", icon: "=" },
-  derivation: { label: "Derivation", color: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-400/30", icon: "→" },
-  validation: { label: "Validation", color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-400/30", icon: "✓" },
-};
+const DATA_MAPPINGS: DataMapping[] = [
+  { sourceField: "GL_Extract.Cash_Balances", reportLineItem: "RC-1: Cash and balances", transformation: "SUM(GL.1000-1099)", status: "Active", schedule: "RC", confidence: 99 },
+  { sourceField: "GL_Extract.Investment_Securities", reportLineItem: "RC-2: Securities", transformation: "SUM(GL.1200-1299) + AFS_Adjustment", status: "Active", schedule: "RC", confidence: 97 },
+  { sourceField: "Trading_Positions.Net_Position", reportLineItem: "RC-5: Trading assets", transformation: "SUM(Position.MTM) WHERE Side='Long'", status: "Active", schedule: "RC", confidence: 95 },
+  { sourceField: "Loan_Portfolio.Outstanding_Balance", reportLineItem: "RC-4: Loans and leases", transformation: "SUM(Loans.Balance) - ALLL", status: "Active", schedule: "RC-C", confidence: 98 },
+  { sourceField: "Treasury.FedFunds_Sold", reportLineItem: "RC-3: Federal funds sold", transformation: "DIRECT_MAP(Treasury.FF_Sold)", status: "Active", schedule: "RC", confidence: 100 },
+  { sourceField: "GL_Extract.Interest_Receivable", reportLineItem: "RI-1: Interest income", transformation: "SUM(GL.4000-4099) QTD", status: "Active", schedule: "RI", confidence: 96 },
+  { sourceField: "GL_Extract.Interest_Payable", reportLineItem: "RI-2: Interest expense", transformation: "SUM(GL.5000-5099) QTD", status: "Active", schedule: "RI", confidence: 96 },
+  { sourceField: "Loan_Portfolio.Provision_Expense", reportLineItem: "RI-4: Provision for credit losses", transformation: "SUM(Provision.CECL_Charge) QTD", status: "Active", schedule: "RI", confidence: 94 },
+  { sourceField: "Risk_Metrics.CET1_Capital", reportLineItem: "RC-R-1: CET1 capital", transformation: "CET1_Components - Deductions", status: "Active", schedule: "RC-R", confidence: 92 },
+  { sourceField: "Risk_Metrics.RWA_Credit", reportLineItem: "RC-R-2: Risk-weighted assets", transformation: "SUM(RWA.Credit + RWA.Market + RWA.Op)", status: "Active", schedule: "RC-R", confidence: 91 },
+  { sourceField: "GL_Extract.Deposit_Balances", reportLineItem: "RC-E: Total deposits", transformation: "SUM(GL.6000-6299)", status: "Active", schedule: "RC-E", confidence: 98 },
+  { sourceField: "Loan_Portfolio.Delinquent_30_89", reportLineItem: "RC-N: Past due 30-89 days", transformation: "SUM(Loans.PastDue) WHERE DPD BETWEEN 30 AND 89", status: "Active", schedule: "RC-N", confidence: 93 },
+  { sourceField: "Loan_Portfolio.Nonaccrual", reportLineItem: "RC-N: Nonaccrual loans", transformation: "SUM(Loans.Balance) WHERE Status='Nonaccrual'", status: "Active", schedule: "RC-N", confidence: 90 },
+  { sourceField: "Trading_Positions.Derivative_Notional", reportLineItem: "RC-L: Derivatives notional", transformation: "SUM(Deriv.Notional) BY Type", status: "Active", schedule: "RC-L", confidence: 88 },
+  { sourceField: "Treasury.FHLB_Borrowings", reportLineItem: "RC-14: Other borrowed money", transformation: "DIRECT_MAP(Treasury.FHLB)", status: "Review", schedule: "RC", confidence: 85 },
+  { sourceField: "GL_Extract.NonInterest_Expense", reportLineItem: "RI-7: Noninterest expense", transformation: "SUM(GL.7000-7999) QTD", status: "Active", schedule: "RI", confidence: 95 },
+  { sourceField: "Risk_Metrics.Tier1_Leverage", reportLineItem: "RC-R: Leverage ratio", transformation: "Tier1_Capital / Avg_Total_Assets", status: "Active", schedule: "RC-R", confidence: 93 },
+  { sourceField: "Treasury.Repo_Positions", reportLineItem: "RC-14.a: Securities sold under repo", transformation: "SUM(Repo.Balance) WHERE Type='Repo'", status: "Review", schedule: "RC", confidence: 78 },
+  { sourceField: "GL_Extract.AOCI_Balance", reportLineItem: "RC-R: AOCI component", transformation: "GL.3600 (AFS unrealized G/L)", status: "Review", schedule: "RC-R", confidence: 82 },
+  { sourceField: "MDRM_Taxonomy.RCON2170", reportLineItem: "RC: Total assets", transformation: "VALIDATION_CHECK(SUM(RC.1 thru RC.11))", status: "Active", schedule: "RC", confidence: 100 },
+];
 
-const RECON_STATUS_META: Record<string, { label: string; color: string; dot: string }> = {
-  reconciled: { label: "Reconciled", color: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" },
-  variance: { label: "Variance", color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
-  partial: { label: "Partial", color: "text-sky-600 dark:text-sky-400", dot: "bg-sky-500" },
-  unavailable: { label: "Unavailable", color: "text-red-500 dark:text-red-400", dot: "bg-red-500" },
-};
-
-function FieldLinkageMap({
-  linkageTypeFilter,
-  setLinkageTypeFilter,
-  expandedLinkage,
-  setExpandedLinkage,
-}: {
-  linkageTypeFilter: string;
-  setLinkageTypeFilter: (v: string) => void;
-  expandedLinkage: number | null;
-  setExpandedLinkage: (v: number | null) => void;
-}) {
-  const filtered = linkageTypeFilter === "all"
-    ? fieldLinkages
-    : fieldLinkages.filter(l => l.linkageType === linkageTypeFilter);
-
-  const reconciledCount = fieldLinkages.filter(l => l.reconciliationStatus === "reconciled").length;
-  const varianceCount = fieldLinkages.filter(l => l.reconciliationStatus === "variance").length;
-  const partialCount = fieldLinkages.filter(l => l.reconciliationStatus === "partial").length;
-  const unavailableCount = fieldLinkages.filter(l => l.reconciliationStatus === "unavailable").length;
-
+function CoverageBar({ coverage }: { coverage: number }) {
   return (
-    <Card data-testid="card-field-linkages">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Link2 className="w-4 h-4 text-primary" />
-            <CardTitle className="text-sm">Cross-Report Field Linkage Map</CardTitle>
-            <Badge variant="secondary" className="text-[10px]">
-              {fieldLinkages.length} concepts · 3 sources
-            </Badge>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span className="text-[10px] text-muted-foreground">{reconciledCount}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              <span className="text-[10px] text-muted-foreground">{varianceCount}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-              <span className="text-[10px] text-muted-foreground">{partialCount}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-              <span className="text-[10px] text-muted-foreground">{unavailableCount}</span>
-            </div>
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground mt-1 max-w-[760px]">
-          Maps equivalent regulatory concepts across Call Report (FFIEC 031), FR Y-9C, and UBPR sources. Identifies reconciliation joins, derived calculations, and cross-source validation rules.
-        </p>
-        <div className="flex items-center gap-1 mt-2">
-          {["all", "reconciliation", "derivation", "validation"].map((type) => {
-            const meta = type === "all" ? null : LINKAGE_TYPE_META[type];
-            const count = type === "all" ? fieldLinkages.length : fieldLinkages.filter(l => l.linkageType === type).length;
-            return (
-              <button
-                key={type}
-                onClick={() => { setLinkageTypeFilter(type); setExpandedLinkage(null); }}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer border ${
-                  linkageTypeFilter === type
-                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                    : "text-muted-foreground hover:text-foreground border-border/50 bg-muted/30"
-                }`}
-                data-testid={`button-linkage-filter-${type}`}
-              >
-                {type === "all" ? "All" : meta!.label} ({count})
-              </button>
-            );
-          })}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[420px]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs w-[180px]">Concept</TableHead>
-                <TableHead className="text-xs w-[170px]">Call Report (031)</TableHead>
-                <TableHead className="text-xs w-[170px]">FR Y-9C</TableHead>
-                <TableHead className="text-xs w-[150px]">UBPR</TableHead>
-                <TableHead className="text-xs w-[90px]">Status</TableHead>
-                <TableHead className="text-xs w-[90px]">Type</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((link, idx) => {
-                const statusMeta = RECON_STATUS_META[link.reconciliationStatus];
-                const typeMeta = LINKAGE_TYPE_META[link.linkageType];
-                const isExpanded = expandedLinkage === idx;
-                return (
-                  <TableRow
-                    key={idx}
-                    className="cursor-pointer hover:bg-muted/40 transition-colors"
-                    onClick={() => setExpandedLinkage(isExpanded ? null : idx)}
-                    data-testid={`linkage-row-${idx}`}
-                  >
-                    <TableCell className="py-2">
-                      <div className="flex items-center gap-1.5">
-                        {isExpanded ? (
-                          <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
-                        ) : (
-                          <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
-                        )}
-                        <div>
-                          <p className="text-xs font-medium">{link.concept}</p>
-                          <p className="text-[10px] text-muted-foreground font-mono">{link.schedule}</p>
-                          {isExpanded && link.varianceNote && (
-                            <div className="mt-2 p-2 rounded-md bg-muted/50 border border-border/40 max-w-[320px]">
-                              <p className="text-[10px] text-muted-foreground leading-relaxed">{link.varianceNote}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-2">
-                      {link.callReport ? (
-                        <div>
-                          <p className="font-mono text-[11px] font-medium text-foreground">{link.callReport.field}</p>
-                          {isExpanded && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{link.callReport.description}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground italic">Not reported</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      {link.frY9C ? (
-                        <div>
-                          <p className="font-mono text-[11px] font-medium text-foreground">{link.frY9C.field}</p>
-                          {isExpanded && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{link.frY9C.description}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground italic">Not reported</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      {link.ubpr ? (
-                        <div>
-                          <p className="font-mono text-[11px] font-medium text-foreground">{link.ubpr.field}</p>
-                          {isExpanded && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{link.ubpr.description}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground italic">Not reported</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusMeta.dot}`} />
-                        <span className={`text-[11px] font-medium ${statusMeta.color}`}>{statusMeta.label}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <Badge variant="secondary" className={`text-[10px] border ${typeMeta.color}`}>
-                        {typeMeta.label}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+    <div className="flex items-center gap-2">
+      <div className="w-[80px] h-2 rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${coverage >= 90 ? "bg-primary" : coverage >= 70 ? "bg-primary/70" : "bg-amber-500"}`}
+          style={{ width: `${coverage}%` }}
+        />
+      </div>
+      <span className="text-xs font-mono text-muted-foreground w-[36px] text-right">{coverage}%</span>
+    </div>
   );
 }
 
 function DataDictionaryTab() {
-  const [activeSource, setActiveSource] = useState(dictionarySources[0].key);
-  const [issueFilter, setIssueFilter] = useState<string>("all");
-  const [linkageTypeFilter, setLinkageTypeFilter] = useState<string>("all");
-  const [expandedLinkage, setExpandedLinkage] = useState<number | null>(null);
-  const dict = dataDictionaries.find((d) => d.tableName === activeSource)!;
-  const sourceLabel = dict.tableName.includes("CALL") ? "FDIC BankFind Suite API" :
-    dict.tableName.includes("UBPR") ? "FFIEC Central Data Repository" : "Federal Reserve NIC";
-  const totalRecords = dataDictionaries.reduce((sum, d) => sum + d.recordCount, 0);
-  const totalFields = dataDictionaries.reduce((sum, d) => sum + d.quality.totalFields, 0);
-  const totalAutoMapped = dataDictionaries.reduce((sum, d) => sum + d.quality.autoMapped, 0);
-  const totalUnmapped = totalFields - totalAutoMapped;
-  const overallQuality = ((totalAutoMapped / totalFields) * 100).toFixed(1);
-  const unmappedRate = ((totalUnmapped / totalFields) * 100).toFixed(1);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
 
-  const highIssues = unmappedFields.filter(f => f.severity === "high").length;
-  const mediumIssues = unmappedFields.filter(f => f.severity === "medium").length;
-  const lowIssues = unmappedFields.filter(f => f.severity === "low").length;
+  const uploadedCount = uploadedFiles.length;
+  const totalSources = INGESTED_SOURCES.length + uploadedCount;
+  const totalTables = INGESTED_SOURCES.reduce((s, d) => s + d.tables, 0) + (uploadedCount * 3);
+  const totalFields = INGESTED_SOURCES.reduce((s, d) => s + d.fields, 0) + (uploadedCount * 47);
+  const avgCoverage = Math.round((INGESTED_SOURCES.reduce((s, d) => s + d.coverage, 0) + (uploadedCount * 45)) / totalSources);
+  const partialSources = INGESTED_SOURCES.filter(s => s.status === "Partial").length + uploadedCount;
 
-  const filteredIssues = issueFilter === "all"
-    ? unmappedFields
-    : unmappedFields.filter(f => f.issue === issueFilter);
+  const activeMappings = DATA_MAPPINGS.filter(m => m.status === "Active").length;
+  const reviewMappings = DATA_MAPPINGS.filter(m => m.status === "Review").length;
 
-  const issueTypes = Array.from(new Set(unmappedFields.map(f => f.issue)));
+  const handleUploadSimulation = () => {
+    setIsUploading(true);
+    setTimeout(() => {
+      setIsUploading(false);
+      setUploadedFiles(prev => [...prev, `Custom_Extract_${Date.now().toString(36)}.xlsx`]);
+    }, 2000);
+  };
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-data-title">Data Preparation & Profiling</h2>
+        <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-data-title">Data & Dictionary</h2>
         <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
           Source data is ingested, profiled, and validated for quality. The system auto-maps fields to regulatory schedules and flags unmapped or problematic fields for review before report population.
         </p>
       </div>
 
       <div className="grid grid-cols-4 gap-3">
-        <Card data-testid="card-data-sources">
-          <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-foreground">{totalRecords}</p>
-            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Records Ingested</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Across {dataDictionaries.length} source tables</p>
-          </CardContent>
-        </Card>
-        <Card data-testid="card-data-tables">
-          <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-foreground">{totalFields.toLocaleString()}</p>
-            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Total Data Fields</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{totalAutoMapped.toLocaleString()} auto-mapped</p>
-          </CardContent>
-        </Card>
-        <Card data-testid="card-data-quality">
-          <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-emerald-600 dark:text-emerald-400">{overallQuality}%</p>
-            <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Auto-Mapped Rate</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{totalAutoMapped.toLocaleString()} of {totalFields.toLocaleString()} fields</p>
-          </CardContent>
-        </Card>
-        <Card className="ring-1 ring-amber-400/40 dark:ring-amber-500/30" data-testid="card-data-unmapped">
-          <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-amber-700 dark:text-amber-400">{unmappedFields.length}</p>
-            <p className="text-[10px] font-semibold tracking-wide uppercase text-amber-600 dark:text-amber-400 mt-1">Quality Issues</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{unmappedRate}% of fields require review</p>
-          </CardContent>
-        </Card>
+        {[
+          { value: totalSources.toString(), label: "Source Systems", sub: `${totalTables} tables ingested` },
+          { value: totalFields.toLocaleString(), label: "Total Fields", sub: `Across ${totalSources} source files` },
+          { value: `${avgCoverage}%`, label: "Avg Coverage", sub: `${partialSources} source${partialSources !== 1 ? "s" : ""} partially mapped`, isGreen: true },
+          { value: activeMappings.toString(), label: "Active Mappings", sub: `${reviewMappings} pending review`, isWarning: reviewMappings > 0 },
+        ].map((m, i) => (
+          <Card key={i} className={m.isWarning ? "ring-1 ring-amber-400/40 dark:ring-amber-500/30" : ""} data-testid={`card-data-metric-${i}`}>
+            <CardContent className="p-4">
+              <p className={`text-2xl font-mono font-normal ${m.isWarning ? "text-amber-700 dark:text-amber-400" : m.isGreen ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>{m.value}</p>
+              <p className={`text-[10px] font-semibold tracking-wide uppercase mt-1 ${m.isWarning ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>{m.label}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{m.sub}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <Card data-testid="card-dictionary-active">
-        <CardHeader className="pb-2">
+      <Card data-testid="card-ingested-sources">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <Database className="w-4 h-4 text-primary" />
-              <CardTitle className="text-sm">Auto-Generated Data Dictionary</CardTitle>
+              <CardTitle className="text-sm">Ingested Data Sources</CardTitle>
+              <Badge variant="outline" className="text-xs font-mono">{totalSources} source{totalSources !== 1 ? "s" : ""} · Q4 2025</Badge>
             </div>
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
-              {dictionarySources.map((src) => (
-                <button
-                  key={src.key}
-                  onClick={() => setActiveSource(src.key)}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
-                    activeSource === src.key
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  data-testid={`button-dict-source-${src.key}`}
-                >
-                  {src.label}
-                </button>
-              ))}
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={handleUploadSimulation}
+              disabled={isUploading}
+              data-testid="button-upload-source"
+            >
+              {isUploading ? (
+                <>
+                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                  Ingesting...
+                </>
+              ) : (
+                <>
+                  <Download className="w-3 h-3 mr-1 rotate-180" />
+                  Upload Source File
+                </>
+              )}
+            </Button>
           </div>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs font-mono text-muted-foreground">{dict.tableName}</span>
-            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">{sourceLabel}</Badge>
-            <Badge variant="outline" className="text-[10px]">{dict.recordCount} records · {dict.columns.length} columns</Badge>
-            <Badge variant="secondary" className="text-[10px]">Ingested: {dict.lastUpdated}</Badge>
-          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Connect to source systems or upload data files (Excel, CSV, PDF, TXT). Each source is profiled, validated, and mapped to regulatory report fields.
+          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs">Column</TableHead>
-                <TableHead className="text-xs">Type</TableHead>
-                <TableHead className="text-xs">Source</TableHead>
-                <TableHead className="text-xs">Nullable</TableHead>
-                <TableHead className="text-xs">Description</TableHead>
+                <TableHead className="text-xs">Source System</TableHead>
+                <TableHead className="text-xs">File</TableHead>
+                <TableHead className="text-xs text-center">Tables</TableHead>
+                <TableHead className="text-xs text-center">Fields</TableHead>
+                <TableHead className="text-xs text-center">Status</TableHead>
+                <TableHead className="text-xs">Coverage</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dict.columns.map((col, cidx) => (
-                <TableRow key={cidx}>
-                  <TableCell className="font-mono text-xs py-2">{col.name}</TableCell>
-                  <TableCell className="text-xs py-2">
-                    <Badge variant="outline" className="font-mono text-xs">{col.type}</Badge>
+              {INGESTED_SOURCES.map((source, idx) => (
+                <TableRow key={idx} data-testid={`source-row-${idx}`}>
+                  <TableCell className="py-3">
+                    <p className="text-sm font-medium">{source.sourceSystem}</p>
                   </TableCell>
-                  <TableCell className="text-xs py-2">{col.source}</TableCell>
-                  <TableCell className="text-xs py-2">
-                    {col.nullable ? (
-                      <span className="text-muted-foreground">Yes</span>
-                    ) : (
-                      <span className="text-foreground font-medium">No</span>
-                    )}
+                  <TableCell className="py-3">
+                    <p className="text-xs font-mono text-muted-foreground">{source.fileName}</p>
                   </TableCell>
-                  <TableCell className="text-xs py-2 text-muted-foreground">{col.description}</TableCell>
+                  <TableCell className="py-3 text-center">
+                    <span className="text-sm font-mono">{source.tables}</span>
+                  </TableCell>
+                  <TableCell className="py-3 text-center">
+                    <span className="text-sm font-mono">{source.fields}</span>
+                  </TableCell>
+                  <TableCell className="py-3 text-center">
+                    <Badge
+                      variant="secondary"
+                      className={`text-[11px] border-0 ${
+                        source.status === "Mapped"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : source.status === "Partial"
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {source.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="py-3">
+                    <CoverageBar coverage={source.coverage} />
+                  </TableCell>
+                </TableRow>
+              ))}
+              {uploadedFiles.map((file, idx) => (
+                <TableRow key={`uploaded-${idx}`} className="bg-primary/5" data-testid={`uploaded-row-${idx}`}>
+                  <TableCell className="py-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">User Upload</p>
+                      <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-0">New</Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-3">
+                    <p className="text-xs font-mono text-muted-foreground">{file}</p>
+                  </TableCell>
+                  <TableCell className="py-3 text-center">
+                    <span className="text-sm font-mono">3</span>
+                  </TableCell>
+                  <TableCell className="py-3 text-center">
+                    <span className="text-sm font-mono">47</span>
+                  </TableCell>
+                  <TableCell className="py-3 text-center">
+                    <Badge variant="secondary" className="text-[11px] border-0 bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                      Profiling
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="py-3">
+                    <CoverageBar coverage={45} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -1629,98 +1522,68 @@ function DataDictionaryTab() {
         </CardContent>
       </Card>
 
-      <FieldLinkageMap
-        linkageTypeFilter={linkageTypeFilter}
-        setLinkageTypeFilter={setLinkageTypeFilter}
-        expandedLinkage={expandedLinkage}
-        setExpandedLinkage={setExpandedLinkage}
-      />
-
-      <Card data-testid="card-quality-issues">
-        <CardHeader className="pb-2">
+      <Card data-testid="card-data-mappings">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <CardTitle className="text-sm">Data Quality Issues</CardTitle>
-              <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-400/30 text-[10px]">
-                {unmappedFields.length} fields require attention
-              </Badge>
+              <Link2 className="w-4 h-4 text-primary" />
+              <CardTitle className="text-sm">Data Mappings & Interlinkages</CardTitle>
+              <Badge variant="outline" className="text-xs font-mono">{DATA_MAPPINGS.length} mappings</Badge>
             </div>
             <div className="flex items-center gap-1.5">
-              <Badge variant="destructive" className="text-[10px]">{highIssues} High</Badge>
-              <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-0 text-[10px]">{mediumIssues} Medium</Badge>
-              <Badge variant="secondary" className="text-[10px]">{lowIssues} Low</Badge>
+              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 text-[10px]">{activeMappings} Active</Badge>
+              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0 text-[10px]">{reviewMappings} Review</Badge>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Fields that could not be auto-mapped to regulatory schedules or have data quality concerns. Each issue includes a suggested resolution for the data preparation team.
+            Maps source fields to regulatory report line items with transformation rules. The system analyzes source files, creates a data dictionary, and auto-generates mappings to report schedules.
           </p>
-          <div className="flex items-center gap-1 mt-2 flex-wrap">
-            <button
-              onClick={() => setIssueFilter("all")}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer border ${
-                issueFilter === "all"
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "text-muted-foreground hover:text-foreground border-border/50 bg-muted/30"
-              }`}
-              data-testid="button-filter-all"
-            >
-              All ({unmappedFields.length})
-            </button>
-            {issueTypes.map((type) => {
-              const info = ISSUE_LABELS[type];
-              const count = unmappedFields.filter(f => f.issue === type).length;
-              return (
-                <button
-                  key={type}
-                  onClick={() => setIssueFilter(type)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer border ${
-                    issueFilter === type
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "text-muted-foreground hover:text-foreground border-border/50 bg-muted/30"
-                  }`}
-                  data-testid={`button-filter-${type}`}
-                >
-                  {info.label} ({count})
-                </button>
-              );
-            })}
-          </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[340px]">
-            <div className="space-y-2">
-              {filteredIssues.map((field, idx) => {
-                const info = ISSUE_LABELS[field.issue];
-                return (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-lg border ${field.severity === "high" ? "border-red-300/50 dark:border-red-800/40" : "border-border/60"}`}
-                    data-testid={`quality-issue-${idx}`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-xs font-semibold text-foreground">{field.fieldName}</span>
-                        <Badge variant="outline" className="font-mono text-[10px]">{field.expectedType}</Badge>
-                        <Badge variant="secondary" className={`text-[10px] border ${info.color}`}>{info.label}</Badge>
-                        <SeverityBadge severity={field.severity} />
-                      </div>
-                      <Badge variant="outline" className="text-[10px] shrink-0">
-                        {field.affectedRecords > 0 ? `${field.affectedRecords} records` : "No data"}
+          <ScrollArea className="h-[460px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs w-[240px]">Source Field</TableHead>
+                  <TableHead className="text-xs w-[16px]"></TableHead>
+                  <TableHead className="text-xs w-[220px]">Report Line Item</TableHead>
+                  <TableHead className="text-xs">Transformation</TableHead>
+                  <TableHead className="text-xs w-[80px] text-center">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {DATA_MAPPINGS.map((mapping, idx) => (
+                  <TableRow key={idx} data-testid={`mapping-row-${idx}`}>
+                    <TableCell className="py-3">
+                      <p className="text-xs font-mono text-foreground">{mapping.sourceField}</p>
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <p className="text-xs font-medium text-foreground">{mapping.reportLineItem}</p>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <p className="text-xs font-mono text-muted-foreground">{mapping.transformation}</p>
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <Badge
+                        variant="secondary"
+                        className={`text-[11px] border-0 ${
+                          mapping.status === "Active"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : mapping.status === "Review"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {mapping.status}
                       </Badge>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mb-1">
-                      <span className="font-medium text-foreground/80">Source:</span> {field.source} · {field.table}
-                    </p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{field.issueDescription}</p>
-                    <div className="mt-2 flex items-start gap-2 p-2 rounded-md bg-muted/40 border border-border/40">
-                      <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" />
-                      <p className="text-[11px] text-foreground/80 leading-relaxed">{field.suggestedResolution}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </ScrollArea>
         </CardContent>
       </Card>
