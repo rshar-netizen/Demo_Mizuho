@@ -452,7 +452,18 @@ function ConnectionPanel({
 
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [selectedSystem, setSelectedSystem] = useState("");
-
+  const [customForm, setCustomForm] = useState({
+    name: "",
+    url: "",
+    identifier: "",
+    idType: "RSSD",
+    description: "",
+    authType: "none" as "none" | "api-key" | "oauth" | "basic",
+    apiKey: "",
+    username: "",
+    password: "",
+    clientId: "",
+  });
   const getSourceStatus = (systemId: string) => {
     const mapping: Record<string, string> = {
       fdic: "FDIC",
@@ -469,8 +480,34 @@ function ConnectionPanel({
   };
 
   const handleAddSystem = () => {
-    if (!selectedSystem) return;
+    if (selectedSystem === "custom") {
+      if (!customForm.name || !customForm.url) return;
+      const id = `custom-${Date.now()}`;
+      setConnections((prev) => [
+        ...prev,
+        {
+          systemId: id,
+          url: customForm.url,
+          identifier: customForm.identifier,
+          idType: customForm.idType,
+          name: customForm.name,
+          description: customForm.description || "Custom data source",
+          color: "slate",
+          icon: Globe,
+          isBuiltIn: false,
+        },
+      ]);
+      setCustomForm({
+        name: "", url: "", identifier: "", idType: "RSSD",
+        description: "", authType: "none", apiKey: "", username: "",
+        password: "", clientId: "",
+      });
+      setSelectedSystem("");
+      setShowAddPanel(false);
+      return;
+    }
 
+    if (!selectedSystem) return;
     const sys = ADDITIONAL_SYSTEMS.find((s) => s.id === selectedSystem);
     if (!sys || connections.some((c) => c.systemId === sys.id)) return;
 
@@ -622,19 +659,203 @@ function ConnectionPanel({
               })}
             </div>
 
-            {availableToAdd.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-4">All available source systems have been added.</p>
+            <Separator />
+
+            <div>
+              <button
+                onClick={() => setSelectedSystem(selectedSystem === "custom" ? "" : "custom")}
+                className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
+                  selectedSystem === "custom"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40 hover:bg-muted/50"
+                }`}
+                data-testid="option-source-custom"
+              >
+                <div className="w-8 h-8 rounded-md border flex items-center justify-center shrink-0 bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400">
+                  <Globe className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium">Custom Connection</p>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">Connect to any data source by providing URL, credentials, and identifier details</p>
+                  <Badge variant="outline" className="text-[9px] mt-1 font-mono">Custom</Badge>
+                </div>
+              </button>
+            </div>
+
+            {selectedSystem === "custom" && (
+              <div className="rounded-lg border bg-muted/20 p-4 space-y-3" data-testid="form-custom-source">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Connection Details</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Source Name *</label>
+                    <Input
+                      value={customForm.name}
+                      onChange={(e) => setCustomForm((f) => ({ ...f, name: e.target.value }))}
+                      className="h-8 text-xs"
+                      placeholder="e.g., Bloomberg Terminal API"
+                      data-testid="input-custom-name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Description</label>
+                    <Input
+                      value={customForm.description}
+                      onChange={(e) => setCustomForm((f) => ({ ...f, description: e.target.value }))}
+                      className="h-8 text-xs"
+                      placeholder="e.g., Real-time market data feed"
+                      data-testid="input-custom-description"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">API Endpoint URL *</label>
+                  <div className="flex items-center gap-1.5">
+                    <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <Input
+                      value={customForm.url}
+                      onChange={(e) => setCustomForm((f) => ({ ...f, url: e.target.value }))}
+                      className="h-8 text-xs font-mono"
+                      placeholder="https://api.example.com/v2/data"
+                      data-testid="input-custom-url"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Identifier Type</label>
+                    <Select
+                      value={customForm.idType}
+                      onValueChange={(val) => setCustomForm((f) => ({ ...f, idType: val }))}
+                    >
+                      <SelectTrigger className="h-8 text-xs" data-testid="select-custom-idtype">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="RSSD">RSSD ID</SelectItem>
+                        <SelectItem value="CERT">CERT Number</SelectItem>
+                        <SelectItem value="LEI">LEI Code</SelectItem>
+                        <SelectItem value="CIK">CIK Number</SelectItem>
+                        <SelectItem value="CRD">CRD Number</SelectItem>
+                        <SelectItem value="EIN">EIN / Tax ID</SelectItem>
+                        <SelectItem value="CUSIP">CUSIP</SelectItem>
+                        <SelectItem value="Custom">Custom ID</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{customForm.idType} Value</label>
+                    <Input
+                      value={customForm.identifier}
+                      onChange={(e) => setCustomForm((f) => ({ ...f, identifier: e.target.value }))}
+                      className="h-8 text-xs font-mono"
+                      placeholder={`Enter ${customForm.idType} identifier`}
+                      data-testid="input-custom-identifier"
+                    />
+                  </div>
+                </div>
+
+                <Separator />
+
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Authentication</p>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Auth Method</label>
+                  <Select
+                    value={customForm.authType}
+                    onValueChange={(val: "none" | "api-key" | "oauth" | "basic") => setCustomForm((f) => ({ ...f, authType: val }))}
+                  >
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-custom-auth">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None (Public API)</SelectItem>
+                      <SelectItem value="api-key">API Key / Token</SelectItem>
+                      <SelectItem value="basic">Basic Auth (Username / Password)</SelectItem>
+                      <SelectItem value="oauth">OAuth 2.0 Client Credentials</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {customForm.authType === "api-key" && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">API Key / Bearer Token</label>
+                    <Input
+                      type="password"
+                      value={customForm.apiKey}
+                      onChange={(e) => setCustomForm((f) => ({ ...f, apiKey: e.target.value }))}
+                      className="h-8 text-xs font-mono"
+                      placeholder="sk-xxxx... or Bearer token"
+                      data-testid="input-custom-apikey"
+                    />
+                  </div>
+                )}
+
+                {customForm.authType === "basic" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Username</label>
+                      <Input
+                        value={customForm.username}
+                        onChange={(e) => setCustomForm((f) => ({ ...f, username: e.target.value }))}
+                        className="h-8 text-xs"
+                        placeholder="api_user"
+                        data-testid="input-custom-username"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Password</label>
+                      <Input
+                        type="password"
+                        value={customForm.password}
+                        onChange={(e) => setCustomForm((f) => ({ ...f, password: e.target.value }))}
+                        className="h-8 text-xs"
+                        placeholder="********"
+                        data-testid="input-custom-password"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {customForm.authType === "oauth" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Client ID</label>
+                      <Input
+                        value={customForm.clientId}
+                        onChange={(e) => setCustomForm((f) => ({ ...f, clientId: e.target.value }))}
+                        className="h-8 text-xs font-mono"
+                        placeholder="client_id_xxx"
+                        data-testid="input-custom-clientid"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Client Secret</label>
+                      <Input
+                        type="password"
+                        value={customForm.apiKey}
+                        onChange={(e) => setCustomForm((f) => ({ ...f, apiKey: e.target.value }))}
+                        className="h-8 text-xs font-mono"
+                        placeholder="client_secret_xxx"
+                        data-testid="input-custom-clientsecret"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             <div className="flex justify-end">
               <Button
                 size="sm"
                 onClick={handleAddSystem}
-                disabled={!selectedSystem}
+                disabled={selectedSystem === "custom" ? (!customForm.name || !customForm.url) : !selectedSystem}
                 data-testid="button-confirm-add"
               >
                 <Plus className="w-3.5 h-3.5 mr-1.5" />
-                Add Source
+                {selectedSystem === "custom" ? "Add Custom Source" : "Add Source"}
               </Button>
             </div>
           </div>
