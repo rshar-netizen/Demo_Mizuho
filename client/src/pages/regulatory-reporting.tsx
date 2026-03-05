@@ -4861,6 +4861,7 @@ function VarianceSummaryCard({ item, idx }: { item: VarianceSummaryItem; idx: nu
 }
 
 function ReviewApprovalTab() {
+  const { overrides, setOverrides } = useDraftOverrides();
   const { data, isLoading } = useQuery<{ data: PeerDataEntry[] }>({
     queryKey: ["/api/data-sources/peer-data"],
     staleTime: 5 * 60 * 1000,
@@ -4873,24 +4874,47 @@ function ReviewApprovalTab() {
     : [];
   const isLive = sorted.length >= 2;
   const current = sorted[0];
-  const prior = sorted[1];
 
-  const currentLabel = isLive ? rawDateToLabel(current.rawDate) : "Q4 2024";
-  const priorLabel = isLive ? rawDateToLabel(prior.rawDate) : "Q3 2024";
+  const draftPeriod = "Q1 2026";
+  const draftLines = buildDraftReport([], overrides);
 
-  const varianceItems = isLive
-    ? buildVarianceSummaries(current, prior, currentLabel, priorLabel)
-    : buildVarianceSummaries(
-        { period: "Q4 2024", rawDate: "20241231", totalAssets: 8367264, totalDeposits: 6970697, totalLoans: 2511603, netIncome: 114122, roe: 9.55, roa: 1.65, nim: 2.81, tier1Ratio: 14.21, efficiencyRatio: 59.27, npaRatio: 0, loanToDeposit: 36.03 },
-        { period: "Q3 2024", rawDate: "20240930", totalAssets: 6596784, totalDeposits: 5232345, totalLoans: 2631356, netIncome: 88911, roe: 10.04, roa: 1.82, nim: 3.06, tier1Ratio: 18.75, efficiencyRatio: 62.63, npaRatio: 0, loanToDeposit: 50.29 },
-        "Q4 2024", "Q3 2024"
-      );
+  const draftRecord: HistoricalRecord = {
+    period: draftPeriod, rawDate: "20260331",
+    totalAssets: overrides["RCFD2170"] ?? INGESTED_Q1_2026["RCFD2170"]?.q1 ?? 5495000,
+    totalDeposits: overrides["RCON2200"] ?? INGESTED_Q1_2026["RCON2200"]?.q1 ?? 3180000,
+    totalLoans: overrides["RCFD2122"] ?? INGESTED_Q1_2026["RCFD2122"]?.q1 ?? 2910000,
+    netIncome: overrides["RIAD4340"] ?? INGESTED_Q1_2026["RIAD4340"]?.q1 ?? 28500,
+    roe: overrides["UBPR-ROE"] ?? 3.46,
+    roa: overrides["UBPR-ROA"] ?? 0.52,
+    nim: overrides["UBPR-NIM"] ?? 2.33,
+    tier1Ratio: overrides["RCFD7206"] ?? INGESTED_Q1_2026["RCFD7206"]?.q1 ?? 19.74,
+    efficiencyRatio: overrides["UBPR-EFF"] ?? 67.83,
+    npaRatio: overrides["UBPR-NPA"] ?? 0.56,
+    securities: overrides["RCFD8641"] ?? INGESTED_Q1_2026["RCFD8641"]?.q1 ?? 1285000,
+    loanLossReserve: overrides["RCFD2107"] ?? INGESTED_Q1_2026["RCFD2107"]?.q1 ?? 65000,
+    loanToDeposit: ((overrides["RCFD2122"] ?? 2910000) / (overrides["RCON2200"] ?? 3180000)) * 100,
+    totalEquity: overrides["RCFD3210"] ?? INGESTED_Q1_2026["RCFD3210"]?.q1 ?? 824000,
+  };
+
+  const priorRecord = isLive ? current : {
+    period: "Q4 2025", rawDate: "20251231", totalAssets: 5612000, totalDeposits: 3250000,
+    totalLoans: 2980000, netIncome: 31200, roe: 3.80, roa: 0.56, nim: 2.38,
+    tier1Ratio: 19.50, efficiencyRatio: 66.50, npaRatio: 0.47, securities: 1310000,
+    loanLossReserve: 63000, loanToDeposit: 91.69, totalEquity: 810000,
+  };
+
+  const currentLabel = draftPeriod;
+  const priorLabel = isLive ? rawDateToLabel(current.rawDate) : "Q4 2025";
+
+  const varianceItems = buildVarianceSummaries(draftRecord, priorRecord, currentLabel, priorLabel);
 
   const [memoContent, setMemoContent] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [memoStatus, setMemoStatus] = useState<"draft" | "sent" | "approved">("draft");
   const [isGenerating, setIsGenerating] = useState(false);
   const [memoGenerated, setMemoGenerated] = useState(false);
+  const [draftFinalized, setDraftFinalized] = useState(false);
+  const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
 
   const handleGenerate = () => {
     setIsGenerating(true);
@@ -4907,9 +4931,22 @@ function ReviewApprovalTab() {
     setIsEditing(false);
   };
 
+  const handleFinalizeDraft = () => {
+    setDraftFinalized(true);
+    setShowFinalizeConfirm(false);
+  };
+
+  const handleUnfinalize = () => {
+    setDraftFinalized(false);
+    setMemoGenerated(false);
+    setMemoContent("");
+    setMemoStatus("draft");
+  };
+
   const highCount = varianceItems.filter(i => i.priority === "high").length;
   const medCount = varianceItems.filter(i => i.priority === "medium").length;
   const lowCount = varianceItems.filter(i => i.priority === "low").length;
+  const overrideCount = Object.keys(overrides).length;
 
   return (
     <div className="space-y-4">
@@ -4918,7 +4955,7 @@ function ReviewApprovalTab() {
           <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-destructive">Step 5 of 6</p>
           <h2 className="text-xl font-serif font-semibold tracking-tight mt-1">Review & Approval</h2>
           <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-            {currentLabel} filing variance analysis for management review. Finalize the memorandum and submit for CFO approval.
+            Review the {draftPeriod} draft report, validate variance summaries, make final adjustments, and submit the finalized filing for CFO approval.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -4930,6 +4967,81 @@ function ReviewApprovalTab() {
           <Badge variant="outline" className="text-[10px] font-mono">{currentLabel} vs {priorLabel}</Badge>
         </div>
       </div>
+
+      <DraftReportCard draftLines={draftLines} overrides={overrides} setOverrides={setOverrides} draftPeriod={draftPeriod} testIdPrefix="approval" />
+
+      {!draftFinalized && (
+        <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Draft not yet finalized</p>
+              <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">
+                Review the draft report above. Make any necessary changes directly in the draft fields.
+                {overrideCount > 0 && ` ${overrideCount} manual override${overrideCount !== 1 ? "s" : ""} applied.`}
+                {" "}Once validated, finalize the draft to enable memorandum generation.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            className="h-8 text-xs shrink-0 ml-4"
+            onClick={() => setShowFinalizeConfirm(true)}
+            data-testid="button-finalize-draft"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+            Finalize Draft
+          </Button>
+        </div>
+      )}
+
+      {draftFinalized && memoStatus !== "approved" && (
+        <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Draft finalized</p>
+              <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
+                The {draftPeriod} report draft has been locked for filing. Generate the CFO memorandum below to proceed with approval.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground shrink-0 ml-4"
+            onClick={handleUnfinalize}
+            data-testid="button-unfinalize-draft"
+          >
+            <Pencil className="w-3 h-3 mr-1" />
+            Reopen Draft
+          </Button>
+        </div>
+      )}
+
+      <Dialog open={showFinalizeConfirm} onOpenChange={setShowFinalizeConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Finalize {draftPeriod} Draft Report?</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-2">
+              This will lock the current draft values for the {draftPeriod} regulatory filing.
+              The variance summaries below will be used to generate the CFO review memorandum.
+              {overrideCount > 0 && (
+                <span className="block mt-2 font-medium text-foreground">
+                  {overrideCount} manual override{overrideCount !== 1 ? "s" : ""} will be included in the finalized report.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setShowFinalizeConfirm(false)}>Cancel</Button>
+            <Button size="sm" onClick={handleFinalizeDraft} data-testid="button-confirm-finalize">
+              <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+              Confirm & Finalize
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-4 gap-3">
         <Card>
@@ -4952,8 +5064,8 @@ function ReviewApprovalTab() {
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className={`text-2xl font-mono font-normal ${memoStatus === "approved" ? "text-emerald-500" : memoStatus === "sent" ? "text-amber-500" : "text-muted-foreground"}`}>
-              {memoStatus === "approved" ? "Approved" : memoStatus === "sent" ? "Pending" : "Draft"}
+            <p className={`text-2xl font-mono font-normal ${memoStatus === "approved" ? "text-emerald-500" : memoStatus === "sent" ? "text-amber-500" : draftFinalized ? "text-blue-500" : "text-muted-foreground"}`}>
+              {memoStatus === "approved" ? "Approved" : memoStatus === "sent" ? "Pending" : draftFinalized ? "Finalized" : "Draft"}
             </p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Filing Status</p>
           </CardContent>
@@ -4978,13 +5090,18 @@ function ReviewApprovalTab() {
 
       <Separator />
 
-      <Card data-testid="card-memo">
+      <Card data-testid="card-memo" className={!draftFinalized ? "opacity-60 pointer-events-none" : ""}>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" />
               <CardTitle className="text-sm">CFO Review Memorandum</CardTitle>
-              {memoStatus === "draft" && (
+              {!draftFinalized && (
+                <Badge variant="outline" className="text-[10px]">
+                  <ShieldCheck className="w-2.5 h-2.5 mr-1" />Finalize draft first
+                </Badge>
+              )}
+              {draftFinalized && memoStatus === "draft" && (
                 <Badge variant="outline" className="text-[10px]">
                   <Pencil className="w-2.5 h-2.5 mr-1" />{memoGenerated ? "Draft Ready" : "Not Generated"}
                 </Badge>
@@ -5006,7 +5123,7 @@ function ReviewApprovalTab() {
                 size="sm"
                 className="h-7 text-xs"
                 onClick={handleGenerate}
-                disabled={isGenerating}
+                disabled={isGenerating || !draftFinalized}
                 data-testid="button-generate-memo"
               >
                 <Sparkles className="w-3 h-3 mr-1" />
@@ -5055,14 +5172,20 @@ function ReviewApprovalTab() {
             <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
               <FileText className="w-10 h-10 text-muted-foreground/30" />
               <div>
-                <p className="text-sm font-medium text-muted-foreground">No memorandum generated yet</p>
-                <p className="text-xs text-muted-foreground/70 mt-1">Click "Generate from Variances" to create a draft memorandum based on the variance analysis above.</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {draftFinalized ? "No memorandum generated yet" : "Finalize the draft report to enable memorandum generation"}
+                </p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  {draftFinalized
+                    ? "Click \"Generate from Variances\" to create a draft memorandum based on the finalized report and variance analysis above."
+                    : "Review and finalize the draft report above. Once finalized, you can generate the CFO review memorandum from the validated variance summaries."}
+                </p>
               </div>
             </div>
           ) : isGenerating ? (
             <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
               <Sparkles className="w-8 h-8 text-primary animate-pulse" />
-              <p className="text-sm text-muted-foreground">Generating memorandum from variance analysis...</p>
+              <p className="text-sm text-muted-foreground">Generating memorandum from finalized variance analysis...</p>
             </div>
           ) : isEditing ? (
             <textarea
@@ -5106,7 +5229,7 @@ function ReviewApprovalTab() {
               <div>
                 <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Filing Approved</p>
                 <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">
-                  The {currentLabel} regulatory filing memorandum has been approved by the CFO. Submissions to FDIC, FFIEC, and Federal Reserve portals may proceed.
+                  The {draftPeriod} regulatory filing has been approved by the CFO. The finalized report with all validated variance summaries is ready for submission to FDIC, FFIEC, and Federal Reserve portals.
                 </p>
               </div>
             </div>
