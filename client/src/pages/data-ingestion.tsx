@@ -3,7 +3,15 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -26,6 +34,9 @@ import {
   Building2,
   Loader2,
   Activity,
+  Link2,
+  Plug,
+  Wifi,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -139,6 +150,231 @@ function formatNumber(val: number | null | undefined): string {
 function formatPct(val: number | null | undefined): string {
   if (val === null || val === undefined) return "N/A";
   return `${val.toFixed(2)}%`;
+}
+
+const FEDERAL_SYSTEMS = [
+  {
+    id: "fdic",
+    name: "FDIC BankFind Suite",
+    defaultUrl: "https://api.fdic.gov/api",
+    description: "Call Reports (FFIEC 031/041)",
+    idType: "CERT" as const,
+    defaultId: "21843",
+    icon: Database,
+    color: "blue",
+  },
+  {
+    id: "ffiec",
+    name: "FFIEC Central Data Repository",
+    defaultUrl: "https://cdr.ffiec.gov/api",
+    description: "UBPR (Uniform Bank Performance Report)",
+    idType: "RSSD" as const,
+    defaultId: "229913",
+    icon: FileText,
+    color: "purple",
+  },
+  {
+    id: "fed",
+    name: "Federal Reserve NIC",
+    defaultUrl: "https://www.ffiec.gov/nicpubweb/nicweb",
+    description: "FR Y-9C (BHC Financial Statements)",
+    idType: "RSSD" as const,
+    defaultId: "229913",
+    icon: Building2,
+    color: "emerald",
+  },
+];
+
+function ConnectionPanel({
+  sources,
+  isLoading,
+  onRefresh,
+  isRefreshing,
+}: {
+  sources: DataSourceStatus[];
+  isLoading: boolean;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
+  const [connections, setConnections] = useState(
+    FEDERAL_SYSTEMS.map((sys) => ({
+      systemId: sys.id,
+      url: sys.defaultUrl,
+      identifier: sys.defaultId,
+      idType: sys.idType,
+    }))
+  );
+
+  const getSourceStatus = (systemId: string) => {
+    const mapping: Record<string, string> = {
+      fdic: "FDIC",
+      ffiec: "FFIEC",
+      fed: "Federal Reserve",
+    };
+    return sources.find((s) => s.source.includes(mapping[systemId] || ""));
+  };
+
+  const handleFieldChange = (systemId: string, field: "url" | "identifier", value: string) => {
+    setConnections((prev) =>
+      prev.map((c) => (c.systemId === systemId ? { ...c, [field]: value } : c))
+    );
+  };
+
+  const allConnected = sources.length > 0 && sources.every((s) => s.status === "connected");
+
+  return (
+    <Card data-testid="card-connection-panel">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Plug className="w-4 h-4 text-primary" />
+            <CardTitle className="text-sm">Federal System Connections</CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            {allConnected && (
+              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
+                <Wifi className="w-3 h-3 mr-1" />
+                All Connected
+              </Badge>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              data-testid="button-refresh-connections"
+            >
+              {isRefreshing ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Reconnect All
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {FEDERAL_SYSTEMS.map((sys) => {
+          const conn = connections.find((c) => c.systemId === sys.id)!;
+          const status = getSourceStatus(sys.id);
+          const isConnected = status?.status === "connected";
+          const Icon = sys.icon;
+          const colorClasses: Record<string, string> = {
+            blue: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400",
+            purple: "bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400",
+            emerald: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400",
+          };
+
+          return (
+            <div
+              key={sys.id}
+              className={`rounded-lg border p-3 transition-colors ${
+                isConnected ? "bg-card" : "bg-muted/30"
+              }`}
+              data-testid={`connection-row-${sys.id}`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${colorClasses[sys.color]}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium">{sys.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{sys.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isLoading ? (
+                        <Badge variant="secondary" className="bg-muted text-muted-foreground border-0">
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          Connecting...
+                        </Badge>
+                      ) : isConnected ? (
+                        <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Connected
+                        </Badge>
+                      ) : status ? (
+                        <Badge variant="destructive" className="border-0">
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Error
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-muted-foreground border-0">
+                          Not Connected
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">API Endpoint</label>
+                      <div className="flex items-center gap-1.5">
+                        <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <Input
+                          value={conn.url}
+                          onChange={(e) => handleFieldChange(sys.id, "url", e.target.value)}
+                          className="h-8 text-xs font-mono"
+                          placeholder="https://api.example.gov"
+                          data-testid={`input-url-${sys.id}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{conn.idType} ID</label>
+                      <Input
+                        value={conn.identifier}
+                        onChange={(e) => handleFieldChange(sys.id, "identifier", e.target.value)}
+                        className="h-8 text-xs font-mono w-[100px]"
+                        placeholder={conn.idType === "CERT" ? "CERT #" : "RSSD #"}
+                        data-testid={`input-id-${sys.id}`}
+                      />
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant={isConnected ? "outline" : "default"}
+                      className="h-8"
+                      onClick={onRefresh}
+                      disabled={isRefreshing}
+                      data-testid={`button-connect-${sys.id}`}
+                    >
+                      {isRefreshing ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : isConnected ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                          Reconnect
+                        </>
+                      ) : (
+                        <>
+                          <Plug className="w-3.5 h-3.5 mr-1" />
+                          Connect
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {isConnected && status && (
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
+                      <span className="font-medium text-foreground">{status.entity}</span>
+                      <span className="font-mono">{status.identifier}</span>
+                      <span>{status.responseTimeMs}ms</span>
+                      <span className="truncate">{status.message}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
 }
 
 function DataSourceCards({ sources, isLoading }: { sources: DataSourceStatus[]; isLoading: boolean }) {
@@ -440,37 +676,27 @@ export function DataIngestionContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Data Sources</p>
-            <Badge variant="outline" className="text-[10px] font-mono">
-              {connectedCount}/{sources.length} Active
-            </Badge>
-          </div>
-          <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-ingestion-title">
-            Federal Data Ingestion
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Real-time API linkages to FDIC, FFIEC CDR, and Federal Reserve portals for Mizuho Americas LLC
-          </p>
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Data Sources</p>
+          <Badge variant="outline" className="text-[10px] font-mono">
+            {connectedCount}/{sources.length} Active
+          </Badge>
         </div>
-
-        <Button
-          onClick={() => refreshMutation.mutate()}
-          disabled={refreshMutation.isPending}
-          data-testid="button-refresh-all"
-        >
-          {refreshMutation.isPending ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4 mr-2" />
-          )}
-          Refresh All Sources
-        </Button>
+        <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-ingestion-title">
+          Federal Data Ingestion
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Connect to federal regulatory portals to ingest Call Report, UBPR, and FR Y-9C data for Mizuho Americas LLC
+        </p>
       </div>
 
-      <DataSourceCards sources={sources} isLoading={statusQuery.isLoading} />
+      <ConnectionPanel
+        sources={sources}
+        isLoading={statusQuery.isLoading}
+        onRefresh={() => refreshMutation.mutate()}
+        isRefreshing={refreshMutation.isPending}
+      />
 
       {statusQuery.data?.cache && (
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
