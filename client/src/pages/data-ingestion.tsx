@@ -37,6 +37,12 @@ import {
   Link2,
   Plug,
   Wifi,
+  Plus,
+  Trash2,
+  Globe,
+  Landmark,
+  ShieldCheck,
+  Scale,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -185,6 +191,240 @@ const FEDERAL_SYSTEMS = [
   },
 ];
 
+interface SourceSystemConfig {
+  id: string;
+  name: string;
+  url: string;
+  identifier: string;
+  idType: string;
+  description: string;
+  category: string;
+  isBuiltIn: boolean;
+  status: "connected" | "pending" | "not_connected";
+}
+
+const ADDITIONAL_SYSTEMS = [
+  {
+    id: "sec-edgar",
+    name: "SEC EDGAR",
+    defaultUrl: "https://efts.sec.gov/LATEST",
+    description: "Securities filings, 10-K/10-Q, proxy statements",
+    idType: "CIK",
+    defaultId: "",
+    category: "Securities & Exchange",
+    icon: Scale,
+    color: "amber",
+  },
+  {
+    id: "occ",
+    name: "OCC BankNet",
+    defaultUrl: "https://apps.occ.gov/BankData",
+    description: "OCC supervisory data, enforcement actions, CRA ratings",
+    idType: "Charter #",
+    defaultId: "",
+    category: "Prudential Regulation",
+    icon: Landmark,
+    color: "slate",
+  },
+  {
+    id: "frs-chicago",
+    name: "FRB Chicago (BHC DB)",
+    defaultUrl: "https://www.chicagofed.org/api/bhc",
+    description: "BHC performance reports, Y-9C/Y-9LP time series",
+    idType: "RSSD",
+    defaultId: "",
+    category: "BHC Data",
+    icon: Building2,
+    color: "teal",
+  },
+  {
+    id: "treasury-ofac",
+    name: "Treasury OFAC SDN",
+    defaultUrl: "https://sanctionssearch.ofac.treas.gov/api",
+    description: "Sanctions screening, SDN list, entity verification",
+    idType: "Entity ID",
+    defaultId: "",
+    category: "Compliance & AML",
+    icon: ShieldCheck,
+    color: "rose",
+  },
+  {
+    id: "cfpb",
+    name: "CFPB HMDA",
+    defaultUrl: "https://ffiec.cfpb.gov/v2/data-browser-api",
+    description: "Home Mortgage Disclosure Act data, lending analytics",
+    idType: "LEI",
+    defaultId: "",
+    category: "Consumer Compliance",
+    icon: Globe,
+    color: "cyan",
+  },
+  {
+    id: "snl-sp",
+    name: "S&P Capital IQ Pro",
+    defaultUrl: "https://api-ciq.marketintelligence.spglobal.com",
+    description: "Market data, peer analytics, credit ratings, financials",
+    idType: "Entity ID",
+    defaultId: "",
+    category: "Market Intelligence",
+    icon: BarChart3,
+    color: "indigo",
+  },
+];
+
+function ConnectionRow({
+  id,
+  name,
+  description,
+  url,
+  identifier,
+  idType,
+  icon: Icon,
+  colorClass,
+  isConnected,
+  isLoading,
+  isRefreshing,
+  statusDetail,
+  isRemovable,
+  onUrlChange,
+  onIdChange,
+  onConnect,
+  onRemove,
+}: {
+  id: string;
+  name: string;
+  description: string;
+  url: string;
+  identifier: string;
+  idType: string;
+  icon: typeof Database;
+  colorClass: string;
+  isConnected: boolean;
+  isLoading: boolean;
+  isRefreshing: boolean;
+  statusDetail?: DataSourceStatus;
+  isRemovable: boolean;
+  onUrlChange: (val: string) => void;
+  onIdChange: (val: string) => void;
+  onConnect: () => void;
+  onRemove?: () => void;
+}) {
+  return (
+    <div
+      className={`rounded-lg border p-3 transition-colors ${
+        isConnected ? "bg-card" : "bg-muted/30"
+      }`}
+      data-testid={`connection-row-${id}`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${colorClass}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium">{name}</p>
+              <p className="text-[10px] text-muted-foreground">{description}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {isLoading ? (
+                <Badge variant="secondary" className="bg-muted text-muted-foreground border-0">
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  Connecting...
+                </Badge>
+              ) : isConnected ? (
+                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  Connected
+                </Badge>
+              ) : identifier ? (
+                <Badge variant="secondary" className="text-muted-foreground border-0">
+                  Ready
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-muted-foreground border-0">
+                  Not Configured
+                </Badge>
+              )}
+              {isRemovable && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                  onClick={onRemove}
+                  data-testid={`button-remove-${id}`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">API Endpoint</label>
+              <div className="flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <Input
+                  value={url}
+                  onChange={(e) => onUrlChange(e.target.value)}
+                  className="h-8 text-xs font-mono"
+                  placeholder="https://api.example.gov"
+                  data-testid={`input-url-${id}`}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{idType} ID</label>
+              <Input
+                value={identifier}
+                onChange={(e) => onIdChange(e.target.value)}
+                className="h-8 text-xs font-mono w-[100px]"
+                placeholder={`${idType} #`}
+                data-testid={`input-id-${id}`}
+              />
+            </div>
+
+            <Button
+              size="sm"
+              variant={isConnected ? "outline" : "default"}
+              className="h-8"
+              onClick={onConnect}
+              disabled={isRefreshing}
+              data-testid={`button-connect-${id}`}
+            >
+              {isRefreshing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : isConnected ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                  Reconnect
+                </>
+              ) : (
+                <>
+                  <Plug className="w-3.5 h-3.5 mr-1" />
+                  Connect
+                </>
+              )}
+            </Button>
+          </div>
+
+          {isConnected && statusDetail && (
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
+              <span className="font-medium text-foreground">{statusDetail.entity}</span>
+              <span className="font-mono">{statusDetail.identifier}</span>
+              <span>{statusDetail.responseTimeMs}ms</span>
+              <span className="truncate">{statusDetail.message}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConnectionPanel({
   sources,
   isLoading,
@@ -202,8 +442,16 @@ function ConnectionPanel({
       url: sys.defaultUrl,
       identifier: sys.defaultId,
       idType: sys.idType,
+      name: sys.name,
+      description: sys.description,
+      color: sys.color,
+      icon: sys.icon,
+      isBuiltIn: true,
     }))
   );
+
+  const [showAddPanel, setShowAddPanel] = useState(false);
+  const [selectedSystem, setSelectedSystem] = useState("");
 
   const getSourceStatus = (systemId: string) => {
     const mapping: Record<string, string> = {
@@ -220,7 +468,50 @@ function ConnectionPanel({
     );
   };
 
+  const handleAddSystem = () => {
+    if (!selectedSystem) return;
+
+    const sys = ADDITIONAL_SYSTEMS.find((s) => s.id === selectedSystem);
+    if (!sys || connections.some((c) => c.systemId === sys.id)) return;
+
+    setConnections((prev) => [
+      ...prev,
+      {
+        systemId: sys.id,
+        url: sys.defaultUrl,
+        identifier: sys.defaultId,
+        idType: sys.idType,
+        name: sys.name,
+        description: sys.description,
+        color: sys.color,
+        icon: sys.icon,
+        isBuiltIn: false,
+      },
+    ]);
+    setSelectedSystem("");
+    setShowAddPanel(false);
+  };
+
+  const handleRemoveSystem = (systemId: string) => {
+    setConnections((prev) => prev.filter((c) => c.systemId !== systemId));
+  };
+
+  const colorClasses: Record<string, string> = {
+    blue: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400",
+    purple: "bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400",
+    emerald: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400",
+    amber: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400",
+    slate: "bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400",
+    teal: "bg-teal-500/10 border-teal-500/20 text-teal-600 dark:text-teal-400",
+    rose: "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400",
+    cyan: "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400",
+    indigo: "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400",
+  };
+
   const allConnected = sources.length > 0 && sources.every((s) => s.status === "connected");
+  const availableToAdd = ADDITIONAL_SYSTEMS.filter(
+    (sys) => !connections.some((c) => c.systemId === sys.id)
+  );
 
   return (
     <Card data-testid="card-connection-panel">
@@ -228,7 +519,10 @@ function ConnectionPanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Plug className="w-4 h-4 text-primary" />
-            <CardTitle className="text-sm">Federal System Connections</CardTitle>
+            <CardTitle className="text-sm">Source System Connections</CardTitle>
+            <Badge variant="outline" className="text-[10px] font-mono">
+              {connections.length} source{connections.length !== 1 ? "s" : ""}
+            </Badge>
           </div>
           <div className="flex items-center gap-2">
             {allConnected && (
@@ -255,123 +549,106 @@ function ConnectionPanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {FEDERAL_SYSTEMS.map((sys) => {
-          const conn = connections.find((c) => c.systemId === sys.id)!;
-          const status = getSourceStatus(sys.id);
+        {connections.map((conn) => {
+          const status = getSourceStatus(conn.systemId);
           const isConnected = status?.status === "connected";
-          const Icon = sys.icon;
-          const colorClasses: Record<string, string> = {
-            blue: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400",
-            purple: "bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400",
-            emerald: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400",
-          };
 
           return (
-            <div
-              key={sys.id}
-              className={`rounded-lg border p-3 transition-colors ${
-                isConnected ? "bg-card" : "bg-muted/30"
-              }`}
-              data-testid={`connection-row-${sys.id}`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${colorClasses[sys.color]}`}>
-                  <Icon className="w-4 h-4" />
-                </div>
-
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium">{sys.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{sys.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {isLoading ? (
-                        <Badge variant="secondary" className="bg-muted text-muted-foreground border-0">
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          Connecting...
-                        </Badge>
-                      ) : isConnected ? (
-                        <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Connected
-                        </Badge>
-                      ) : status ? (
-                        <Badge variant="destructive" className="border-0">
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Error
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-muted-foreground border-0">
-                          Not Connected
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">API Endpoint</label>
-                      <div className="flex items-center gap-1.5">
-                        <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <Input
-                          value={conn.url}
-                          onChange={(e) => handleFieldChange(sys.id, "url", e.target.value)}
-                          className="h-8 text-xs font-mono"
-                          placeholder="https://api.example.gov"
-                          data-testid={`input-url-${sys.id}`}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{conn.idType} ID</label>
-                      <Input
-                        value={conn.identifier}
-                        onChange={(e) => handleFieldChange(sys.id, "identifier", e.target.value)}
-                        className="h-8 text-xs font-mono w-[100px]"
-                        placeholder={conn.idType === "CERT" ? "CERT #" : "RSSD #"}
-                        data-testid={`input-id-${sys.id}`}
-                      />
-                    </div>
-
-                    <Button
-                      size="sm"
-                      variant={isConnected ? "outline" : "default"}
-                      className="h-8"
-                      onClick={onRefresh}
-                      disabled={isRefreshing}
-                      data-testid={`button-connect-${sys.id}`}
-                    >
-                      {isRefreshing ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : isConnected ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                          Reconnect
-                        </>
-                      ) : (
-                        <>
-                          <Plug className="w-3.5 h-3.5 mr-1" />
-                          Connect
-                        </>
-                      )}
-                    </Button>
-                  </div>
-
-                  {isConnected && status && (
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
-                      <span className="font-medium text-foreground">{status.entity}</span>
-                      <span className="font-mono">{status.identifier}</span>
-                      <span>{status.responseTimeMs}ms</span>
-                      <span className="truncate">{status.message}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <ConnectionRow
+              key={conn.systemId}
+              id={conn.systemId}
+              name={conn.name}
+              description={conn.description}
+              url={conn.url}
+              identifier={conn.identifier}
+              idType={conn.idType}
+              icon={conn.icon}
+              colorClass={colorClasses[conn.color] || colorClasses.slate}
+              isConnected={isConnected}
+              isLoading={isLoading}
+              isRefreshing={isRefreshing}
+              statusDetail={status}
+              isRemovable={!conn.isBuiltIn}
+              onUrlChange={(val) => handleFieldChange(conn.systemId, "url", val)}
+              onIdChange={(val) => handleFieldChange(conn.systemId, "identifier", val)}
+              onConnect={onRefresh}
+              onRemove={() => handleRemoveSystem(conn.systemId)}
+            />
           );
         })}
+
+        <Separator />
+
+        {showAddPanel ? (
+          <div className="rounded-lg border border-dashed border-primary/30 bg-primary/[0.02] p-4 space-y-3" data-testid="panel-add-source">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Add Source System</p>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => { setShowAddPanel(false); setSelectedSystem(""); }}
+                data-testid="button-cancel-add"
+              >
+                Cancel
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {availableToAdd.map((sys) => {
+                const Icon = sys.icon;
+                const isSelected = selectedSystem === sys.id;
+                return (
+                  <button
+                    key={sys.id}
+                    onClick={() => setSelectedSystem(sys.id)}
+                    className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40 hover:bg-muted/50"
+                    }`}
+                    data-testid={`option-source-${sys.id}`}
+                  >
+                    <div className={`w-8 h-8 rounded-md border flex items-center justify-center shrink-0 ${colorClasses[sys.color] || colorClasses.slate}`}>
+                      <Icon className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium">{sys.name}</p>
+                      <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">{sys.description}</p>
+                      <Badge variant="outline" className="text-[9px] mt-1 font-mono">{sys.category}</Badge>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {availableToAdd.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">All available source systems have been added.</p>
+            )}
+
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={handleAddSystem}
+                disabled={!selectedSystem}
+                data-testid="button-confirm-add"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                Add Source
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            className="w-full border-dashed"
+            onClick={() => setShowAddPanel(true)}
+            data-testid="button-add-source"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Source System
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
