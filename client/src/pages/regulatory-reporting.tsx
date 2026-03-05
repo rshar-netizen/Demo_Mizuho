@@ -2434,39 +2434,109 @@ interface DraftReportLine {
   priorValue: number | null;
   changePercent: number | null;
   source: string;
-  status: "populated" | "mapped" | "review";
+  status: "populated" | "mapped" | "unmapped";
   flagged: boolean;
   flagReason?: string;
+  isRatio?: boolean;
+  editable?: boolean;
 }
 
-function buildDraftReport(current: HistoricalRecord | null, prior: HistoricalRecord | null, anomalies: AnomalyRecord[]): DraftReportLine[] {
-  if (!current) return [];
+const INGESTED_Q1_2026: Record<string, { q1: number; q4: number; source: string }> = {
+  "RCFD2170": { q1: 5495000, q4: 5612000, source: "GL_Extract_Q1_2026.xlsx" },
+  "RCON2200": { q1: 3180000, q4: 3250000, source: "GL_Extract_Q1_2026.xlsx" },
+  "RCFD3210": { q1: 824000, q4: 810000, source: "GL_Extract_Q1_2026.xlsx" },
+  "RIAD4340": { q1: 28500, q4: 31200, source: "GL_Extract_Q1_2026.xlsx" },
+  "RIAD4074": { q1: 78200, q4: 82500, source: "GL_Extract_Q1_2026.xlsx" },
+  "RIAD4079": { q1: 46800, q4: 49100, source: "GL_Extract_Q1_2026.xlsx" },
+  "RIAD4230": { q1: 12400, q4: 11800, source: "GL_Extract_Q1_2026.xlsx" },
+  "RIAD4093": { q1: 61500, q4: 59200, source: "GL_Extract_Q1_2026.xlsx" },
+  "RIAD4230B": { q1: 4200, q4: 3800, source: "GL_Extract_Q1_2026.xlsx" },
+  "RCFDC026": { q1: -42000, q4: -38000, source: "GL_Extract_Q1_2026.xlsx" },
+  "RIAD4010": { q1: 52100, q4: 55200, source: "GL_Extract_Q1_2026.xlsx" },
+  "RIAD4020": { q1: 18400, q4: 19500, source: "GL_Extract_Q1_2026.xlsx" },
+  "RIAD4115": { q1: 31200, q4: 33500, source: "GL_Extract_Q1_2026.xlsx" },
+  "RIAD4180": { q1: 28500, q4: 27800, source: "GL_Extract_Q1_2026.xlsx" },
+  "RCON3545": { q1: 164850, q4: 172000, source: "Trading_Positions_Q1_2026.xlsx" },
+  "RCFDA126": { q1: 8500000, q4: 8200000, source: "Trading_Positions_Q1_2026.xlsx" },
+  "RCFDA127": { q1: 6200000, q4: 5900000, source: "Trading_Positions_Q1_2026.xlsx" },
+  "RIADA220": { q1: 4800, q4: 4200, source: "Trading_Positions_Q1_2026.xlsx" },
+  "RCFD2122": { q1: 2910000, q4: 2980000, source: "Loan_Portfolio_Q1_2026.xlsx" },
+  "RCFD1754": { q1: 1120000, q4: 1150000, source: "Loan_Portfolio_Q1_2026.xlsx" },
+  "RCFD1763": { q1: 485000, q4: 498000, source: "Loan_Portfolio_Q1_2026.xlsx" },
+  "RCFD1797": { q1: 320000, q4: 328000, source: "Loan_Portfolio_Q1_2026.xlsx" },
+  "RCFD2107": { q1: 65000, q4: 62000, source: "Loan_Portfolio_Q1_2026.xlsx" },
+  "RIAD4635": { q1: 8200, q4: 7500, source: "Loan_Portfolio_Q1_2026.xlsx" },
+  "RCFD1403": { q1: 28000, q4: 25000, source: "Loan_Portfolio_Q1_2026.xlsx" },
+  "RCFD1583": { q1: 18500, q4: 16000, source: "Loan_Portfolio_Q1_2026.xlsx" },
+  "RCFD8641": { q1: 1285000, q4: 1310000, source: "Treasury_Data_Q1_2026.xlsx" },
+  "RCFDB528": { q1: 520000, q4: 535000, source: "Treasury_Data_Q1_2026.xlsx" },
+  "RCFD1773": { q1: 765000, q4: 775000, source: "Treasury_Data_Q1_2026.xlsx" },
+  "RIAD3196": { q1: -1200, q4: -800, source: "Treasury_Data_Q1_2026.xlsx" },
+  "RCFDA223": { q1: 780000, q4: 768000, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "RCFD8274": { q1: 810000, q4: 798000, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "RCFDA224": { q1: 920000, q4: 905000, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "RCFDA222": { q1: 4105000, q4: 4200000, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "RCFD7206": { q1: 19.74, q4: 19.0, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "RCFD7205": { q1: 22.4, q4: 21.5, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "RCFDA223R": { q1: 19.0, q4: 18.3, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "UBPR-NIM": { q1: 2.33, q4: 2.41, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "UBPR-EFF": { q1: 67.83, q4: 62.8, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "UBPR-ROA": { q1: 0.52, q4: 0.56, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "UBPR-ROE": { q1: 3.46, q4: 3.85, source: "Risk_Metrics_Q1_2026.xlsx" },
+  "UBPR-NPA": { q1: 0.56, q4: 0.47, source: "Risk_Metrics_Q1_2026.xlsx" },
+};
+
+function buildDraftReport(anomalies: AnomalyRecord[], overrides: Record<string, number>): DraftReportLine[] {
   const flaggedMetrics = new Set(anomalies.filter(a => a.severity === "high" || a.severity === "medium").map(a => a.metric));
   const pct = (c: number, p: number) => p !== 0 ? ((c - p) / Math.abs(p)) * 100 : null;
-  const p = prior;
+  const get = (mdrm: string, field: "q1" | "q4") => {
+    if (field === "q1" && overrides[mdrm] !== undefined) return overrides[mdrm];
+    return INGESTED_Q1_2026[mdrm]?.[field] ?? null;
+  };
+  const src = (mdrm: string) => INGESTED_Q1_2026[mdrm]?.source ?? "Not mapped";
 
   const lines: DraftReportLine[] = [
-    { schedule: "RC", lineItem: "Cash and balances due", mdrm: "RCON0010", currentValue: current.totalAssets ? Math.round(current.totalAssets * 0.08) : null, priorValue: p ? Math.round(p.totalAssets * 0.09) : null, changePercent: null, source: "GL_Extract.Cash_Balances", status: "populated", flagged: false },
-    { schedule: "RC", lineItem: "Securities — HTM", mdrm: "RCON1754", currentValue: current.securities ? Math.round(current.securities * 0.4) : null, priorValue: p?.securities ? Math.round(p.securities * 0.4) : null, changePercent: null, source: "Trading_Positions.HTM_Securities", status: "populated", flagged: false },
-    { schedule: "RC", lineItem: "Securities — AFS", mdrm: "RCON1773", currentValue: current.securities ? Math.round(current.securities * 0.6) : null, priorValue: p?.securities ? Math.round(p.securities * 0.6) : null, changePercent: null, source: "GL_Extract.Investment_Securities", status: "populated", flagged: flaggedMetrics.has("Securities Portfolio Change"), flagReason: "Securities portfolio deviation from trailing average" },
-    { schedule: "RC", lineItem: "Federal funds sold", mdrm: "RCON0276", currentValue: Math.round(current.totalAssets * 0.015), priorValue: p ? Math.round(p.totalAssets * 0.012) : null, changePercent: null, source: "Treasury.FedFunds_Sold", status: "populated", flagged: false },
-    { schedule: "RC-C", lineItem: "Loans and leases, net", mdrm: "RCON2122", currentValue: current.totalLoans, priorValue: p?.totalLoans ?? null, changePercent: p ? pct(current.totalLoans, p.totalLoans) : null, source: "Loan_Portfolio.Outstanding_Balance", status: "populated", flagged: flaggedMetrics.has("Net Loans QoQ Growth"), flagReason: "Loan growth exceeds trailing average deviation threshold" },
-    { schedule: "RC", lineItem: "Trading assets", mdrm: "RCON3545", currentValue: Math.round(current.totalAssets * 0.03), priorValue: p ? Math.round(p.totalAssets * 0.025) : null, changePercent: null, source: "Trading_Positions.Net_Position", status: "mapped", flagged: false },
-    { schedule: "RC", lineItem: "Premises and fixed assets", mdrm: "RCON2145", currentValue: Math.round(current.totalAssets * 0.005), priorValue: p ? Math.round(p.totalAssets * 0.005) : null, changePercent: null, source: "GL_Extract.Fixed_Assets", status: "mapped", flagged: false },
-    { schedule: "RC", lineItem: "Other real estate owned", mdrm: "RCON2150", currentValue: 0, priorValue: 0, changePercent: null, source: "Loan_Portfolio.OREO", status: "populated", flagged: false },
-    { schedule: "RC", lineItem: "Total assets", mdrm: "RCON2170", currentValue: current.totalAssets, priorValue: p?.totalAssets ?? null, changePercent: p ? pct(current.totalAssets, p.totalAssets) : null, source: "MDRM_Taxonomy.RCON2170", status: "populated", flagged: flaggedMetrics.has("Total Assets QoQ Growth"), flagReason: "Total assets QoQ change exceeds historical norm" },
-    { schedule: "RC-E", lineItem: "Total deposits", mdrm: "RCON2200", currentValue: current.totalDeposits, priorValue: p?.totalDeposits ?? null, changePercent: p ? pct(current.totalDeposits, p.totalDeposits) : null, source: "GL_Extract.Deposit_Balances", status: "populated", flagged: false },
-    { schedule: "RC", lineItem: "Federal funds purchased", mdrm: "RCON0277", currentValue: Math.round(current.totalAssets * 0.02), priorValue: p ? Math.round(p.totalAssets * 0.018) : null, changePercent: null, source: "Treasury.FedFunds_Purchased", status: "mapped", flagged: false },
-    { schedule: "RC", lineItem: "Other borrowed money", mdrm: "RCON3190", currentValue: Math.round(current.totalAssets * 0.04), priorValue: p ? Math.round(p.totalAssets * 0.038) : null, changePercent: null, source: "Treasury.FHLB_Borrowings", status: "review", flagged: false },
-    { schedule: "RC", lineItem: "Total equity capital", mdrm: "RCON3210", currentValue: current.totalEquity ?? Math.round(current.totalAssets * 0.15), priorValue: p ? (p.totalEquity ?? Math.round(p.totalAssets * 0.14)) : null, changePercent: null, source: "GL_Extract.Equity_Detail", status: "populated", flagged: false },
-    { schedule: "RI", lineItem: "Total interest income", mdrm: "RIAD4107", currentValue: current.netIncome ? Math.round(current.netIncome * 3.2) : null, priorValue: p?.netIncome ? Math.round(p.netIncome * 3.1) : null, changePercent: null, source: "GL_Extract.Interest_Receivable", status: "populated", flagged: false },
-    { schedule: "RI", lineItem: "Total interest expense", mdrm: "RIAD4073", currentValue: current.netIncome ? Math.round(current.netIncome * 1.8) : null, priorValue: p?.netIncome ? Math.round(p.netIncome * 1.7) : null, changePercent: null, source: "GL_Extract.Interest_Payable", status: "populated", flagged: false },
-    { schedule: "RI", lineItem: "Provision for credit losses", mdrm: "RIAD4230", currentValue: current.loanLossReserve ?? Math.round(current.totalLoans * 0.003), priorValue: p?.loanLossReserve ?? (p ? Math.round(p.totalLoans * 0.003) : null), changePercent: null, source: "Loan_Portfolio.Provision_Expense", status: "populated", flagged: false },
-    { schedule: "RI", lineItem: "Net income", mdrm: "RIAD4340", currentValue: current.netIncome, priorValue: p?.netIncome ?? null, changePercent: p ? pct(current.netIncome, p.netIncome) : null, source: "GL_Extract.Net_Income", status: "populated", flagged: false },
-    { schedule: "RC-R", lineItem: "Tier 1 capital ratio", mdrm: "RBC1AAJ", currentValue: current.tier1Ratio * 100, priorValue: p ? p.tier1Ratio * 100 : null, changePercent: null, source: "Risk_Metrics.CET1_Capital", status: "populated", flagged: flaggedMetrics.has("Tier 1 Capital Ratio"), flagReason: "Capital ratio deviation from trailing average" },
-    { schedule: "RC-R", lineItem: "Efficiency ratio", mdrm: "EEFF", currentValue: current.efficiencyRatio ? current.efficiencyRatio * 100 : null, priorValue: p?.efficiencyRatio ? p.efficiencyRatio * 100 : null, changePercent: null, source: "Derived: EEFF/(INTINC+NONII)", status: "populated", flagged: flaggedMetrics.has("Efficiency Ratio"), flagReason: "Efficiency ratio outside historical operating range" },
-    { schedule: "RC-N", lineItem: "Nonaccrual loans", mdrm: "RCON1403", currentValue: 0, priorValue: 0, changePercent: null, source: "Loan_Portfolio.Nonaccrual", status: "populated", flagged: false },
-    { schedule: "RC-L", lineItem: "Derivatives notional amount", mdrm: "RCONA126", currentValue: Math.round(current.totalAssets * 0.5), priorValue: p ? Math.round(p.totalAssets * 0.45) : null, changePercent: null, source: "Trading_Positions.Derivative_Notional", status: "mapped", flagged: false },
+    { schedule: "RC", lineItem: "Total assets", mdrm: "RCFD2170", currentValue: get("RCFD2170", "q1"), priorValue: get("RCFD2170", "q4"), changePercent: null, source: src("RCFD2170"), status: "populated", flagged: flaggedMetrics.has("Total Assets QoQ Growth"), flagReason: "Total assets QoQ change exceeds historical norm" },
+    { schedule: "RC-C", lineItem: "Loans and leases, net", mdrm: "RCFD2122", currentValue: get("RCFD2122", "q1"), priorValue: get("RCFD2122", "q4"), changePercent: null, source: src("RCFD2122"), status: "populated", flagged: flaggedMetrics.has("Net Loans QoQ Growth"), flagReason: "Loan growth exceeds trailing average deviation threshold" },
+    { schedule: "RC-C", lineItem: "C&I loans (domestic)", mdrm: "RCFD1754", currentValue: get("RCFD1754", "q1"), priorValue: get("RCFD1754", "q4"), changePercent: null, source: src("RCFD1754"), status: "populated", flagged: false },
+    { schedule: "RC-C", lineItem: "CRE loans (non-farm, non-res)", mdrm: "RCFD1763", currentValue: get("RCFD1763", "q1"), priorValue: get("RCFD1763", "q4"), changePercent: null, source: src("RCFD1763"), status: "populated", flagged: false },
+    { schedule: "RC-C", lineItem: "1-4 family residential", mdrm: "RCFD1797", currentValue: get("RCFD1797", "q1"), priorValue: get("RCFD1797", "q4"), changePercent: null, source: src("RCFD1797"), status: "populated", flagged: false },
+    { schedule: "RC-B", lineItem: "Total securities", mdrm: "RCFD8641", currentValue: get("RCFD8641", "q1"), priorValue: get("RCFD8641", "q4"), changePercent: null, source: src("RCFD8641"), status: "populated", flagged: flaggedMetrics.has("Securities Portfolio Change"), flagReason: "Securities portfolio deviation from trailing average" },
+    { schedule: "RC-B", lineItem: "Securities — HTM", mdrm: "RCFDB528", currentValue: get("RCFDB528", "q1"), priorValue: get("RCFDB528", "q4"), changePercent: null, source: src("RCFDB528"), status: "populated", flagged: false },
+    { schedule: "RC-B", lineItem: "Securities — AFS", mdrm: "RCFD1773", currentValue: get("RCFD1773", "q1"), priorValue: get("RCFD1773", "q4"), changePercent: null, source: src("RCFD1773"), status: "populated", flagged: false },
+    { schedule: "RC", lineItem: "Trading assets", mdrm: "RCON3545", currentValue: get("RCON3545", "q1"), priorValue: get("RCON3545", "q4"), changePercent: null, source: src("RCON3545"), status: "populated", flagged: false },
+    { schedule: "RC-E", lineItem: "Total deposits", mdrm: "RCON2200", currentValue: get("RCON2200", "q1"), priorValue: get("RCON2200", "q4"), changePercent: null, source: src("RCON2200"), status: "populated", flagged: false },
+    { schedule: "RC", lineItem: "Total equity capital", mdrm: "RCFD3210", currentValue: get("RCFD3210", "q1"), priorValue: get("RCFD3210", "q4"), changePercent: null, source: src("RCFD3210"), status: "populated", flagged: false },
+    { schedule: "RC", lineItem: "AOCI — unrealized G/L on AFS", mdrm: "RCFDC026", currentValue: get("RCFDC026", "q1"), priorValue: get("RCFDC026", "q4"), changePercent: null, source: src("RCFDC026"), status: "populated", flagged: false },
+    { schedule: "RC", lineItem: "Allowance for credit losses", mdrm: "RCFD2107", currentValue: get("RCFD2107", "q1"), priorValue: get("RCFD2107", "q4"), changePercent: null, source: src("RCFD2107"), status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Total interest income", mdrm: "RIAD4074", currentValue: get("RIAD4074", "q1"), priorValue: get("RIAD4074", "q4"), changePercent: null, source: src("RIAD4074"), status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Total interest expense", mdrm: "RIAD4079", currentValue: get("RIAD4079", "q1"), priorValue: get("RIAD4079", "q4"), changePercent: null, source: src("RIAD4079"), status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Non-interest income", mdrm: "RIAD4230", currentValue: get("RIAD4230", "q1"), priorValue: get("RIAD4230", "q4"), changePercent: null, source: src("RIAD4230"), status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Non-interest expense", mdrm: "RIAD4093", currentValue: get("RIAD4093", "q1"), priorValue: get("RIAD4093", "q4"), changePercent: null, source: src("RIAD4093"), status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Provision for credit losses", mdrm: "RIAD4230B", currentValue: get("RIAD4230B", "q1"), priorValue: get("RIAD4230B", "q4"), changePercent: null, source: src("RIAD4230B"), status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Net income", mdrm: "RIAD4340", currentValue: get("RIAD4340", "q1"), priorValue: get("RIAD4340", "q4"), changePercent: null, source: src("RIAD4340"), status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Trading revenue", mdrm: "RIADA220", currentValue: get("RIADA220", "q1"), priorValue: get("RIADA220", "q4"), changePercent: null, source: src("RIADA220"), status: "populated", flagged: false },
+    { schedule: "RI", lineItem: "Realized G/L on securities", mdrm: "RIAD3196", currentValue: get("RIAD3196", "q1"), priorValue: get("RIAD3196", "q4"), changePercent: null, source: src("RIAD3196"), status: "populated", flagged: false },
+    { schedule: "RC-N", lineItem: "Past due 30-89 days", mdrm: "RCFD1403", currentValue: get("RCFD1403", "q1"), priorValue: get("RCFD1403", "q4"), changePercent: null, source: src("RCFD1403"), status: "populated", flagged: flaggedMetrics.has("Non-Performing Assets Ratio"), flagReason: "Asset quality metrics outside historical trend" },
+    { schedule: "RC-N", lineItem: "Nonaccrual loans", mdrm: "RCFD1583", currentValue: get("RCFD1583", "q1"), priorValue: get("RCFD1583", "q4"), changePercent: null, source: src("RCFD1583"), status: "populated", flagged: false },
+    { schedule: "RI-B", lineItem: "Net charge-offs", mdrm: "RIAD4635", currentValue: get("RIAD4635", "q1"), priorValue: get("RIAD4635", "q4"), changePercent: null, source: src("RIAD4635"), status: "populated", flagged: false },
+    { schedule: "RC-R", lineItem: "CET1 capital", mdrm: "RCFDA223", currentValue: get("RCFDA223", "q1"), priorValue: get("RCFDA223", "q4"), changePercent: null, source: src("RCFDA223"), status: "populated", flagged: false },
+    { schedule: "RC-R", lineItem: "Tier 1 capital", mdrm: "RCFD8274", currentValue: get("RCFD8274", "q1"), priorValue: get("RCFD8274", "q4"), changePercent: null, source: src("RCFD8274"), status: "populated", flagged: flaggedMetrics.has("Tier 1 Capital Ratio"), flagReason: "Capital ratio deviation from trailing average" },
+    { schedule: "RC-R", lineItem: "Total capital", mdrm: "RCFDA224", currentValue: get("RCFDA224", "q1"), priorValue: get("RCFDA224", "q4"), changePercent: null, source: src("RCFDA224"), status: "populated", flagged: false },
+    { schedule: "RC-R", lineItem: "Total risk-weighted assets", mdrm: "RCFDA222", currentValue: get("RCFDA222", "q1"), priorValue: get("RCFDA222", "q4"), changePercent: null, source: src("RCFDA222"), status: "populated", flagged: false },
+    { schedule: "RC-R", lineItem: "Tier 1 capital ratio", mdrm: "RCFD7206", currentValue: get("RCFD7206", "q1"), priorValue: get("RCFD7206", "q4"), changePercent: null, source: src("RCFD7206"), status: "populated", flagged: false, isRatio: true },
+    { schedule: "RC-R", lineItem: "CET1 capital ratio", mdrm: "RCFDA223R", currentValue: get("RCFDA223R", "q1"), priorValue: get("RCFDA223R", "q4"), changePercent: null, source: src("RCFDA223R"), status: "populated", flagged: false, isRatio: true },
+    { schedule: "RC-R", lineItem: "Total capital ratio", mdrm: "RCFD7205", currentValue: get("RCFD7205", "q1"), priorValue: get("RCFD7205", "q4"), changePercent: null, source: src("RCFD7205"), status: "populated", flagged: false, isRatio: true },
+    { schedule: "RC-L", lineItem: "IR derivatives notional", mdrm: "RCFDA126", currentValue: get("RCFDA126", "q1"), priorValue: get("RCFDA126", "q4"), changePercent: null, source: src("RCFDA126"), status: "mapped", flagged: false },
+    { schedule: "RC-L", lineItem: "FX derivatives notional", mdrm: "RCFDA127", currentValue: get("RCFDA127", "q1"), priorValue: get("RCFDA127", "q4"), changePercent: null, source: src("RCFDA127"), status: "mapped", flagged: false },
+    { schedule: "RC", lineItem: "Federal funds sold", mdrm: "RCON0276", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Federal funds purchased", mdrm: "RCON0277", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Other borrowed money", mdrm: "RCON3190", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Premises and fixed assets", mdrm: "RCON2145", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Other real estate owned", mdrm: "RCON2150", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Goodwill and intangibles", mdrm: "RCFD3163", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Other assets", mdrm: "RCFD2160", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Total liabilities", mdrm: "RCFD2948", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
   ];
 
   lines.forEach(l => {
@@ -2481,39 +2551,62 @@ function buildDraftReport(current: HistoricalRecord | null, prior: HistoricalRec
 function AnomaliesTab() {
   const { anomalies, isLive, historicalData } = useLiveAnomalies();
   const [activeMetric, setActiveMetric] = useState(0);
-  const [draftOpen, setDraftOpen] = useState(false);
-  const anomalyLog = buildAnomalyLog(anomalies);
+  const [draftExpanded, setDraftExpanded] = useState(false);
+  const [overrides, setOverrides] = useState<Record<string, number>>({});
+  const [editingCell, setEditingCell] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const draftPeriod = "Q1 2026";
+
+  const q1_2026_record: HistoricalRecord = {
+    period: "Q1 2026", rawDate: "20260331",
+    totalAssets: overrides["RCFD2170"] ?? 5495000,
+    totalDeposits: overrides["RCON2200"] ?? 3180000,
+    totalLoans: overrides["RCFD2122"] ?? 2910000,
+    netIncome: overrides["RIAD4340"] ?? 28500,
+    roe: overrides["UBPR-ROE"] ?? 3.46,
+    roa: overrides["UBPR-ROA"] ?? 0.52,
+    nim: overrides["UBPR-NIM"] ?? 2.33,
+    tier1Ratio: overrides["RCFD7206"] ?? 19.74,
+    efficiencyRatio: overrides["UBPR-EFF"] ?? 67.83,
+    npaRatio: overrides["UBPR-NPA"] ?? 0.56,
+    securities: overrides["RCFD8641"] ?? 1285000,
+    loanLossReserve: overrides["RCFD2107"] ?? 65000,
+    loanToDeposit: ((overrides["RCFD2122"] ?? 2910000) / (overrides["RCON2200"] ?? 3180000)) * 100,
+    totalEquity: overrides["RCFD3210"] ?? 824000,
+  };
+
+  const historicalWithDraft = [...historicalData.filter(r => r.rawDate < "20260331"), q1_2026_record]
+    .sort((a, b) => a.rawDate.localeCompare(b.rawDate));
+  const draftAnomalies = historicalWithDraft.length >= 2 ? computeLiveAnomalies(historicalWithDraft) : anomalies;
+  const activeAnomalies = draftAnomalies.length > 0 ? draftAnomalies : anomalies;
+
+  const anomalyLog = buildAnomalyLog(activeAnomalies);
 
   const totalFindings = anomalyLog.length;
   const highCount = anomalyLog.filter(a => a.severity === "high").length;
   const medCount = anomalyLog.filter(a => a.severity === "medium").length;
   const lowCount = anomalyLog.filter(a => a.severity === "low").length;
 
-  const fallbackCurrent: HistoricalRecord = {
-    period: "Q4 2025", rawDate: "20251231", totalAssets: 5495218, totalDeposits: 4009422,
-    totalLoans: 1799302, netIncome: 93899, roe: 7.26, roa: 1.36, nim: 2.33,
-    tier1Ratio: 19.74, efficiencyRatio: 67.83, npaRatio: 0, securities: 23011,
-    loanLossReserve: 6437, loanToDeposit: 44.88,
-  };
-  const fallbackPrior: HistoricalRecord = {
-    period: "Q3 2025", rawDate: "20250930", totalAssets: 6595194, totalDeposits: 5132937,
-    totalLoans: 2407287, netIncome: 63808, roe: 6.64, roa: 1.17, nim: 2.27,
-    tier1Ratio: 17.91, efficiencyRatio: 68.28, npaRatio: 0, securities: 22934,
-    loanLossReserve: 2462, loanToDeposit: 46.90,
-  };
-  const currentRecord = historicalData.length > 0 ? historicalData[historicalData.length - 1] : fallbackCurrent;
-  const priorRecord = historicalData.length > 1 ? historicalData[historicalData.length - 2] : fallbackPrior;
-  const currentPeriod = currentRecord?.period ?? "Current";
-
-  const draftLines = buildDraftReport(currentRecord, priorRecord, anomalies);
+  const draftLines = buildDraftReport(activeAnomalies, overrides);
   const populatedCount = draftLines.filter(l => l.status === "populated").length;
+  const mappedCount = draftLines.filter(l => l.status === "mapped").length;
+  const unmappedCount = draftLines.filter(l => l.status === "unmapped").length;
   const flaggedCount = draftLines.filter(l => l.flagged).length;
-  const activeMappings = DATA_MAPPINGS.filter(m => m.status === "Active").length;
 
-  const chartData = historicalData.map((r, idx) => ({
+  const handleSaveEdit = (mdrm: string) => {
+    const num = parseFloat(editValue);
+    if (!isNaN(num)) {
+      setOverrides(prev => ({ ...prev, [mdrm]: num }));
+    }
+    setEditingCell(null);
+    setEditValue("");
+  };
+
+  const chartData = historicalWithDraft.map((r, idx) => ({
     period: r.period,
     value: r[anomalyTrendMetrics[activeMetric].key] as number | undefined,
-    isCurrent: idx === historicalData.length - 1,
+    isCurrent: idx === historicalWithDraft.length - 1,
   })).filter(d => d.value !== undefined);
 
   const values = chartData.map(d => d.value as number);
@@ -2548,7 +2641,7 @@ function AnomaliesTab() {
         <div>
           <h2 className="text-xl font-serif font-semibold tracking-tight">Pre-Submission Variance Analysis</h2>
           <p className="text-xs text-muted-foreground leading-relaxed mt-1 max-w-[760px]">
-            Current quarter data from ingested sources is analyzed against {historicalData.length > 0 ? historicalData.length - 1 : 7} trailing quarters for statistical anomalies, trend breaks, and outlier movements before report processing. Patterns deviating from trailing averages are flagged with severity levels and recommended actions for the filing team.
+            {draftPeriod} draft data from ingested source files is analyzed against {historicalWithDraft.length > 1 ? historicalWithDraft.length - 1 : 7} trailing quarters for statistical anomalies, trend breaks, and outlier movements before report submission. Patterns deviating from trailing averages are flagged with severity levels and recommended actions.
           </p>
         </div>
         {isLive && (
@@ -2559,137 +2652,172 @@ function AnomaliesTab() {
         )}
       </div>
 
-      <Card
-        className="cursor-pointer border-primary/20 bg-gradient-to-r from-primary/[0.03] to-transparent hover:border-primary/40 hover:shadow-md transition-all"
-        onClick={() => setDraftOpen(true)}
-        data-testid="card-draft-report"
-      >
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="rounded-lg bg-primary/10 p-2.5">
-                <FileText className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">FFIEC 031 Call Report — Draft ({currentPeriod})</p>
-                  <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0 text-[10px]">
-                    Draft
-                  </Badge>
+      <Card className="border-primary/20 bg-gradient-to-r from-primary/[0.03] to-transparent" data-testid="card-draft-report">
+        <Collapsible.Root open={draftExpanded} onOpenChange={setDraftExpanded}>
+          <Collapsible.Trigger asChild>
+            <CardContent className="p-4 cursor-pointer hover:bg-primary/[0.02] transition-colors">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="rounded-lg bg-primary/10 p-2.5">
+                    <FileText className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground" data-testid="text-draft-title">FFIEC 031 Call Report — Draft ({draftPeriod})</p>
+                      <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0 text-[10px]">
+                        Draft
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {populatedCount} auto-populated from ingested files, {mappedCount} mapped, {unmappedCount} unmapped requiring manual entry
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Baseline report generated from {populatedCount}/{draftLines.length} populated line items across {activeMappings} active data mappings
-                </p>
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <p className="text-lg font-mono font-normal text-foreground">{draftLines.length}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Line Items</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-mono font-normal text-destructive">{flaggedCount}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Flagged</p>
+                  </div>
+                  {draftExpanded ? (
+                    <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5 text-muted-foreground transition-transform" />
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Collapsible.Trigger>
+          <Collapsible.Content>
+            <div className="border-t border-border/40 px-4 pt-3 pb-4">
+              <div className="flex items-center gap-3 mb-3 flex-wrap">
+                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[10px]">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />{populatedCount} Populated
+                </Badge>
+                <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[10px]">
+                  <Layers className="w-3 h-3 mr-1" />{mappedCount} Mapped
+                </Badge>
+                <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[10px]">
+                  <AlertCircle className="w-3 h-3 mr-1" />{unmappedCount} Unmapped
+                </Badge>
+                <Badge variant="secondary" className="bg-red-500/10 text-red-600 border-0 text-[10px]">
+                  <Flag className="w-3 h-3 mr-1" />{flaggedCount} Flagged
+                </Badge>
+                {Object.keys(overrides).length > 0 && (
+                  <Badge variant="secondary" className="bg-violet-500/10 text-violet-600 border-0 text-[10px]">
+                    <Pencil className="w-3 h-3 mr-1" />{Object.keys(overrides).length} Manual Entries
+                  </Badge>
+                )}
+              </div>
+              <div className="rounded-md border border-border/60 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="text-xs w-[60px]">Schedule</TableHead>
+                      <TableHead className="text-xs">Line Item</TableHead>
+                      <TableHead className="text-xs font-mono w-[90px]">MDRM</TableHead>
+                      <TableHead className="text-xs text-right w-[110px]">{draftPeriod}</TableHead>
+                      <TableHead className="text-xs text-right w-[100px]">Q4 2025</TableHead>
+                      <TableHead className="text-xs text-right w-[70px]">QoQ %</TableHead>
+                      <TableHead className="text-xs w-[140px]">Source File</TableHead>
+                      <TableHead className="text-xs w-[70px] text-center">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {draftLines.map((line, idx) => (
+                      <TableRow key={idx} className={line.status === "unmapped" ? "bg-amber-500/[0.03]" : line.flagged ? "bg-red-500/[0.03]" : ""} data-testid={`draft-line-${idx}`}>
+                        <TableCell className="py-2">
+                          <Badge variant="outline" className="text-[10px] font-mono">{line.schedule}</Badge>
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <div className="flex items-center gap-1.5">
+                            {line.flagged && <Flag className="w-3 h-3 text-red-500 shrink-0" />}
+                            <span className="text-xs text-foreground">{line.lineItem}</span>
+                          </div>
+                          {line.flagged && line.flagReason && (
+                            <p className="text-[10px] text-red-500/80 mt-0.5 ml-[18px]">{line.flagReason}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <span className="text-[10px] font-mono text-muted-foreground">{line.mdrm}</span>
+                        </TableCell>
+                        <TableCell className="py-2 text-right">
+                          {editingCell === line.mdrm ? (
+                            <div className="flex items-center gap-1 justify-end">
+                              <Input
+                                className="h-6 w-[80px] text-xs font-mono text-right px-1"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(line.mdrm); if (e.key === "Escape") { setEditingCell(null); setEditValue(""); } }}
+                                autoFocus
+                                data-testid={`input-edit-${line.mdrm}`}
+                              />
+                              <button onClick={(e) => { e.stopPropagation(); handleSaveEdit(line.mdrm); }} className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 rounded" data-testid={`button-save-${line.mdrm}`}>
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); setEditingCell(null); setEditValue(""); }} className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 justify-end">
+                              <span className={`text-xs font-mono ${line.currentValue !== null ? "text-foreground" : "text-amber-500"}`}>
+                                {line.currentValue !== null ? (line.isRatio ? `${line.currentValue.toFixed(2)}%` : fmtDollar(line.currentValue)) : "—"}
+                              </span>
+                              {(line.editable || line.status === "unmapped") && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingCell(line.mdrm); setEditValue(line.currentValue !== null ? String(line.currentValue) : ""); }}
+                                  className="text-muted-foreground hover:text-foreground ml-1"
+                                  data-testid={`button-edit-${line.mdrm}`}
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-2 text-right">
+                          <span className="text-xs font-mono text-muted-foreground">
+                            {line.priorValue !== null ? (line.isRatio ? `${line.priorValue.toFixed(2)}%` : fmtDollar(line.priorValue)) : "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-2 text-right">
+                          {line.changePercent !== null ? (
+                            <span className={`text-xs font-mono ${line.changePercent > 0 ? "text-emerald-600" : line.changePercent < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                              {line.changePercent >= 0 ? "+" : ""}{line.changePercent.toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <span className={`text-[10px] ${line.source === "Not mapped" ? "text-amber-500 font-medium" : "font-mono text-muted-foreground"}`}>{line.source}</span>
+                        </TableCell>
+                        <TableCell className="py-2 text-center">
+                          {line.status === "populated" && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[9px]">Auto</Badge>}
+                          {line.status === "mapped" && <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[9px]">Mapped</Badge>}
+                          {line.status === "unmapped" && (
+                            overrides[line.mdrm] !== undefined
+                              ? <Badge variant="secondary" className="bg-violet-500/10 text-violet-600 border-0 text-[9px]">Manual</Badge>
+                              : <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[9px]">Unmapped</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3">
+                <Info className="w-3.5 h-3.5 shrink-0" />
+                Data sourced from 5 ingested files (GL, Trading, Loans, Treasury, Risk). Unmapped fields can be entered manually using the edit icon.
               </div>
             </div>
-            <div className="flex items-center gap-6">
-              <div className="text-right">
-                <p className="text-lg font-mono font-normal text-foreground">{draftLines.length}</p>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Line Items</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-mono font-normal text-destructive">{flaggedCount}</p>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Flagged</p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
-            </div>
-          </div>
-        </CardContent>
+          </Collapsible.Content>
+        </Collapsible.Root>
       </Card>
-
-      <Dialog open={draftOpen} onOpenChange={setDraftOpen}>
-        <DialogContent className="max-w-[900px] max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-serif">FFIEC 031 Call Report — Draft Version ({currentPeriod})</DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Baseline draft compiled from ingested data sources, data dictionary mappings, and transformation rules. {flaggedCount} line items flagged for variance review before submission.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center gap-3 pb-2">
-            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[10px]">
-              <CheckCircle2 className="w-3 h-3 mr-1" />{populatedCount} Populated
-            </Badge>
-            <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[10px]">
-              <Layers className="w-3 h-3 mr-1" />{draftLines.filter(l => l.status === "mapped").length} Mapped
-            </Badge>
-            <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[10px]">
-              <AlertCircle className="w-3 h-3 mr-1" />{draftLines.filter(l => l.status === "review").length} Review
-            </Badge>
-            <Badge variant="secondary" className="bg-red-500/10 text-red-600 border-0 text-[10px]">
-              <Flag className="w-3 h-3 mr-1" />{flaggedCount} Flagged
-            </Badge>
-          </div>
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs w-[60px]">Schedule</TableHead>
-                  <TableHead className="text-xs">Line Item</TableHead>
-                  <TableHead className="text-xs font-mono w-[90px]">MDRM</TableHead>
-                  <TableHead className="text-xs text-right w-[100px]">{currentPeriod}</TableHead>
-                  <TableHead className="text-xs text-right w-[100px]">{priorRecord?.period ?? "Prior"}</TableHead>
-                  <TableHead className="text-xs text-right w-[70px]">QoQ %</TableHead>
-                  <TableHead className="text-xs w-[70px] text-center">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {draftLines.map((line, idx) => (
-                  <TableRow key={idx} className={line.flagged ? "bg-red-500/[0.03]" : ""} data-testid={`draft-line-${idx}`}>
-                    <TableCell className="py-2">
-                      <Badge variant="outline" className="text-[10px] font-mono">{line.schedule}</Badge>
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <div className="flex items-center gap-1.5">
-                        {line.flagged && <Flag className="w-3 h-3 text-red-500 shrink-0" />}
-                        <span className="text-xs text-foreground">{line.lineItem}</span>
-                      </div>
-                      {line.flagged && line.flagReason && (
-                        <p className="text-[10px] text-red-500/80 mt-0.5 ml-[18px]">{line.flagReason}</p>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-2">
-                      <span className="text-[10px] font-mono text-muted-foreground">{line.mdrm}</span>
-                    </TableCell>
-                    <TableCell className="py-2 text-right">
-                      <span className="text-xs font-mono text-foreground">
-                        {line.currentValue !== null ? (line.mdrm === "RBC1AAJ" || line.mdrm === "EEFF" ? `${(line.currentValue / 100).toFixed(2)}%` : fmtDollar(line.currentValue)) : "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-2 text-right">
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {line.priorValue !== null ? (line.mdrm === "RBC1AAJ" || line.mdrm === "EEFF" ? `${(line.priorValue / 100).toFixed(2)}%` : fmtDollar(line.priorValue)) : "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-2 text-right">
-                      {line.changePercent !== null ? (
-                        <span className={`text-xs font-mono ${line.changePercent > 0 ? "text-emerald-600" : line.changePercent < 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                          {line.changePercent >= 0 ? "+" : ""}{line.changePercent.toFixed(1)}%
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-2 text-center">
-                      {line.status === "populated" && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[9px]">Auto</Badge>}
-                      {line.status === "mapped" && <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[9px]">Mapped</Badge>}
-                      {line.status === "review" && <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[9px]">Review</Badge>}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-          <DialogFooter className="pt-3 border-t">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mr-auto">
-              <Info className="w-3.5 h-3.5" />
-              Source: Data Ingestion + Data Dictionary mappings + {activeMappings} transformation rules
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setDraftOpen(false)} data-testid="button-close-draft">
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <div className="grid grid-cols-4 gap-3">
         <Card data-testid="card-anomaly-high">
@@ -2712,7 +2840,7 @@ function AnomaliesTab() {
         </Card>
         <Card data-testid="card-anomaly-periods">
           <CardContent className="p-4">
-            <p className="text-2xl font-mono font-normal text-foreground">{historicalData.length}</p>
+            <p className="text-2xl font-mono font-normal text-foreground">{historicalWithDraft.length}</p>
             <p className="text-[10px] font-semibold tracking-wide uppercase text-muted-foreground mt-1">Quarters Analyzed</p>
           </CardContent>
         </Card>
@@ -2722,9 +2850,9 @@ function AnomaliesTab() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div>
-              <CardTitle className="text-sm">Current Quarter vs. Historical Trend — Deviation Analysis</CardTitle>
+              <CardTitle className="text-sm">{draftPeriod} Draft vs. Historical Trend — Deviation Analysis</CardTitle>
               <p className="text-[10px] text-muted-foreground mt-1">
-                {currentPeriod} data point highlighted in red. Dashed lines show ±1.5σ deviation bands from trailing average.
+                {draftPeriod} draft data point highlighted in red. Dashed lines show ±1.5σ deviation bands from trailing average.
               </p>
             </div>
             <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
@@ -2785,8 +2913,8 @@ function AnomaliesTab() {
                       name === "value" ? anomalyTrendMetrics[activeMetric].label : name === "average" ? "Trailing Average" : name,
                     ]}
                     labelFormatter={(label: string) => {
-                      const isCurrentQ = chartDataWithAvg.findIndex(d => d.period === label) === chartDataWithAvg.length - 1;
-                      return isCurrentQ ? `${label} (Current Quarter)` : label;
+                      const isDraft = chartDataWithAvg.findIndex(d => d.period === label) === chartDataWithAvg.length - 1;
+                      return isDraft ? `${label} (Draft)` : label;
                     }}
                   />
                   <Legend wrapperStyle={{ fontSize: "11px" }} />
@@ -2819,7 +2947,7 @@ function AnomaliesTab() {
           <div className="flex items-center gap-4 mt-2 px-1">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-full bg-[hsl(351,85%,52%)] border-2 border-white shadow-sm" />
-              <span className="text-[10px] text-muted-foreground">Current Quarter ({currentPeriod})</span>
+              <span className="text-[10px] text-muted-foreground">Draft ({draftPeriod})</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-6 h-px border-t-2 border-dashed border-destructive/40" />
@@ -2837,9 +2965,9 @@ function AnomaliesTab() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-sm">Pre-Submission Pattern Detection Log — {currentPeriod}</CardTitle>
+              <CardTitle className="text-sm">Pre-Submission Pattern Detection Log — {draftPeriod}</CardTitle>
               <p className="text-[10px] text-muted-foreground mt-0.5">
-                Anomalies flagged against trailing {historicalData.length > 1 ? historicalData.length - 1 : 7}-quarter averages. Findings inform the draft report review before regulatory submission.
+                {draftPeriod} draft values compared against trailing {historicalWithDraft.length > 1 ? historicalWithDraft.length - 1 : 7}-quarter averages. Findings inform the draft report review before regulatory submission.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -2851,7 +2979,7 @@ function AnomaliesTab() {
         <CardContent>
           <div className="space-y-3">
             {anomalyLog.map((entry, idx) => {
-              const anomaly = anomalies[idx];
+              const anomaly = activeAnomalies[idx];
               const deviationStr = anomaly ? `${anomaly.deviation >= 0 ? "+" : ""}${anomaly.deviation.toFixed(2)}` : null;
               const expectedStr = anomaly ? anomaly.expected.toFixed(2) : null;
 
