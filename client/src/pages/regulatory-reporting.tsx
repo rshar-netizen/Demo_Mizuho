@@ -2553,7 +2553,12 @@ function AnomaliesTab() {
   const [activeMetric, setActiveMetric] = useState(0);
   const [draftExpanded, setDraftExpanded] = useState(false);
   const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(new Set());
-  const [overrides, setOverrides] = useState<Record<string, number>>({});
+  const [overrides, setOverrides] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem("draft-overrides");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
@@ -2612,7 +2617,11 @@ function AnomaliesTab() {
   const handleSaveEdit = (mdrm: string) => {
     const num = parseFloat(editValue);
     if (!isNaN(num)) {
-      setOverrides(prev => ({ ...prev, [mdrm]: num }));
+      setOverrides(prev => {
+        const next = { ...prev, [mdrm]: num };
+        try { localStorage.setItem("draft-overrides", JSON.stringify(next)); } catch {}
+        return next;
+      });
     }
     setEditingCell(null);
     setEditValue("");
