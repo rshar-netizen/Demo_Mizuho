@@ -32,6 +32,8 @@ import {
   Check,
   Users,
   Info,
+  TableIcon,
+  BarChart3,
 } from "lucide-react";
 import {
   type PeerBank,
@@ -53,6 +55,8 @@ import {
   Legend,
   BarChart,
   Bar,
+  Cell,
+  ReferenceLine,
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
@@ -462,7 +466,92 @@ function MetricCard({ label, value, rank, total, positive }: { label: string; va
   );
 }
 
-function BasicComparisonTable({ banks, reportDate }: { banks: PeerBank[]; reportDate?: string }) {
+function ViewToggle({ view, onViewChange, testId }: { view: "table" | "chart"; onViewChange: (v: "table" | "chart") => void; testId: string }) {
+  return (
+    <div className="inline-flex items-center rounded-md border border-border/60 p-0.5 bg-muted/30" data-testid={testId}>
+      <button
+        onClick={() => onViewChange("table")}
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+          view === "table" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+        }`}
+        data-testid={`${testId}-table`}
+      >
+        <TableIcon className="w-3 h-3" />
+        Table
+      </button>
+      <button
+        onClick={() => onViewChange("chart")}
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+          view === "chart" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+        }`}
+        data-testid={`${testId}-chart`}
+      >
+        <BarChart3 className="w-3 h-3" />
+        Chart
+      </button>
+    </div>
+  );
+}
+
+function BasicComparisonChart({ banks }: { banks: PeerBank[] }) {
+  const [selectedMetric, setSelectedMetric] = useState("totalAssets");
+  const metrics: { key: keyof PeerBank; label: string; unit: string }[] = [
+    { key: "totalAssets", label: "Total Assets", unit: "$M" },
+    { key: "totalLoans", label: "Total Loans", unit: "$M" },
+    { key: "totalDeposits", label: "Total Deposits", unit: "$M" },
+    { key: "netIncome", label: "Net Income", unit: "$M" },
+    { key: "securities", label: "Securities", unit: "$M" },
+    { key: "equity", label: "Equity", unit: "$M" },
+  ];
+  const active = metrics.find(m => m.key === selectedMetric) || metrics[0];
+  const chartData = banks.map(b => ({
+    name: b.ticker,
+    value: (b[active.key] as number) ?? 0,
+    isMizuho: b.name === "Mizuho Americas",
+  }));
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        {metrics.map(m => (
+          <button
+            key={m.key}
+            onClick={() => setSelectedMetric(m.key)}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer border ${
+              selectedMetric === m.key
+                ? "bg-primary/10 border-primary/30 text-primary"
+                : "border-border/40 text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            data-testid={`button-basic-metric-${m.key}`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <div className="h-[320px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toLocaleString()} />
+            <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={48} />
+            <Tooltip
+              contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "12px" }}
+              formatter={(value: number) => [`$${value.toLocaleString()}M`, active.label]}
+            />
+            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+              {chartData.map((entry, i) => (
+                <Cell key={i} fill={entry.isMizuho ? "hsl(var(--chart-1))" : "hsl(var(--chart-3))"} fillOpacity={entry.isMizuho ? 1 : 0.6} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function BasicComparison({ banks, reportDate }: { banks: PeerBank[]; reportDate?: string }) {
+  const [view, setView] = useState<"table" | "chart">("table");
   return (
     <Card data-testid="card-basic-comparison">
       <CardHeader className="pb-2">
@@ -472,67 +561,130 @@ function BasicComparisonTable({ banks, reportDate }: { banks: PeerBank[]; report
             <p className="text-[10px] text-muted-foreground mt-0.5">Raw regulatory data directly from submitted FFIEC 031/041 filings</p>
           </div>
           <div className="flex items-center gap-2">
+            <ViewToggle view={view} onViewChange={setView} testId="toggle-basic-view" />
             <Badge variant="secondary" className="text-[10px]">Source: FDIC Call Reports</Badge>
             <Badge variant="outline" className="text-[10px] font-mono">{reportDate || "Latest"}</Badge>
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="w-full">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs sticky left-0 bg-card z-10 min-w-[160px]">Institution</TableHead>
-                <TableHead className="text-xs text-right">Total Assets ($M)</TableHead>
-                <TableHead className="text-xs text-right">Total Loans ($M)</TableHead>
-                <TableHead className="text-xs text-right">Total Deposits ($M)</TableHead>
-                <TableHead className="text-xs text-right">Net Income ($M)</TableHead>
-                <TableHead className="text-xs text-right">Securities ($M)</TableHead>
-                <TableHead className="text-xs text-right">Equity ($M)</TableHead>
-                <TableHead className="text-xs text-right">Loan/Deposit %</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {banks.map((bank, idx) => (
-                <TableRow
-                  key={idx}
-                  className={bank.name === "Mizuho Americas" ? "bg-primary/5 font-medium" : ""}
-                  data-testid={`row-basic-${idx}`}
-                >
-                  <TableCell className="text-xs py-2.5 font-medium sticky left-0 bg-card z-10">
-                    <div className="flex items-center gap-2">
-                      {bank.name === "Mizuho Americas" && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
-                      <span className="truncate">{bank.name}</span>
-                      <Badge variant="outline" className="text-[10px] font-mono shrink-0">{bank.ticker}</Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalAssets.toLocaleString()}</TableCell>
-                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalLoans.toLocaleString()}</TableCell>
-                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalDeposits.toLocaleString()}</TableCell>
-                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.netIncome.toLocaleString()}</TableCell>
-                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.securities != null ? bank.securities.toLocaleString() : "—"}</TableCell>
-                  <TableCell className="text-xs py-2.5 text-right font-mono">{bank.equity != null ? bank.equity.toLocaleString() : "—"}</TableCell>
-                  <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.loanToDeposit)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </ScrollArea>
-        <p className="text-[10px] text-muted-foreground mt-2">
-          MDRM Fields: ASSET (RCFD2170), LNLSNET (RCFD2122), DEP (RCON2200), NETINC (RIAD4340), SC (RCFD8641), EQ (RCFD3210)
-        </p>
+        {view === "table" ? (
+          <>
+            <ScrollArea className="w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs sticky left-0 bg-card z-10 min-w-[160px]">Institution</TableHead>
+                    <TableHead className="text-xs text-right">Total Assets ($M)</TableHead>
+                    <TableHead className="text-xs text-right">Total Loans ($M)</TableHead>
+                    <TableHead className="text-xs text-right">Total Deposits ($M)</TableHead>
+                    <TableHead className="text-xs text-right">Net Income ($M)</TableHead>
+                    <TableHead className="text-xs text-right">Securities ($M)</TableHead>
+                    <TableHead className="text-xs text-right">Equity ($M)</TableHead>
+                    <TableHead className="text-xs text-right">Loan/Deposit %</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {banks.map((bank, idx) => (
+                    <TableRow
+                      key={idx}
+                      className={bank.name === "Mizuho Americas" ? "bg-primary/5 font-medium" : ""}
+                      data-testid={`row-basic-${idx}`}
+                    >
+                      <TableCell className="text-xs py-2.5 font-medium sticky left-0 bg-card z-10">
+                        <div className="flex items-center gap-2">
+                          {bank.name === "Mizuho Americas" && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                          <span className="truncate">{bank.name}</span>
+                          <Badge variant="outline" className="text-[10px] font-mono shrink-0">{bank.ticker}</Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalAssets.toLocaleString()}</TableCell>
+                      <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalLoans.toLocaleString()}</TableCell>
+                      <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalDeposits.toLocaleString()}</TableCell>
+                      <TableCell className="text-xs py-2.5 text-right font-mono">{bank.netIncome.toLocaleString()}</TableCell>
+                      <TableCell className="text-xs py-2.5 text-right font-mono">{bank.securities != null ? bank.securities.toLocaleString() : "—"}</TableCell>
+                      <TableCell className="text-xs py-2.5 text-right font-mono">{bank.equity != null ? bank.equity.toLocaleString() : "—"}</TableCell>
+                      <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.loanToDeposit)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              MDRM Fields: ASSET (RCFD2170), LNLSNET (RCFD2122), DEP (RCON2200), NETINC (RIAD4340), SC (RCFD8641), EQ (RCFD3210)
+            </p>
+          </>
+        ) : (
+          <BasicComparisonChart banks={banks} />
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function MetricsComparisonTable({ banks, reportDate }: { banks: PeerBank[]; reportDate?: string }) {
-  const getRank = (bankName: string, metric: keyof PeerBank, higherIsBetter: boolean) => {
-    const sorted = [...banks].sort((a, b) =>
-      higherIsBetter ? (b[metric] as number) - (a[metric] as number) : (a[metric] as number) - (b[metric] as number)
-    );
-    return sorted.findIndex((b) => b.name === bankName) + 1;
-  };
+function MetricsComparisonChart({ banks }: { banks: PeerBank[] }) {
+  const metricsConfig = [
+    { key: "roe", label: "ROE %", accessor: (b: PeerBank) => b.roe },
+    { key: "roa", label: "ROA %", accessor: (b: PeerBank) => b.roa },
+    { key: "nim", label: "NIM %", accessor: (b: PeerBank) => b.nim },
+    { key: "cet1Ratio", label: "Tier 1 %", accessor: (b: PeerBank) => b.cet1Ratio },
+    { key: "efficiencyRatio", label: "Efficiency %", accessor: (b: PeerBank) => b.efficiencyRatio },
+    { key: "npaRatio", label: "NPA %", accessor: (b: PeerBank) => b.npaRatio },
+    { key: "chargeOffRate", label: "NCO Rate %", accessor: (b: PeerBank) => b.chargeOffRate },
+  ];
+  const [selectedMetric, setSelectedMetric] = useState("roe");
+  const active = metricsConfig.find(m => m.key === selectedMetric) || metricsConfig[0];
+  const chartData = banks.map(b => ({
+    name: b.ticker,
+    value: parseFloat(active.accessor(b).toFixed(2)),
+    isMizuho: b.name === "Mizuho Americas",
+  }));
+  const peers = banks.filter(b => b.name !== "Mizuho Americas");
+  const avg = peers.reduce((s, b) => s + active.accessor(b), 0) / Math.max(1, peers.length);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        {metricsConfig.map(m => (
+          <button
+            key={m.key}
+            onClick={() => setSelectedMetric(m.key)}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer border ${
+              selectedMetric === m.key
+                ? "bg-primary/10 border-primary/30 text-primary"
+                : "border-border/40 text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            data-testid={`button-metrics-metric-${m.key}`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <div className="h-[320px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ left: 0, right: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} />
+            <Tooltip
+              contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "12px" }}
+              formatter={(value: number) => [`${value.toFixed(2)}%`, active.label]}
+            />
+            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              {chartData.map((entry, i) => (
+                <Cell key={i} fill={entry.isMizuho ? "hsl(var(--chart-1))" : "hsl(var(--chart-3))"} fillOpacity={entry.isMizuho ? 1 : 0.6} />
+              ))}
+            </Bar>
+            <ReferenceLine y={parseFloat(avg.toFixed(2))} stroke="hsl(var(--chart-2))" strokeDasharray="6 3" strokeWidth={2} label={{ value: `Avg: ${avg.toFixed(2)}%`, position: "right", fontSize: 10, fill: "hsl(var(--chart-2))" }} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function MetricsComparison({ banks, reportDate }: { banks: PeerBank[]; reportDate?: string }) {
+  const [view, setView] = useState<"table" | "chart">("table");
 
   const peerAvg = (fn: (b: PeerBank) => number) => {
     const peers = banks.filter(b => b.name !== "Mizuho Americas");
@@ -548,75 +700,82 @@ function MetricsComparisonTable({ banks, reportDate }: { banks: PeerBank[]; repo
             <p className="text-[10px] text-muted-foreground mt-0.5">Key performance ratios used by the Federal Reserve in supervisory assessments (UBPR Page 1 equivalent)</p>
           </div>
           <div className="flex items-center gap-2">
+            <ViewToggle view={view} onViewChange={setView} testId="toggle-metrics-view" />
             <Badge variant="secondary" className="text-[10px]">Source: FDIC + Derived</Badge>
             <Badge variant="outline" className="text-[10px] font-mono">{reportDate || "Latest"}</Badge>
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="w-full">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs sticky left-0 bg-card z-10 min-w-[160px]">Institution</TableHead>
-                <TableHead className="text-xs text-right">ROE %</TableHead>
-                <TableHead className="text-xs text-right">ROA %</TableHead>
-                <TableHead className="text-xs text-right">NIM %</TableHead>
-                <TableHead className="text-xs text-right">Tier 1 %</TableHead>
-                <TableHead className="text-xs text-right">Total Cap %</TableHead>
-                <TableHead className="text-xs text-right">Efficiency %</TableHead>
-                <TableHead className="text-xs text-right">NPA %</TableHead>
-                <TableHead className="text-xs text-right">NCO Rate %</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {banks.map((bank, idx) => {
-                const isMizuho = bank.name === "Mizuho Americas";
-                return (
-                  <TableRow
-                    key={idx}
-                    className={isMizuho ? "bg-primary/5 font-medium" : ""}
-                    data-testid={`row-metrics-${idx}`}
-                  >
-                    <TableCell className="text-xs py-2.5 font-medium sticky left-0 bg-card z-10">
-                      <div className="flex items-center gap-2">
-                        {isMizuho && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
-                        <span className="truncate">{bank.name}</span>
-                        <Badge variant="outline" className="text-[10px] font-mono shrink-0">{bank.ticker}</Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell className={`text-xs py-2.5 text-right font-mono ${isMizuho && bank.roe < peerAvg(b => b.roe) ? "text-amber-600 dark:text-amber-400" : ""}`}>
-                      {formatPercent(bank.roe)}
-                    </TableCell>
-                    <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.roa)}</TableCell>
-                    <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.nim)}</TableCell>
-                    <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.cet1Ratio)}</TableCell>
-                    <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalCapitalRatio != null ? formatPercent(bank.totalCapitalRatio) : "—"}</TableCell>
-                    <TableCell className={`text-xs py-2.5 text-right font-mono ${bank.efficiencyRatio > 65 ? "text-amber-600 dark:text-amber-400" : ""}`}>
-                      {formatPercent(bank.efficiencyRatio)}
-                    </TableCell>
-                    <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.npaRatio)}</TableCell>
-                    <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.chargeOffRate)}</TableCell>
+        {view === "table" ? (
+          <>
+            <ScrollArea className="w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs sticky left-0 bg-card z-10 min-w-[160px]">Institution</TableHead>
+                    <TableHead className="text-xs text-right">ROE %</TableHead>
+                    <TableHead className="text-xs text-right">ROA %</TableHead>
+                    <TableHead className="text-xs text-right">NIM %</TableHead>
+                    <TableHead className="text-xs text-right">Tier 1 %</TableHead>
+                    <TableHead className="text-xs text-right">Total Cap %</TableHead>
+                    <TableHead className="text-xs text-right">Efficiency %</TableHead>
+                    <TableHead className="text-xs text-right">NPA %</TableHead>
+                    <TableHead className="text-xs text-right">NCO Rate %</TableHead>
                   </TableRow>
-                );
-              })}
-              <TableRow className="border-t-2 border-primary/20 bg-muted/30">
-                <TableCell className="text-xs py-2 font-semibold sticky left-0 bg-muted/30 z-10">Peer Average</TableCell>
-                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.roe))}</TableCell>
-                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.roa))}</TableCell>
-                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.nim))}</TableCell>
-                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.cet1Ratio))}</TableCell>
-                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.totalCapitalRatio ?? 0))}</TableCell>
-                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.efficiencyRatio))}</TableCell>
-                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.npaRatio))}</TableCell>
-                <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.chargeOffRate))}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </ScrollArea>
-        <p className="text-[10px] text-muted-foreground mt-2">
-          UBPR Fields: ROE, ROA, NIMY (NIM), RBC1AAJ (Tier 1), EEFF-derived (Efficiency), P3ASSET-derived (NPA), ELNANTR (NCO Rate)
-        </p>
+                </TableHeader>
+                <TableBody>
+                  {banks.map((bank, idx) => {
+                    const isMizuho = bank.name === "Mizuho Americas";
+                    return (
+                      <TableRow
+                        key={idx}
+                        className={isMizuho ? "bg-primary/5 font-medium" : ""}
+                        data-testid={`row-metrics-${idx}`}
+                      >
+                        <TableCell className="text-xs py-2.5 font-medium sticky left-0 bg-card z-10">
+                          <div className="flex items-center gap-2">
+                            {isMizuho && <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                            <span className="truncate">{bank.name}</span>
+                            <Badge variant="outline" className="text-[10px] font-mono shrink-0">{bank.ticker}</Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className={`text-xs py-2.5 text-right font-mono ${isMizuho && bank.roe < peerAvg(b => b.roe) ? "text-amber-600 dark:text-amber-400" : ""}`}>
+                          {formatPercent(bank.roe)}
+                        </TableCell>
+                        <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.roa)}</TableCell>
+                        <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.nim)}</TableCell>
+                        <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.cet1Ratio)}</TableCell>
+                        <TableCell className="text-xs py-2.5 text-right font-mono">{bank.totalCapitalRatio != null ? formatPercent(bank.totalCapitalRatio) : "—"}</TableCell>
+                        <TableCell className={`text-xs py-2.5 text-right font-mono ${bank.efficiencyRatio > 65 ? "text-amber-600 dark:text-amber-400" : ""}`}>
+                          {formatPercent(bank.efficiencyRatio)}
+                        </TableCell>
+                        <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.npaRatio)}</TableCell>
+                        <TableCell className="text-xs py-2.5 text-right font-mono">{formatPercent(bank.chargeOffRate)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  <TableRow className="border-t-2 border-primary/20 bg-muted/30">
+                    <TableCell className="text-xs py-2 font-semibold sticky left-0 bg-muted/30 z-10">Peer Average</TableCell>
+                    <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.roe))}</TableCell>
+                    <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.roa))}</TableCell>
+                    <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.nim))}</TableCell>
+                    <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.cet1Ratio))}</TableCell>
+                    <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.totalCapitalRatio ?? 0))}</TableCell>
+                    <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.efficiencyRatio))}</TableCell>
+                    <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.npaRatio))}</TableCell>
+                    <TableCell className="text-xs py-2 text-right font-mono font-semibold">{formatPercent(peerAvg(b => b.chargeOffRate))}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </ScrollArea>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              UBPR Fields: ROE, ROA, NIMY (NIM), RBC1AAJ (Tier 1), EEFF-derived (Efficiency), P3ASSET-derived (NPA), ELNANTR (NCO Rate)
+            </p>
+          </>
+        ) : (
+          <MetricsComparisonChart banks={banks} />
+        )}
       </CardContent>
     </Card>
   );
@@ -624,57 +783,94 @@ function MetricsComparisonTable({ banks, reportDate }: { banks: PeerBank[]; repo
 
 function TrendCharts({ trendROE, trendNIM, trendCET1, bankNames }: { trendROE: PeerTrendData[]; trendNIM: PeerTrendData[]; trendCET1: PeerTrendData[]; bankNames: string[] }) {
   const [selectedMetric, setSelectedMetric] = useState("roe");
+  const [view, setView] = useState<"table" | "chart">("chart");
 
   const metricData = selectedMetric === "roe" ? trendROE : selectedMetric === "nim" ? trendNIM : trendCET1;
   const allBankNames = metricData.length > 0 ? Object.keys(metricData[0]).filter(k => k !== "period") : bankNames;
+  const metricLabel = selectedMetric === "roe" ? "ROE %" : selectedMetric === "nim" ? "NIM %" : "Tier 1 %";
 
   return (
     <Card data-testid="card-trend-charts">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-sm">Peer Trend Comparison</CardTitle>
-          <Select value={selectedMetric} onValueChange={setSelectedMetric}>
-            <SelectTrigger className="w-[200px]" data-testid="select-trend-metric">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="roe">Return on Equity (ROE)</SelectItem>
-              <SelectItem value="nim">Net Interest Margin (NIM)</SelectItem>
-              <SelectItem value="cet1">Tier 1 Capital Ratio</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <ViewToggle view={view} onViewChange={setView} testId="toggle-trend-view" />
+            <Select value={selectedMetric} onValueChange={setSelectedMetric}>
+              <SelectTrigger className="w-[200px]" data-testid="select-trend-metric">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="roe">Return on Equity (ROE)</SelectItem>
+                <SelectItem value="nim">Net Interest Margin (NIM)</SelectItem>
+                <SelectItem value="cet1">Tier 1 Capital Ratio</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[280px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={metricData}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-              <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "6px",
-                  fontSize: "12px",
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: "11px" }} />
-              {allBankNames.map((bank, i) => (
-                <Line
-                  key={bank}
-                  type="monotone"
-                  dataKey={bank}
-                  stroke={getBankColor(bank, i)}
-                  strokeWidth={bank === "Mizuho Americas" ? 3 : 1.5}
-                  dot={{ r: bank === "Mizuho Americas" ? 4 : 2 }}
-                  name={bank}
+        {view === "chart" ? (
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={metricData}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                  }}
                 />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                {allBankNames.map((bank, i) => (
+                  <Line
+                    key={bank}
+                    type="monotone"
+                    dataKey={bank}
+                    stroke={getBankColor(bank, i)}
+                    strokeWidth={bank === "Mizuho Americas" ? 3 : 1.5}
+                    dot={{ r: bank === "Mizuho Americas" ? 4 : 2 }}
+                    name={bank}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <ScrollArea className="w-full">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs sticky left-0 bg-card z-10 min-w-[120px]">Period</TableHead>
+                  {allBankNames.map(name => (
+                    <TableHead key={name} className="text-xs text-right min-w-[100px]">
+                      {PEER_DISPLAY_MAP[Object.entries(PEER_DISPLAY_MAP).find(([, v]) => v === name)?.[0] as unknown as number] || name}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {metricData.map((row, idx) => (
+                  <TableRow key={idx} data-testid={`row-trend-${idx}`}>
+                    <TableCell className="text-xs py-2 font-medium sticky left-0 bg-card z-10 font-mono">{row.period}</TableCell>
+                    {allBankNames.map(name => (
+                      <TableCell
+                        key={name}
+                        className={`text-xs py-2 text-right font-mono ${name === "Mizuho Americas" ? "font-semibold text-primary" : ""}`}
+                      >
+                        {row[name] != null ? formatPercent(row[name] as number) : "—"}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );
@@ -1001,7 +1197,7 @@ export default function PeerAnalysis() {
           </TabsContent>
 
           <TabsContent value="basic" className="space-y-4">
-            <BasicComparisonTable banks={peerBanks} reportDate={reportDate} />
+            <BasicComparison banks={peerBanks} reportDate={reportDate} />
             <Card className="border-dashed border-primary/20 bg-primary/[0.02]" data-testid="card-expandability-note">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
@@ -1018,7 +1214,7 @@ export default function PeerAnalysis() {
           </TabsContent>
 
           <TabsContent value="metrics" className="space-y-4">
-            <MetricsComparisonTable banks={peerBanks} reportDate={reportDate} />
+            <MetricsComparison banks={peerBanks} reportDate={reportDate} />
             <Card className="border-dashed border-primary/20 bg-primary/[0.02]" data-testid="card-ratio-extensibility">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
