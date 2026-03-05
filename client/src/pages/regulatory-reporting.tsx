@@ -1580,6 +1580,21 @@ const DEFAULT_PERIODS = new Set([
   "Q4 2024", "Q3 2024", "Q2 2024", "Q1 2024",
 ]);
 
+let historicalPullListeners: Array<() => void> = [];
+let historicalPullState: { pulled: boolean; quarters: number; reportName: string; timestamp: string } = { pulled: false, quarters: 0, reportName: "", timestamp: "" };
+
+function setHistoricalPullState(state: typeof historicalPullState) {
+  historicalPullState = state;
+  historicalPullListeners.forEach(l => l());
+}
+
+function useHistoricalPullStatus() {
+  return useSyncExternalStore(
+    (cb) => { historicalPullListeners.push(cb); return () => { historicalPullListeners = historicalPullListeners.filter(l => l !== cb); }; },
+    () => historicalPullState,
+  );
+}
+
 interface PulledReport {
   reportId: string;
   reportName: string;
@@ -1634,6 +1649,12 @@ function HistoricalDataPull() {
       if (completed >= newPulls.length) {
         clearInterval(interval);
         setIsPulling(false);
+        setHistoricalPullState({
+          pulled: true,
+          quarters: periodsArr.length,
+          reportName: report.name,
+          timestamp: new Date().toLocaleTimeString(),
+        });
       }
     }, 600);
   };
@@ -1721,7 +1742,24 @@ function HistoricalDataPull() {
         </div>
 
         {pulledReports.length > 0 && (
-          <div className="border-t border-border/40 pt-3">
+          <div className="border-t border-border/40 pt-3 space-y-3">
+            {!isPulling && completedPulls.length > 0 && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3" data-testid="banner-pull-success">
+                <div className="flex items-start gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                      Data ingested and analyzed
+                    </p>
+                    <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
+                      {completedPulls.length} quarter{completedPulls.length !== 1 ? "s" : ""} of historical {report.name} data successfully retrieved from FFIEC CDR.
+                      Variance detection baselines updated. Q1 2026 current-quarter data sourced from report draft.
+                      Historical trends are now available in the Trend Analysis tab.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-medium text-foreground">Retrieved Filings</p>
               <Badge variant="secondary" className="text-[10px]">{completedPulls.length} completed</Badge>
@@ -5080,16 +5118,18 @@ function ReviewApprovalTab() {
 }
 
 function useLiveTrendData() {
+  const pullStatus = useHistoricalPullStatus();
+  const { overrides } = useDraftOverrides();
   const { data, isLoading } = useQuery<{ data: Array<{ historicalData?: Array<{ period: string; totalAssets: number; totalDeposits: number; totalLoans: number; netIncome: number; tier1Ratio: number }> }> }>({
     queryKey: ["/api/data-sources/peer-data"],
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
-  if (isLoading || !data?.data?.length) return { trendData: demoTrendData, isLive: false };
+  if (isLoading || !data?.data?.length) return { trendData: demoTrendData, isLive: false, hasPulled: pullStatus.pulled };
 
   const mizuhoProxy = data.data[0];
-  if (!mizuhoProxy?.historicalData?.length) return { trendData: demoTrendData, isLive: false };
+  if (!mizuhoProxy?.historicalData?.length) return { trendData: demoTrendData, isLive: false, hasPulled: pullStatus.pulled };
 
   const liveTrend: TrendDataPoint[] = [...mizuhoProxy.historicalData]
     .sort((a, b) => {
@@ -5106,7 +5146,20 @@ function useLiveTrendData() {
       tier1Capital: parseFloat(h.tier1Ratio.toFixed(2)),
     }));
 
-  return { trendData: liveTrend, isLive: true };
+  const hasQ1_2026 = liveTrend.some(d => d.period === "Q1 2026");
+  if (!hasQ1_2026) {
+    const q1Draft: TrendDataPoint = {
+      period: "Q1 2026",
+      totalAssets: Math.round((overrides["RCFD2170"] ?? INGESTED_Q1_2026["RCFD2170"]?.q1 ?? 5495000) / 1000),
+      totalLoans: Math.round((overrides["RCFD2122"] ?? INGESTED_Q1_2026["RCFD2122"]?.q1 ?? 2910000) / 1000),
+      totalDeposits: Math.round((overrides["RCON2200"] ?? INGESTED_Q1_2026["RCON2200"]?.q1 ?? 3180000) / 1000),
+      netIncome: Math.round((overrides["RIAD4340"] ?? INGESTED_Q1_2026["RIAD4340"]?.q1 ?? 28500) / 1000),
+      tier1Capital: overrides["RCFD7206"] ?? INGESTED_Q1_2026["RCFD7206"]?.q1 ?? 19.74,
+    };
+    liveTrend.push(q1Draft);
+  }
+
+  return { trendData: liveTrend, isLive: true, hasPulled: pullStatus.pulled };
 }
 
 type TrendMetric = "totalAssets" | "loansDeposits" | "netIncome" | "tier1Capital";
@@ -5260,7 +5313,7 @@ function getInflectionPoints(data: TrendDataPoint[]): InflectionPoint[] {
 }
 
 function TrendAnalysisTab() {
-  const { trendData, isLive } = useLiveTrendData();
+  const { trendData, isLive, hasPulled } = useLiveTrendData();
   const [activeMetric, setActiveMetric] = useState<TrendMetric>("totalAssets");
   const [chartType, setChartType] = useState<ChartType>("area");
 
@@ -5393,12 +5446,20 @@ function TrendAnalysisTab() {
   return (
     <div className="space-y-4">
       {isLive && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
             <Wifi className="w-3 h-3 mr-1" />
             Live FDIC Data
           </Badge>
-          <span className="text-xs text-muted-foreground">Trends from ingested Call Report data (Mizuho Americas)</span>
+          {hasPulled && (
+            <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-0">
+              <Database className="w-3 h-3 mr-1" />
+              Historical Data Ingested
+            </Badge>
+          )}
+          <span className="text-xs text-muted-foreground">
+            Q1 2024–Q4 2025 from FDIC Call Reports{hasPulled ? " (ingested)" : ""} · Q1 2026 from current report draft
+          </span>
         </div>
       )}
 
@@ -5448,10 +5509,10 @@ function TrendAnalysisTab() {
           <div className="flex items-center gap-4 mt-1 px-1">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-full bg-[hsl(351,85%,52%)] border-2 border-white shadow-sm" />
-              <span className="text-[10px] text-muted-foreground">Current Quarter ({currentQPeriod})</span>
+              <span className="text-[10px] text-muted-foreground">Current Quarter — Q1 2026 (from report draft)</span>
             </div>
             <span className="text-[10px] text-muted-foreground/60">|</span>
-            <span className="text-[10px] text-muted-foreground">Includes current quarter ingested data alongside {trendData.length - 1} historical periods</span>
+            <span className="text-[10px] text-muted-foreground">{trendData.length - 1} historical periods from FDIC Call Reports</span>
           </div>
           <Separator />
           <div className="flex items-start gap-2 px-2">
