@@ -1711,7 +1711,15 @@ function DataDictionaryTab() {
                       <p className="text-sm font-medium">{source.sourceSystem}</p>
                     </TableCell>
                     <TableCell className="py-3">
-                      <p className="text-xs font-mono text-muted-foreground">{source.fileName}</p>
+                      <a
+                        href={`/downloads/${source.fileName}`}
+                        download
+                        className="inline-flex items-center gap-1.5 text-xs font-mono text-primary hover:underline cursor-pointer"
+                        data-testid={`link-download-${source.fileName}`}
+                      >
+                        <Download className="w-3 h-3" />
+                        {source.fileName}
+                      </a>
                     </TableCell>
                     <TableCell className="py-3 text-center">
                       <span className="text-sm font-mono">{source.tables}</span>
