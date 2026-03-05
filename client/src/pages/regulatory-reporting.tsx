@@ -1324,12 +1324,12 @@ interface IngestedSource {
 }
 
 const INGESTED_SOURCES: IngestedSource[] = [
-  { sourceSystem: "Core Banking", fileName: "GL_Extract_Q4_2025.xlsx", tables: 12, fields: 248, status: "Mapped", coverage: 94, quarter: "Q4 2025", fileSize: "14.2 MB", lastIngested: "2025-12-31 23:45:00" },
-  { sourceSystem: "Trading Systems", fileName: "Trading_Positions_Q4.xlsx", tables: 8, fields: 156, status: "Mapped", coverage: 88, quarter: "Q4 2025", fileSize: "8.7 MB", lastIngested: "2025-12-31 22:30:00" },
-  { sourceSystem: "Loan Origination", fileName: "Loan_Portfolio_Q4.xlsx", tables: 15, fields: 312, status: "Mapped", coverage: 91, quarter: "Q4 2025", fileSize: "22.1 MB", lastIngested: "2025-12-31 23:15:00" },
-  { sourceSystem: "Treasury", fileName: "Treasury_Data_Q4.xlsx", tables: 6, fields: 98, status: "Partial", coverage: 72, quarter: "Q4 2025", fileSize: "3.4 MB", lastIngested: "2025-12-31 21:00:00" },
-  { sourceSystem: "Risk Systems", fileName: "Risk_Metrics_Q4.xlsx", tables: 10, fields: 189, status: "Mapped", coverage: 96, quarter: "Q4 2025", fileSize: "11.3 MB", lastIngested: "2025-12-31 23:50:00" },
-  { sourceSystem: "Regulatory Reference", fileName: "MDRM_Taxonomy.xlsx", tables: 4, fields: 450, status: "Mapped", coverage: 100, quarter: "Q4 2025", fileSize: "5.8 MB", lastIngested: "2025-12-15 10:00:00" },
+  { sourceSystem: "Core Banking", fileName: "GL_Extract_Q1_2026.xlsx", tables: 12, fields: 248, status: "Mapped", coverage: 94, quarter: "Q1 2026", fileSize: "14.2 MB", lastIngested: "2026-03-31 23:45:00" },
+  { sourceSystem: "Trading Systems", fileName: "Trading_Positions_Q1_2026.xlsx", tables: 8, fields: 156, status: "Mapped", coverage: 88, quarter: "Q1 2026", fileSize: "8.7 MB", lastIngested: "2026-03-31 22:30:00" },
+  { sourceSystem: "Loan Origination", fileName: "Loan_Portfolio_Q1_2026.xlsx", tables: 15, fields: 312, status: "Mapped", coverage: 91, quarter: "Q1 2026", fileSize: "22.1 MB", lastIngested: "2026-03-31 23:15:00" },
+  { sourceSystem: "Treasury", fileName: "Treasury_Data_Q1_2026.xlsx", tables: 6, fields: 98, status: "Partial", coverage: 72, quarter: "Q1 2026", fileSize: "3.4 MB", lastIngested: "2026-03-31 21:00:00" },
+  { sourceSystem: "Risk Systems", fileName: "Risk_Metrics_Q1_2026.xlsx", tables: 10, fields: 189, status: "Mapped", coverage: 96, quarter: "Q1 2026", fileSize: "11.3 MB", lastIngested: "2026-03-31 23:50:00" },
+  { sourceSystem: "Regulatory Reference", fileName: "MDRM_Taxonomy.xlsx", tables: 4, fields: 450, status: "Mapped", coverage: 100, quarter: "Q1 2026", fileSize: "5.8 MB", lastIngested: "2026-03-15 10:00:00" },
 ];
 
 interface DataMapping {

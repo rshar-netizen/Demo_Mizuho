@@ -141,7 +141,7 @@ function generateGL() {
         acct.code, acct.name, acct.type, acct.subtype,
         entity, entity === "MHBK-US" ? "Mizuho Bank USA" : entity === "MHBK-CAY" ? "Mizuho Cayman" : entity === "MHBK-NY-BR" ? "Mizuho NY Branch" : "Mizuho Securities US",
         cc, pick(["Treasury", "Lending", "Trading", "Operations", "Risk", "Finance", "Compliance", "IT"]),
-        ccy, "2024-12-31", 2024, "Q4",
+        ccy, "2026-03-31", 2026, "Q1",
         opening, debit, credit, closing,
         Math.round(opening / fxRate), Math.round(closing / fxRate), fxRate,
         Math.round(closing * rn(3.5, 4.2, 1)), priorQ, priorY,
@@ -154,7 +154,7 @@ function generateGL() {
         acct.type, acct.type,
         pick(["CET1", "AT1", "T2", "N/A", "Deduction"]),
         pick([0, 20, 50, 100, 150]),
-        "2025-01-15", pick(["SYSTEM", "J.TANAKA", "R.SMITH", "K.WATANABE"]),
+        "2026-04-10", pick(["SYSTEM", "J.TANAKA", "R.SMITH", "K.WATANABE"]),
         pick(["Approved", "Pending Review", "Auto-Approved"]),
         `AUD-${rn(100000, 999999)}`,
         pick(["SAP GL", "Oracle EBS", "FIS", "Calypso"]),
@@ -169,7 +169,7 @@ function generateGL() {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, makeSheet(headers, rows.slice(0, 248)), "GL_Extract");
-  XLSX.writeFile(wb, path.join(outDir, "GL_Extract_Q4_2024.xlsx"));
+  XLSX.writeFile(wb, path.join(outDir, "GL_Extract_Q1_2026.xlsx"));
   console.log(`GL_Extract: ${rows.slice(0, 248).length} rows, ${headers.length} columns`);
 }
 
@@ -214,7 +214,7 @@ function generateTrading() {
   const rows = [];
   for (let i = 0; i < 156; i++) {
     const prod = pick(products);
-    const tradeDate = new Date(2024, rn(0, 11), rn(1, 28));
+    const tradeDate = new Date(2025, rn(3, 14), rn(1, 28));
     const matDate = new Date(tradeDate.getTime() + rn(30, 3650) * 86400000);
     const settDate = new Date(tradeDate.getTime() + rn(1, 5) * 86400000);
     const notional = rn(1000000, 500000000);
@@ -222,7 +222,7 @@ function generateTrading() {
     const isCCP = Math.random() < 0.6;
 
     rows.push([
-      `TRD-${String(20240001 + i)}`,
+      `TRD-${String(20260001 + i)}`,
       fmtDate(tradeDate), fmtDate(settDate), fmtDate(matDate),
       prod, prod.includes("Swap") ? "Vanilla" : prod.includes("Option") ? "European" : "Standard",
       prod.includes("FX") ? "FX" : prod.includes("IR") || prod.includes("Swap") || prod.includes("Rate") ? "Rates" : prod.includes("Credit") || prod.includes("CDS") ? "Credit" : "Equity",
@@ -239,7 +239,7 @@ function generateTrading() {
       rn(-1, 1, 4), rn(-0.05, 0.05, 6), rn(-500000, 500000), rn(-50000, 10000), rn(-200000, 200000),
       rn(100, 50000), rn(0, 25000), rn(-5, 5, 4),
       rn(50000, 2000000), rn(150000, 6000000), rn(80000, 3000000),
-      `ISDA-${rn(2015, 2024)}-${rn(100, 999)}`, pick(["Y", "N"]),
+      `ISDA-${rn(2015, 2026)}-${rn(100, 999)}`, pick(["Y", "N"]),
       rn(100000, 10000000), rn(-5000000, 5000000),
       isCCP ? "Y" : "N", isCCP ? pick(ccpNames.slice(0, 4)) : "Bilateral", `NS-${rn(100, 999)}`,
       Math.random() < 0.3 ? "Y" : "N", Math.random() < 0.3 ? pick(["Cash Flow", "Fair Value", "Net Investment"]) : "N/A", Math.random() < 0.3 ? `HDG-${rn(1000, 9999)}` : "",
@@ -247,13 +247,13 @@ function generateTrading() {
       rn(10000, 500000), rn(100000, 5000000),
       pick(["MHBK-US", "MHSC-US"]), "549300H14YVL7H6VE920",
       pick(["Calypso", "Murex", "Summit", "Bloomberg TOMS"]), pick(["Confirmed", "Pending", "Disputed"]), pick(["Settled", "Pending", "Partial"]),
-      "2024-12-31", pick(["Bloomberg", "Reuters", "MarkIT", "Internal"]), pick(["Verified", "Pending IPV", "Exception"])
+      "2026-03-31", pick(["Bloomberg", "Reuters", "MarkIT", "Internal"]), pick(["Verified", "Pending IPV", "Exception"])
     ]);
   }
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, makeSheet(headers, rows), "Trading_Positions");
-  XLSX.writeFile(wb, path.join(outDir, "Trading_Positions_Q4.xlsx"));
+  XLSX.writeFile(wb, path.join(outDir, "Trading_Positions_Q1_2026.xlsx"));
   console.log(`Trading_Positions: ${rows.length} rows, ${headers.length} columns`);
 }
 
@@ -298,7 +298,7 @@ function generateLoans() {
   const rows = [];
   for (let i = 0; i < 312; i++) {
     const loanType = pick(loanTypes);
-    const origDate = new Date(rn(2018, 2024), rn(0, 11), rn(1, 28));
+    const origDate = new Date(rn(2019, 2026), rn(0, 11), rn(1, 28));
     const matDate = new Date(origDate.getTime() + rn(365, 3650) * 86400000);
     const origAmt = rn(100000, 200000000);
     const outBal = Math.round(origAmt * rn(0.3, 1.0, 2));
@@ -326,13 +326,13 @@ function generateLoans() {
       pick(["SOFR", "Prime", "Fed Funds", "Fixed"]), rn(100, 400),
       rn(1.0, 4.0, 2), rn(8.0, 15.0, 2),
       pick(["Monthly", "Quarterly", "Semi-Annual", "Annual", "IO Monthly"]),
-      fmtDate(new Date(2025, rn(0, 2), rn(1, 28))),
+      fmtDate(new Date(2026, rn(3, 5), rn(1, 28))),
       Math.round(outBal * rn(0.005, 0.03, 4)),
       pick(["Real Estate", "Equipment", "Accounts Receivable", "Inventory", "Cash", "Securities", "Unsecured", "Mixed"]),
       collVal, ltv, state,
-      rating, fmtDate(new Date(2024, rn(6, 11), rn(1, 28))), pick(ratings),
+      rating, fmtDate(new Date(2025, rn(9, 14), rn(1, 28))), pick(ratings),
       rn(620, 800), rn(600, 820),
-      dpd, isNonaccrual ? "Y" : "N", isNonaccrual ? fmtDate(new Date(2024, rn(0, 11), rn(1, 28))) : "",
+      dpd, isNonaccrual ? "Y" : "N", isNonaccrual ? fmtDate(new Date(2025, rn(6, 14), rn(1, 28))) : "",
       Math.random() < 0.05 ? "Y" : "N", Math.random() < 0.05 ? pick(["Rate Reduction", "Term Extension", "Principal Forgiveness"]) : "", isNonaccrual ? "Y" : "N",
       isNonaccrual ? rn(10000, 1000000) : 0, Math.round(outBal * rn(0.005, 0.02, 4)), isNonaccrual ? rn(10000, 1000000) + Math.round(outBal * 0.01) : Math.round(outBal * 0.01),
       ecl, pd, lgd, outBal,
@@ -342,15 +342,15 @@ function generateLoans() {
       pick(["RC-C Part I", "RC-C Part II"]), `Line ${rn(1, 12)}`,
       pick([0, 20, 50, 75, 100, 150]), Math.round(outBal * pick([0, 0.2, 0.5, 0.75, 1.0, 1.5])),
       `OFF-${rn(100, 999)}`, pick(["J. Smith", "K. Tanaka", "M. Johnson", "S. Nakamura", "R. Williams"]), pick(["NYC-01", "LA-02", "CHI-03", "MIA-04"]),
-      fmtDate(new Date(2024, rn(6, 11), rn(1, 28))),
-      fmtDate(new Date(2025, rn(0, 5), rn(1, 28))),
+      fmtDate(new Date(2025, rn(9, 14), rn(1, 28))),
+      fmtDate(new Date(2026, rn(3, 8), rn(1, 28))),
       pick(["Complete", "In Progress", "Scheduled"])
     ]);
   }
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, makeSheet(headers, rows), "Loan_Portfolio");
-  XLSX.writeFile(wb, path.join(outDir, "Loan_Portfolio_Q4.xlsx"));
+  XLSX.writeFile(wb, path.join(outDir, "Loan_Portfolio_Q1_2026.xlsx"));
   console.log(`Loan_Portfolio: ${rows.length} rows, ${headers.length} columns`);
 }
 
@@ -399,7 +399,7 @@ function generateTreasury() {
     const coupon = rn(1.0, 7.5, 3);
     const ytm = rn(1.5, 7.0, 3);
     const dur = rn(0.5, 15, 2);
-    const tradeDate = new Date(rn(2020, 2024), rn(0, 11), rn(1, 28));
+    const tradeDate = new Date(rn(2021, 2026), rn(0, 11), rn(1, 28));
     const matDate = new Date(tradeDate.getTime() + rn(365, 10950) * 86400000);
     const isPledged = Math.random() < 0.3;
 
@@ -428,7 +428,7 @@ function generateTreasury() {
       "RC-B", `Line ${rn(1, 10)}`, `RCFD${rn(1000, 9999)}`,
       port === "HTM" ? "Amortized Cost" : port === "AFS" ? "Fair Value - OCI" : "Fair Value - P&L",
       pick(["ASC 320", "ASC 326", "ASC 815"]),
-      "2024-12-31", pick(["Bloomberg", "ICE", "Internal", "Vendor Feed"]),
+      "2026-03-31", pick(["Bloomberg", "ICE", "Internal", "Vendor Feed"]),
       pick(["BNY Mellon", "State Street", "JPMorgan", "Northern Trust"]),
       `CUST-${rn(100000, 999999)}`
     ]);
@@ -436,7 +436,7 @@ function generateTreasury() {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, makeSheet(headers, rows), "Treasury_Data");
-  XLSX.writeFile(wb, path.join(outDir, "Treasury_Data_Q4.xlsx"));
+  XLSX.writeFile(wb, path.join(outDir, "Treasury_Data_Q1_2026.xlsx"));
   console.log(`Treasury_Data: ${rows.length} rows, ${headers.length} columns`);
 }
 
@@ -495,7 +495,7 @@ function generateRisk() {
       pick(["Corporate Banking", "Investment Banking", "Retail Banking", "Treasury", "Global Markets"]),
       pick(["MHBK-US", "MHSC-US", "MHBK-NY-BR"]),
       `PORT-${rn(100, 999)}`,
-      "2024-12-31", "Q4 2024",
+      "2026-03-31", "Q1 2026",
       exposure, Math.round(exposure * rn(0.8, 1.2, 2)), pd, lgd, el,
       ul, Math.round(ul * rn(0.8, 1.2, 2)),
       rwa, Math.round(rwa * rn(0.7, 1.1, 2)), rwa,
@@ -516,7 +516,7 @@ function generateRisk() {
       pick(["Within Appetite", "Watch", "Breach"]),
       pick(["Basel III", "Basel IV", "Dodd-Frank", "CCAR", "DFAST"]),
       pick(["Pillar 1", "Pillar 2", "Pillar 3"]),
-      fmtDate(new Date(2024, rn(9, 11), rn(1, 28))),
+      fmtDate(new Date(2026, rn(0, 2), rn(1, 28))),
       pick(["CRO Office", "Market Risk", "Credit Risk", "OpRisk", "Model Risk"]),
       pick(["Approved", "Under Review", "Pending"]),
       rn(80, 100, 1),
@@ -527,7 +527,7 @@ function generateRisk() {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, makeSheet(headers, rows), "Risk_Metrics");
-  XLSX.writeFile(wb, path.join(outDir, "Risk_Metrics_Q4.xlsx"));
+  XLSX.writeFile(wb, path.join(outDir, "Risk_Metrics_Q1_2026.xlsx"));
   console.log(`Risk_Metrics: ${rows.length} rows, ${headers.length} columns`);
 }
 
