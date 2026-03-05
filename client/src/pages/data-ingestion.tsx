@@ -40,6 +40,7 @@ import {
   Plus,
   Trash2,
   Globe,
+  ChevronDown,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -204,6 +205,7 @@ function ConnectionRow({
   isRefreshing,
   statusDetail,
   isRemovable,
+  defaultCollapsed,
   onUrlChange,
   onIdChange,
   onConnect,
@@ -222,11 +224,34 @@ function ConnectionRow({
   isRefreshing: boolean;
   statusDetail?: DataSourceStatus;
   isRemovable: boolean;
+  defaultCollapsed?: boolean;
   onUrlChange: (val: string) => void;
   onIdChange: (val: string) => void;
   onConnect: () => void;
   onRemove?: () => void;
 }) {
+  const [expanded, setExpanded] = useState(!defaultCollapsed);
+
+  const statusBadge = isLoading ? (
+    <Badge variant="secondary" className="bg-muted text-muted-foreground border-0">
+      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+      Connecting...
+    </Badge>
+  ) : isConnected ? (
+    <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
+      <CheckCircle2 className="w-3 h-3 mr-1" />
+      Connected
+    </Badge>
+  ) : identifier ? (
+    <Badge variant="secondary" className="text-muted-foreground border-0">
+      Ready
+    </Badge>
+  ) : (
+    <Badge variant="secondary" className="text-muted-foreground border-0">
+      Not Configured
+    </Badge>
+  );
+
   return (
     <div
       className={`rounded-lg border p-3 transition-colors ${
@@ -234,51 +259,46 @@ function ConnectionRow({
       }`}
       data-testid={`connection-row-${id}`}
     >
-      <div className="flex items-start gap-3">
+      <div
+        className="flex items-center gap-3 cursor-pointer select-none"
+        onClick={() => setExpanded(prev => !prev)}
+        data-testid={`connection-header-${id}`}
+      >
         <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${colorClass}`}>
           <Icon className="w-4 h-4" />
         </div>
 
-        <div className="flex-1 min-w-0 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-medium">{name}</p>
-              <p className="text-[10px] text-muted-foreground">{description}</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {isLoading ? (
-                <Badge variant="secondary" className="bg-muted text-muted-foreground border-0">
-                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                  Connecting...
-                </Badge>
-              ) : isConnected ? (
-                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Connected
-                </Badge>
-              ) : identifier ? (
-                <Badge variant="secondary" className="text-muted-foreground border-0">
-                  Ready
-                </Badge>
-              ) : (
-                <Badge variant="secondary" className="text-muted-foreground border-0">
-                  Not Configured
-                </Badge>
-              )}
-              {isRemovable && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                  onClick={onRemove}
-                  data-testid={`button-remove-${id}`}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              )}
-            </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium">{name}</p>
+            {isConnected && statusDetail && !expanded && (
+              <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">{statusDetail.identifier} · {statusDetail.responseTimeMs}ms</span>
+            )}
           </div>
+          {(!isConnected || expanded) && (
+            <p className="text-[10px] text-muted-foreground">{description}</p>
+          )}
+        </div>
 
+        <div className="flex items-center gap-2 shrink-0">
+          {statusBadge}
+          {isRemovable && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+              onClick={(e) => { e.stopPropagation(); onRemove?.(); }}
+              data-testid={`button-remove-${id}`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          )}
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`} />
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="mt-3 pl-12 space-y-2">
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
             <div className="space-y-1">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">API Endpoint</label>
@@ -309,7 +329,7 @@ function ConnectionRow({
               size="sm"
               variant={isConnected ? "outline" : "default"}
               className="h-8"
-              onClick={onConnect}
+              onClick={(e) => { e.stopPropagation(); onConnect(); }}
               disabled={isRefreshing}
               data-testid={`button-connect-${id}`}
             >
@@ -338,7 +358,7 @@ function ConnectionRow({
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -470,6 +490,7 @@ function ConnectionPanel({
               isRefreshing={isRefreshing}
               statusDetail={status}
               isRemovable={!conn.isBuiltIn}
+              defaultCollapsed={conn.isBuiltIn}
               onUrlChange={(val) => handleFieldChange(conn.systemId, "url", val)}
               onIdChange={(val) => handleFieldChange(conn.systemId, "identifier", val)}
               onConnect={onRefresh}
