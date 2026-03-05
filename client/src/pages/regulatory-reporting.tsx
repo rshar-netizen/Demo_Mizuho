@@ -38,7 +38,6 @@ import {
   AlertTriangle,
   FileCheck,
   GitCompare,
-  TrendingUp,
   ChevronRight,
   ChevronDown,
   CheckCircle2,
@@ -57,10 +56,7 @@ import {
   SendHorizontal,
   Clock,
   BarChart3,
-  LineChart as LineChartIcon,
   AreaChart as AreaChartIcon,
-  Target,
-  Zap,
   Eye,
   Link2,
   ArrowRight,
@@ -87,8 +83,6 @@ import {
   dataDictionaries,
   anomalyRecords,
   reportLineItems,
-  trendData as demoTrendData,
-  type TrendDataPoint,
   aiQueries,
   type AIQueryItem,
   unmappedFields,
@@ -121,7 +115,6 @@ const steps = [
   { id: "anomalies", label: "Variance Analysis", icon: AlertTriangle, step: 3 },
   { id: "review", label: "Report Validation", icon: FileCheck, step: 4 },
   { id: "comparison", label: "Review & Approval", icon: GitCompare, step: 5 },
-  { id: "trends", label: "Trend Analysis", icon: TrendingUp, step: 6 },
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -667,7 +660,7 @@ const OUT_OF_SCOPE_RESPONSE: AIQueryItem = {
   id: "out-of-scope",
   schedule: "—",
   question: "",
-  answer: "This question appears to be outside the scope of regulatory reporting requirements and filing instructions.\n\nThis assistant is designed to help with:\n- FFIEC Call Report (031/041) schedule requirements and filing rules\n- FR Y-9C schedule instructions for bank holding company reporting\n- Regulatory capital calculation guidance (Basel III, CET1, Tier 1, Total Capital)\n- Loan classification, deposit categorization, and derivative reporting rules\n- CECL provisioning requirements and nonaccrual/delinquency guidance\n\nFor other questions, please refer to:\n- Data analysis and trends — see the Multi-Period Analysis and Trend Analysis tabs\n- Cross-report reconciliation and tie-outs — see the Report Validation tab\n- Peer benchmarking and comparison — see the Peer Analysis page\n- Specific portfolio or position inquiries — consult the relevant business line team",
+  answer: "This question appears to be outside the scope of regulatory reporting requirements and filing instructions.\n\nThis assistant is designed to help with:\n- FFIEC Call Report (031/041) schedule requirements and filing rules\n- FR Y-9C schedule instructions for bank holding company reporting\n- Regulatory capital calculation guidance (Basel III, CET1, Tier 1, Total Capital)\n- Loan classification, deposit categorization, and derivative reporting rules\n- CECL provisioning requirements and nonaccrual/delinquency guidance\n\nFor other questions, please refer to:\n- Data analysis and trends — see the Variance Analysis tab\n- Cross-report reconciliation and tie-outs — see the Report Validation tab\n- Peer benchmarking and comparison — see the Peer Analysis page\n- Specific portfolio or position inquiries — consult the relevant business line team",
   sources: [
     { label: "Scope", reference: "Filing Requirements & Instructions Only" },
   ],
@@ -1754,7 +1747,7 @@ function HistoricalDataPull() {
                     <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
                       {completedPulls.length} quarter{completedPulls.length !== 1 ? "s" : ""} of historical {report.name} data successfully retrieved from FFIEC CDR.
                       Variance detection baselines updated. Q1 2026 current-quarter data sourced from report draft.
-                      Historical trends are now available in the Trend Analysis tab.
+                      Historical trends are now available in Variance Analysis.
                     </p>
                   </div>
                 </div>
@@ -5437,463 +5430,7 @@ function ReviewApprovalTab() {
   );
 }
 
-function useLiveTrendData() {
-  const pullStatus = useHistoricalPullStatus();
-  const { overrides } = useDraftOverrides();
-  const { data, isLoading } = useQuery<{ data: Array<{ historicalData?: Array<{ period: string; totalAssets: number; totalDeposits: number; totalLoans: number; netIncome: number; tier1Ratio: number }> }> }>({
-    queryKey: ["/api/data-sources/peer-data"],
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  });
 
-  if (isLoading || !data?.data?.length) return { trendData: demoTrendData, isLive: false, hasPulled: pullStatus.pulled };
-
-  const mizuhoProxy = data.data[0];
-  if (!mizuhoProxy?.historicalData?.length) return { trendData: demoTrendData, isLive: false, hasPulled: pullStatus.pulled };
-
-  const liveTrend: TrendDataPoint[] = [...mizuhoProxy.historicalData]
-    .sort((a, b) => {
-      const [qa, ya] = a.period.replace("Q", "").split(" ");
-      const [qb, yb] = b.period.replace("Q", "").split(" ");
-      return (parseInt(ya) * 4 + parseInt(qa)) - (parseInt(yb) * 4 + parseInt(qb));
-    })
-    .map(h => ({
-      period: h.period,
-      totalAssets: Math.round(h.totalAssets / 1000),
-      totalLoans: Math.round(h.totalLoans / 1000),
-      totalDeposits: Math.round(h.totalDeposits / 1000),
-      netIncome: Math.round(h.netIncome / 1000),
-      tier1Capital: parseFloat(h.tier1Ratio.toFixed(2)),
-    }));
-
-  const hasQ1_2026 = liveTrend.some(d => d.period === "Q1 2026");
-  if (!hasQ1_2026) {
-    const q1Draft: TrendDataPoint = {
-      period: "Q1 2026",
-      totalAssets: Math.round((overrides["RCFD2170"] ?? INGESTED_Q1_2026["RCFD2170"]?.q1 ?? 5495000) / 1000),
-      totalLoans: Math.round((overrides["RCFD2122"] ?? INGESTED_Q1_2026["RCFD2122"]?.q1 ?? 2910000) / 1000),
-      totalDeposits: Math.round((overrides["RCON2200"] ?? INGESTED_Q1_2026["RCON2200"]?.q1 ?? 3180000) / 1000),
-      netIncome: Math.round((overrides["RIAD4340"] ?? INGESTED_Q1_2026["RIAD4340"]?.q1 ?? 28500) / 1000),
-      tier1Capital: overrides["RCFD7206"] ?? INGESTED_Q1_2026["RCFD7206"]?.q1 ?? 19.74,
-    };
-    liveTrend.push(q1Draft);
-  }
-
-  return { trendData: liveTrend, isLive: true, hasPulled: pullStatus.pulled };
-}
-
-type TrendMetric = "totalAssets" | "loansDeposits" | "netIncome" | "tier1Capital";
-type ChartType = "area" | "line" | "bar";
-
-const trendMetrics: { id: TrendMetric; label: string; unit: string }[] = [
-  { id: "tier1Capital", label: "Tier 1 Capital Ratio", unit: "%" },
-  { id: "totalAssets", label: "Total Assets", unit: "$M" },
-  { id: "loansDeposits", label: "Loans vs Deposits", unit: "$M" },
-  { id: "netIncome", label: "Net Income", unit: "$M" },
-];
-
-const chartTypes: { id: ChartType; label: string; icon: typeof AreaChartIcon }[] = [
-  { id: "area", label: "Area", icon: AreaChartIcon },
-  { id: "line", label: "Line", icon: LineChartIcon },
-  { id: "bar", label: "Bar", icon: BarChart3 },
-];
-
-function getTrendNarrative(metric: TrendMetric, data: TrendDataPoint[]): string {
-  if (!data.length) return "";
-  const first = data[0];
-  const last = data[data.length - 1];
-  switch (metric) {
-    case "totalAssets": {
-      const change = ((last.totalAssets - first.totalAssets) / first.totalAssets * 100).toFixed(1);
-      const dir = parseFloat(change) >= 0 ? "grown" : "contracted";
-      return `Total assets have ${dir} ${Math.abs(parseFloat(change))}% from $${first.totalAssets.toLocaleString()}M in ${first.period} to $${last.totalAssets.toLocaleString()}M in ${last.period}. The trajectory shows ${parseFloat(change) > 3 ? "strong balance sheet expansion driven by lending growth and securities acquisitions" : parseFloat(change) > 0 ? "moderate growth consistent with peer bank averages" : "deleveraging activity, potentially reflecting strategic portfolio optimization"}. The most recent quarter ${last.totalAssets > data[data.length - 2]?.totalAssets ? "continued the upward trend" : "saw a slight pullback"}, which should be monitored against the institution's growth targets.`;
-    }
-    case "loansDeposits": {
-      const loanChange = ((last.totalLoans - first.totalLoans) / first.totalLoans * 100).toFixed(1);
-      const depChange = ((last.totalDeposits - first.totalDeposits) / first.totalDeposits * 100).toFixed(1);
-      const ldrFirst = (first.totalLoans / first.totalDeposits * 100).toFixed(1);
-      const ldrLast = (last.totalLoans / last.totalDeposits * 100).toFixed(1);
-      return `Loans grew ${loanChange}% while deposits grew ${depChange}% over the observed period. The loan-to-deposit ratio moved from ${ldrFirst}% to ${ldrLast}%, ${parseFloat(ldrLast) > parseFloat(ldrFirst) ? "indicating increased reliance on wholesale funding for loan growth" : "reflecting improved deposit funding of the loan book"}. The divergence between loan and deposit growth rates ${Math.abs(parseFloat(loanChange) - parseFloat(depChange)) > 5 ? "warrants attention from a liquidity management perspective" : "remains within normal operating parameters"}.`;
-    }
-    case "netIncome": {
-      const incomeFirst = first.netIncome;
-      const incomeLast = last.netIncome;
-      const change = ((incomeLast - incomeFirst) / Math.abs(incomeFirst) * 100).toFixed(1);
-      const maxIncome = Math.max(...data.map(d => d.netIncome));
-      const maxPeriod = data.find(d => d.netIncome === maxIncome)?.period;
-      return `Net income ${parseFloat(change) >= 0 ? "increased" : "decreased"} ${Math.abs(parseFloat(change))}% across the period, from $${incomeFirst.toLocaleString()}M to $${incomeLast.toLocaleString()}M. Peak earnings of $${maxIncome.toLocaleString()}M were recorded in ${maxPeriod}. ${parseFloat(change) > 10 ? "The strong earnings trajectory reflects improving net interest margins and disciplined expense management." : parseFloat(change) > 0 ? "Modest earnings growth is consistent with the current rate environment." : "The earnings pressure should be evaluated against provision build activity and non-interest income trends."}`;
-    }
-    case "tier1Capital": {
-      const capFirst = first.tier1Capital;
-      const capLast = last.tier1Capital;
-      const change = (capLast - capFirst).toFixed(2);
-      return `Tier 1 capital ratio moved from ${capFirst}% to ${capLast}% (${parseFloat(change) >= 0 ? "+" : ""}${change}pp). The ratio remains ${capLast > 10 ? "well above" : capLast > 8 ? "above" : "near"} the 6% well-capitalized threshold. ${parseFloat(change) > 0.5 ? "Capital accretion reflects retained earnings growth outpacing risk-weighted asset expansion." : parseFloat(change) > 0 ? "The stable capital position provides adequate buffer for planned growth initiatives." : "The modest decline warrants review of RWA growth relative to capital generation capacity, particularly given the current lending trajectory."}`;
-    }
-  }
-}
-
-interface InflectionPoint {
-  period: string;
-  metric: string;
-  description: string;
-  insight: string;
-  severity: "high" | "medium" | "low";
-  value: string;
-  changePct: string;
-}
-
-function getInflectionPoints(data: TrendDataPoint[]): InflectionPoint[] {
-  if (data.length < 3) return [];
-  const points: InflectionPoint[] = [];
-
-  for (let i = 1; i < data.length - 1; i++) {
-    const prev = data[i - 1];
-    const curr = data[i];
-    const next = data[i + 1];
-
-    const assetDelta1 = (curr.totalAssets - prev.totalAssets) / prev.totalAssets;
-    const assetDelta2 = (next.totalAssets - curr.totalAssets) / curr.totalAssets;
-    if (Math.sign(assetDelta1) !== Math.sign(assetDelta2) && Math.abs(assetDelta1) > 0.01) {
-      const pct = (assetDelta1 * 100).toFixed(1);
-      const loanGrowth = ((curr.totalLoans - prev.totalLoans) / prev.totalLoans * 100).toFixed(1);
-      const depositGrowth = ((curr.totalDeposits - prev.totalDeposits) / prev.totalDeposits * 100).toFixed(1);
-      points.push({
-        period: curr.period,
-        metric: "Total Assets",
-        description: assetDelta1 > 0 ? "Growth peaked — trend reversed to contraction" : "Contraction bottomed — recovery began",
-        insight: assetDelta1 > 0
-          ? `Asset growth of ${pct}% coincided with loan growth of ${loanGrowth}% and deposit growth of ${depositGrowth}%. The subsequent reversal likely reflects tightened lending standards in response to rising delinquencies, a deliberate reduction in securities holdings to manage duration risk amid rate volatility, or seasonal balance sheet optimization ahead of quarter-end regulatory reporting.`
-          : `After contracting, assets began recovering with loans at ${loanGrowth}% growth. This inflection typically signals renewed C&I and CRE lending demand, potentially driven by improving borrower credit quality, stabilizing commercial real estate valuations, or management's decision to deploy excess liquidity built up during the contraction phase.`,
-        severity: Math.abs(assetDelta1) > 0.03 ? "high" : "medium",
-        value: `$${curr.totalAssets.toLocaleString()}M`,
-        changePct: `${parseFloat(pct) >= 0 ? "+" : ""}${pct}%`,
-      });
-    }
-
-    const incomeDelta1 = curr.netIncome - prev.netIncome;
-    const incomeDelta2 = next.netIncome - curr.netIncome;
-    if (Math.sign(incomeDelta1) !== Math.sign(incomeDelta2) && Math.abs(incomeDelta1) > 50) {
-      const pct = (incomeDelta1 / Math.abs(prev.netIncome) * 100).toFixed(1);
-      const nimChange = prev.tier1Capital !== curr.tier1Capital;
-      const loanDelta = ((curr.totalLoans - prev.totalLoans) / prev.totalLoans * 100).toFixed(1);
-      points.push({
-        period: curr.period,
-        metric: "Net Income",
-        description: incomeDelta1 > 0 ? "Earnings peaked — began declining" : "Earnings troughed — recovery initiated",
-        insight: incomeDelta1 > 0
-          ? `Earnings peaked at $${curr.netIncome.toLocaleString()}M after a $${Math.abs(incomeDelta1).toLocaleString()}M QoQ increase. The subsequent decline is consistent with higher provision expense as the CECL model incorporated deteriorating macro forecasts, compression in net interest margin as funding costs caught up with asset repricing, and potentially elevated non-interest expenses from technology and compliance investments.`
-          : `Earnings troughed at $${curr.netIncome.toLocaleString()}M before recovering. The turnaround likely reflects stabilizing credit costs as early-stage delinquencies plateaued, improved fee income from capital markets and advisory activity, and the lagged benefit of prior-quarter asset repricing flowing through to net interest income. Loan growth of ${loanDelta}% in this period supported earning asset expansion.`,
-        severity: Math.abs(incomeDelta1) > 200 ? "high" : "medium",
-        value: `$${curr.netIncome.toLocaleString()}M`,
-        changePct: `${parseFloat(pct) >= 0 ? "+" : ""}${pct}%`,
-      });
-    }
-
-    const capDelta1 = curr.tier1Capital - prev.tier1Capital;
-    const capDelta2 = next.tier1Capital - curr.tier1Capital;
-    if (Math.sign(capDelta1) !== Math.sign(capDelta2) && Math.abs(capDelta1) > 0.1) {
-      const rwaGrowth = ((curr.totalLoans - prev.totalLoans) / prev.totalLoans * 100).toFixed(1);
-      const incomeDirection = curr.netIncome > prev.netIncome ? "rising" : "declining";
-      points.push({
-        period: curr.period,
-        metric: "Tier 1 Capital",
-        description: capDelta1 > 0 ? "Capital ratio peaked — began trending down" : "Capital ratio bottomed — started rebuilding",
-        insight: capDelta1 > 0
-          ? `Tier 1 ratio peaked at ${curr.tier1Capital}% before declining. This typically occurs when risk-weighted asset growth (loan portfolio grew ${rwaGrowth}%) outpaces capital generation from retained earnings. Contributing factors include accelerated C&I and CRE originations increasing RWA density, AOCI volatility from unrealized AFS securities losses impacting CET1 under the CECL transition, and potential capital return activity (dividends or buybacks) consuming excess capital buffers.`
-          : `Capital ratio bottomed at ${curr.tier1Capital}% with ${incomeDirection} net income. The recovery was likely driven by moderated loan growth reducing RWA expansion, improved retained earnings as provision expense normalized, and potential benefits from the AOCI opt-out or transitional CECL capital relief. Management may have also adjusted the securities portfolio duration to reduce mark-to-market CET1 impact.`,
-        severity: Math.abs(capDelta1) > 0.3 ? "high" : "low",
-        value: `${curr.tier1Capital}%`,
-        changePct: `${capDelta1 >= 0 ? "+" : ""}${capDelta1.toFixed(2)}pp`,
-      });
-    }
-
-    const ldr1 = curr.totalLoans / curr.totalDeposits;
-    const ldr0 = prev.totalLoans / prev.totalDeposits;
-    const ldr2 = next.totalLoans / next.totalDeposits;
-    const ldrDelta1 = ldr1 - ldr0;
-    const ldrDelta2 = ldr2 - ldr1;
-    if (Math.sign(ldrDelta1) !== Math.sign(ldrDelta2) && Math.abs(ldrDelta1) > 0.005) {
-      const loanPct = ((curr.totalLoans - prev.totalLoans) / prev.totalLoans * 100).toFixed(1);
-      const depPct = ((curr.totalDeposits - prev.totalDeposits) / prev.totalDeposits * 100).toFixed(1);
-      points.push({
-        period: curr.period,
-        metric: "Loan-to-Deposit Ratio",
-        description: ldrDelta1 > 0 ? "LDR peaked — liquidity position began improving" : "LDR troughed — lending activity accelerated relative to deposits",
-        insight: ldrDelta1 > 0
-          ? `LDR peaked at ${(ldr1 * 100).toFixed(1)}% with loans at ${loanPct}% growth vs deposits at ${depPct}%. The subsequent improvement suggests management pivoted to deposit gathering — likely through promotional rate offerings, treasury management client acquisition, or reduced wholesale funding reliance. This may also reflect seasonal corporate deposit inflows or a strategic decision to slow loan originations as credit spreads tightened.`
-          : `LDR troughed at ${(ldr1 * 100).toFixed(1)}% before lending accelerated. Loan growth of ${loanPct}% outpacing deposit growth of ${depPct}% indicates renewed credit demand, potentially from middle-market C&I borrowers drawing on revolving facilities, CRE construction fundings, or expansion of the consumer lending portfolio. This shift warrants monitoring of the institution's contingent liquidity position and FHLB borrowing capacity.`,
-        severity: Math.abs(ldrDelta1) > 0.015 ? "medium" : "low",
-        value: `${(ldr1 * 100).toFixed(1)}%`,
-        changePct: `${ldrDelta1 >= 0 ? "+" : ""}${(ldrDelta1 * 100).toFixed(2)}pp`,
-      });
-    }
-  }
-
-  return points.slice(0, 8);
-}
-
-function TrendAnalysisTab() {
-  const { trendData, isLive, hasPulled } = useLiveTrendData();
-  const [activeMetric, setActiveMetric] = useState<TrendMetric>("tier1Capital");
-  const [chartType, setChartType] = useState<ChartType>("area");
-
-  const inflectionPoints = getInflectionPoints(trendData);
-
-  const tooltipStyle = {
-    backgroundColor: "hsl(var(--card))",
-    border: "1px solid hsl(var(--border))",
-    borderRadius: "6px",
-    fontSize: "12px",
-  };
-
-  const isPercent = activeMetric === "tier1Capital";
-  const formatValue = (value: number) => isPercent ? `${value}%` : `$${value.toLocaleString()}M`;
-
-  const currentQPeriod = trendData.length > 0 ? trendData[trendData.length - 1].period : "";
-  const trendDataMarked = trendData.map((d, i) => ({ ...d, isCurrent: i === trendData.length - 1 }));
-
-  const TrendDot = (baseColor: string) => (props: { cx?: number; cy?: number; index?: number }) => {
-    const { cx, cy, index } = props;
-    if (!cx || !cy) return <circle cx={0} cy={0} r={0} fill="none" />;
-    if (index === trendDataMarked.length - 1) {
-      return (
-        <g>
-          <circle cx={cx} cy={cy} r={7} fill="hsl(351, 85%, 52%)" fillOpacity={0.15} stroke="none" />
-          <circle cx={cx} cy={cy} r={4.5} fill="hsl(351, 85%, 52%)" stroke="white" strokeWidth={2} />
-        </g>
-      );
-    }
-    return <circle cx={cx} cy={cy} r={3} fill={baseColor} />;
-  };
-
-  const renderChart = () => {
-    const commonProps = { data: trendDataMarked };
-    const xAxis = (
-      <XAxis
-        dataKey="period"
-        tick={({ x, y, payload }: { x: number; y: number; payload: { value: string; index: number } }) => {
-          const isCurrentQ = payload.value === currentQPeriod;
-          return (
-            <text x={x} y={y + 12} textAnchor="end" fontSize={11} fontWeight={isCurrentQ ? 700 : 400} fill={isCurrentQ ? "hsl(351, 85%, 52%)" : "currentColor"} transform={`rotate(-30, ${x}, ${y + 12})`}>
-              {payload.value}
-            </text>
-          );
-        }}
-        height={55}
-      />
-    );
-    const yAxis = <YAxis tick={{ fontSize: 11 }} domain={isPercent ? ["auto", "auto"] : ["dataMin - 2000", "dataMax + 2000"]} />;
-    const grid = <CartesianGrid strokeDasharray="3 3" opacity={0.1} />;
-    const tooltip = (
-      <Tooltip
-        contentStyle={tooltipStyle}
-        formatter={(value: number) => [formatValue(value), ""]}
-        labelFormatter={(label: string) => label === currentQPeriod ? `${label} (Current Quarter)` : label}
-      />
-    );
-
-    if (activeMetric === "loansDeposits") {
-      if (chartType === "bar") {
-        return (
-          <BarChart {...commonProps}>
-            {grid}{xAxis}{yAxis}{tooltip}
-            <Legend wrapperStyle={{ fontSize: "11px" }} />
-            <Bar dataKey="totalLoans" radius={[4, 4, 0, 0]} name="Total Loans">
-              {trendDataMarked.map((entry, idx) => (
-                <Cell key={idx} fill={entry.isCurrent ? "hsl(351, 85%, 52%)" : "hsl(var(--chart-2))"} fillOpacity={entry.isCurrent ? 1 : 0.85} />
-              ))}
-            </Bar>
-            <Bar dataKey="totalDeposits" radius={[4, 4, 0, 0]} name="Total Deposits">
-              {trendDataMarked.map((entry, idx) => (
-                <Cell key={idx} fill={entry.isCurrent ? "hsl(351, 65%, 62%)" : "hsl(var(--chart-3))"} fillOpacity={entry.isCurrent ? 1 : 0.85} />
-              ))}
-            </Bar>
-          </BarChart>
-        );
-      }
-      if (chartType === "area") {
-        return (
-          <AreaChart {...commonProps}>
-            {grid}{xAxis}{yAxis}{tooltip}
-            <Legend wrapperStyle={{ fontSize: "11px" }} />
-            <Area type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" fillOpacity={0.1} strokeWidth={2} name="Total Loans" dot={TrendDot("hsl(var(--chart-2))")} />
-            <Area type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.1} strokeWidth={2} name="Total Deposits" dot={TrendDot("hsl(var(--chart-3))")} />
-          </AreaChart>
-        );
-      }
-      return (
-        <LineChart {...commonProps}>
-          {grid}{xAxis}{yAxis}{tooltip}
-          <Legend wrapperStyle={{ fontSize: "11px" }} />
-          <Line type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={TrendDot("hsl(var(--chart-2))")} name="Total Loans" />
-          <Line type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={TrendDot("hsl(var(--chart-3))")} name="Total Deposits" />
-        </LineChart>
-      );
-    }
-
-    const dataKey = activeMetric === "totalAssets" ? "totalAssets" : activeMetric === "netIncome" ? "netIncome" : "tier1Capital";
-    const color = activeMetric === "totalAssets" ? "hsl(var(--chart-1))" : activeMetric === "netIncome" ? "hsl(var(--chart-4))" : "hsl(var(--chart-5))";
-    const name = trendMetrics.find(m => m.id === activeMetric)?.label ?? "";
-
-    if (chartType === "bar") {
-      return (
-        <BarChart {...commonProps}>
-          {grid}{xAxis}{yAxis}{tooltip}
-          <Bar dataKey={dataKey} radius={[4, 4, 0, 0]} name={name}>
-            {trendDataMarked.map((entry, idx) => (
-              <Cell key={idx} fill={entry.isCurrent ? "hsl(351, 85%, 52%)" : color} fillOpacity={entry.isCurrent ? 1 : 0.85} />
-            ))}
-          </Bar>
-        </BarChart>
-      );
-    }
-    if (chartType === "line") {
-      return (
-        <LineChart {...commonProps}>
-          {grid}{xAxis}{yAxis}{tooltip}
-          <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={TrendDot(color)} name={name} />
-        </LineChart>
-      );
-    }
-    return (
-      <AreaChart {...commonProps}>
-        {grid}{xAxis}{yAxis}{tooltip}
-        <Area type="monotone" dataKey={dataKey} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={2} name={name} dot={TrendDot(color)} />
-      </AreaChart>
-    );
-  };
-
-  return (
-    <div className="space-y-4">
-      {isLive && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
-            <Wifi className="w-3 h-3 mr-1" />
-            Live FDIC Data
-          </Badge>
-          {hasPulled && (
-            <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-0">
-              <Database className="w-3 h-3 mr-1" />
-              Historical Data Ingested
-            </Badge>
-          )}
-          <span className="text-xs text-muted-foreground">
-            Q1 2024–Q4 2025 from FDIC Call Reports{hasPulled ? " (ingested)" : ""} · Q1 2026 from current report draft
-          </span>
-        </div>
-      )}
-
-      <Card data-testid="card-trend-main">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
-              {trendMetrics.map(m => (
-                <Button
-                  key={m.id}
-                  variant={activeMetric === m.id ? "default" : "outline"}
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => setActiveMetric(m.id)}
-                  data-testid={`button-metric-${m.id}`}
-                >
-                  {m.label}
-                </Button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1 rounded-md border p-0.5" data-testid="chart-type-toggle">
-              {chartTypes.map(ct => {
-                const Icon = ct.icon;
-                return (
-                  <button
-                    key={ct.id}
-                    onClick={() => setChartType(ct.id)}
-                    className={`p-1.5 rounded transition-colors ${chartType === ct.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
-                    title={ct.label}
-                    data-testid={`button-chart-${ct.id}`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-center">
-            <div className="w-full max-w-[900px] h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                {renderChart()}
-              </ResponsiveContainer>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 mt-1 px-1">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-[hsl(351,85%,52%)] border-2 border-white shadow-sm" />
-              <span className="text-[10px] text-muted-foreground">Current Quarter — Q1 2026 (from report draft)</span>
-            </div>
-            <span className="text-[10px] text-muted-foreground/60">|</span>
-            <span className="text-[10px] text-muted-foreground">{trendData.length - 1} historical periods from FDIC Call Reports</span>
-          </div>
-          <Separator />
-          <div className="flex items-start gap-2 px-2">
-            <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-            <p className="text-xs text-muted-foreground leading-relaxed" data-testid="text-trend-narrative">
-              {getTrendNarrative(activeMetric, trendData)}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card data-testid="card-inflection-points">
-        <CardHeader className="pb-2">
-          <div className="flex items-center gap-2">
-            <Target className="w-4 h-4 text-primary" />
-            <CardTitle className="text-sm">Inflection Point Analysis</CardTitle>
-            <Badge variant="secondary" className="text-[10px]">{inflectionPoints.length} detected</Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">Algorithmically identified trend reversals and regime changes across key financial metrics</p>
-        </CardHeader>
-        <CardContent>
-          {inflectionPoints.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-8">Insufficient data points to detect inflection points. At least 3 periods required.</p>
-          ) : (
-            <div className="space-y-3">
-              {inflectionPoints.map((pt, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-lg border border-border/60 bg-muted/20 p-4"
-                  data-testid={`inflection-point-${idx}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`mt-0.5 rounded-full p-1.5 shrink-0 ${pt.severity === "high" ? "bg-red-500/10 text-red-500" : pt.severity === "medium" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}>
-                      <Zap className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium">{pt.metric}</span>
-                        <Badge variant="outline" className="text-[10px]">{pt.period}</Badge>
-                        <span className="text-xs font-mono text-muted-foreground">{pt.value}</span>
-                        <Badge variant="outline" className="text-[10px] font-mono">{pt.changePct}</Badge>
-                        <Badge
-                          variant="secondary"
-                          className={`text-[10px] border-0 ${pt.severity === "high" ? "bg-red-500/10 text-red-500" : pt.severity === "medium" ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"}`}
-                        >
-                          {pt.severity}
-                        </Badge>
-                      </div>
-                      <p className="text-xs font-medium text-foreground/80 mt-1.5">{pt.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{pt.insight}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
 export default function RegulatoryReporting() {
   const [activeTab, setActiveTab] = useState("instructions");
@@ -5942,7 +5479,6 @@ export default function RegulatoryReporting() {
         {activeTab === "anomalies" && <AnomaliesTab />}
         {activeTab === "review" && <ReportReviewTab />}
         {activeTab === "comparison" && <ReviewApprovalTab />}
-        {activeTab === "trends" && <TrendAnalysisTab />}
       </div>
     </div>
   );
