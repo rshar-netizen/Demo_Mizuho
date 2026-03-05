@@ -10,6 +10,7 @@ Demo application for Mizuho Financial Group CFO presentation (March 2026). Showc
   - FDIC BankFind Suite API (Call Reports - FFIEC 031/041)
   - FFIEC Central Data Repository (UBPR)
   - Federal Reserve NIC (FR Y-9C)
+  - FFIEC 102 Market Risk Capital Rule (daily trading P&L, simulated demo data)
 - **FDIC Ratio Fields** (matched to FDIC portal):
   - NIM: `NIMY` (annualized net interest margin %)
   - Tier 1: `RBC1AAJ` (Tier 1 capital / adjusted average assets)
@@ -39,11 +40,13 @@ Demo application for Mizuho Financial Group CFO presentation (March 2026). Showc
    - Basic Comparison tab (raw Call Report data: assets, loans, deposits, income)
    - Standard Metrics tab (UBPR-equivalent ratios: ROE, ROA, NIM, Tier 1, Efficiency, NPA, NCO with peer average row)
    - Trend Analysis tab (ROE, NIM, Tier 1 time-series)
+   - Market Risk tab (FFIEC 102: profitable trading days stacked bar, trend line, trading revenue bar, summary table with VaR breaches)
 
 ## Key Files
 - `server/lib/fdic-api.ts` - FDIC BankFind Suite API integration
 - `server/lib/ffiec-api.ts` - FFIEC CDR integration (UBPR data)
 - `server/lib/fed-api.ts` - Federal Reserve NIC integration (FR Y-9C)
+- `server/lib/ffiec102-data.ts` - FFIEC 102 Market Risk demo data (daily trading P&L per peer bank)
 - `server/routes.ts` - API endpoints for data ingestion
 - `client/src/pages/data-ingestion.tsx` - Data Ingestion dashboard
 - `client/src/lib/demo-data.ts` - Static demo data and types

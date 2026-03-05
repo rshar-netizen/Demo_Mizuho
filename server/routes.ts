@@ -36,6 +36,12 @@ import {
   BHC_RSSD_IDS,
   clearFRY9CCache,
 } from "./lib/fed-api";
+import {
+  generateFFIEC102Data,
+  getFFIEC102ForCert,
+  clearFFIEC102Cache,
+  type FFIEC102BankData,
+} from "./lib/ffiec102-data";
 
 function mapRecord(f: FDICFinancialRecord, cert: number) {
   return {
@@ -188,7 +194,8 @@ export async function registerRoutes(
     records: FDICFinancialRecord[],
     rssd: string | null,
     ubpr: any,
-    fry9c: any
+    fry9c: any,
+    ffiec102?: FFIEC102BankData | null,
   ) {
     const latestReport = records[0];
     return {
@@ -218,6 +225,18 @@ export async function registerRoutes(
       } : null,
       ubpr: ubpr?.metrics || null,
       fry9c: fry9c?.metrics || null,
+      ffiec102: ffiec102 ? ffiec102.quarters.map(q => ({
+        period: q.period,
+        tradingDays: q.tradingDays,
+        profitableDays: q.profitableDays,
+        unprofitableDays: q.unprofitableDays,
+        profitableDaysPct: q.profitableDaysPct,
+        totalTradingRevenue: q.totalTradingRevenue,
+        averageDailyPnL: q.averageDailyPnL,
+        maxDailyGain: q.maxDailyGain,
+        maxDailyLoss: q.maxDailyLoss,
+        varBreaches: q.varBreaches,
+      })) : null,
       historicalData: records.map((r) => ({
         period: formatReportDate(r.REPDTE),
         rawDate: r.REPDTE,
@@ -266,12 +285,16 @@ export async function registerRoutes(
         getAllBHCData(),
       ]);
 
+      const ffiec102All = generateFFIEC102Data();
+      const ffiec102ByCert = new Map(ffiec102All.map(d => [d.cert, d]));
+
       const peerSummary = Object.entries(PEER_BANKS).map(([name, cert]) => {
         const records = callReports[name] || [];
         const displayName = PEER_DISPLAY_NAMES[cert] || name;
         const ubpr = ubprData[displayName];
         const fry9c = fry9cData[displayName];
-        return buildPeerEntry(displayName, cert, records, PEER_RSSD_IDS[displayName] || null, ubpr, fry9c);
+        const ffiec102 = ffiec102ByCert.get(cert) || null;
+        return buildPeerEntry(displayName, cert, records, PEER_RSSD_IDS[displayName] || null, ubpr, fry9c, ffiec102);
       });
 
       const existingCerts = new Set(Object.values(PEER_BANKS));
@@ -289,7 +312,8 @@ export async function registerRoutes(
               const instData = instRes?.data?.[0]?.data;
               const name = PEER_DISPLAY_NAMES[cert] || instData?.NAME || `CERT ${cert}`;
               const rssd = instData?.FED_RSSD ? String(instData.FED_RSSD) : null;
-              return buildPeerEntry(name, cert, records, rssd, null, null);
+              const ffiec102Extra = getFFIEC102ForCert(cert);
+              return buildPeerEntry(name, cert, records, rssd, null, null, ffiec102Extra);
             } catch {
               return null;
             }
@@ -299,7 +323,7 @@ export async function registerRoutes(
       const allPeers = [...peerSummary, ...extraEntries.filter(Boolean)];
 
       res.json({
-        sources: ["FDIC BankFind Suite", "FFIEC CDR", "Federal Reserve NIC"],
+        sources: ["FDIC BankFind Suite", "FFIEC CDR", "Federal Reserve NIC", "FFIEC 102 (Market Risk)"],
         fetchedAt: new Date().toISOString(),
         peerCount: allPeers.length,
         data: allPeers,
@@ -495,6 +519,7 @@ export async function registerRoutes(
       clearCache();
       clearUBPRCache();
       clearFRY9CCache();
+      clearFFIEC102Cache();
 
       let callReports: Record<string, FDICFinancialRecord[]>;
       try {

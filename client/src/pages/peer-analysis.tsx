@@ -165,6 +165,19 @@ const tickerMap: Record<string, string> = {
   "Bank of America": "BAC",
 };
 
+interface FFIEC102Quarter {
+  period: string;
+  tradingDays: number;
+  profitableDays: number;
+  unprofitableDays: number;
+  profitableDaysPct: number;
+  totalTradingRevenue: number;
+  averageDailyPnL: number;
+  maxDailyGain: number;
+  maxDailyLoss: number;
+  varBreaches: number;
+}
+
 interface LivePeerEntry {
   name: string;
   cert: number;
@@ -188,6 +201,7 @@ interface LivePeerEntry {
     securities: number;
     equity: number;
   } | null;
+  ffiec102?: FFIEC102Quarter[] | null;
   historicalData?: Array<{
     period: string;
     totalAssets: number;
@@ -1004,6 +1018,274 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
   );
 }
 
+function MarketRiskComparison({ entries, bankNames }: { entries: LivePeerEntry[]; bankNames: string[] }) {
+  const banksWithData = entries.filter(e => e.ffiec102 && e.ffiec102.length > 0);
+
+  if (banksWithData.length === 0) {
+    return (
+      <Card data-testid="card-market-risk-empty">
+        <CardContent className="p-6 text-center">
+          <p className="text-sm text-muted-foreground">No FFIEC 102 Market Risk data available for the selected peer group.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const latestQuarter = banksWithData[0].ffiec102![banksWithData[0].ffiec102!.length - 1].period;
+
+  const profitableDaysData = banksWithData.map((e, idx) => {
+    const latest = e.ffiec102![e.ffiec102!.length - 1];
+    return {
+      name: tickerMap[e.name] || e.name.slice(0, 4).toUpperCase(),
+      fullName: e.name,
+      profitableDays: latest.profitableDays,
+      unprofitableDays: latest.unprofitableDays,
+      tradingDays: latest.tradingDays,
+      profitableDaysPct: latest.profitableDaysPct,
+      isMizuho: e.name === "Mizuho Americas",
+    };
+  }).sort((a, b) => b.profitableDays - a.profitableDays);
+
+  const trendPeriods = new Set<string>();
+  banksWithData.forEach(e => e.ffiec102!.forEach(q => trendPeriods.add(q.period)));
+  const sortedPeriods = Array.from(trendPeriods).sort((a, b) => {
+    const [qa, ya] = a.replace("Q", "").split(" ");
+    const [qb, yb] = b.replace("Q", "").split(" ");
+    return (parseInt(ya) * 4 + parseInt(qa)) - (parseInt(yb) * 4 + parseInt(qb));
+  });
+
+  const trendData = sortedPeriods.map(period => {
+    const point: Record<string, number | string> = { period };
+    banksWithData.forEach(e => {
+      const q = e.ffiec102!.find(q => q.period === period);
+      if (q) point[e.name] = q.profitableDays;
+    });
+    return point;
+  });
+
+  const revenueData = banksWithData.map(e => {
+    const latest = e.ffiec102![e.ffiec102!.length - 1];
+    return {
+      name: tickerMap[e.name] || e.name.slice(0, 4).toUpperCase(),
+      fullName: e.name,
+      totalRevenue: Math.round(latest.totalTradingRevenue * 100) / 100,
+      avgDailyPnL: Math.round(latest.averageDailyPnL * 100) / 100,
+      isMizuho: e.name === "Mizuho Americas",
+    };
+  }).sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+  return (
+    <div className="space-y-4">
+      <Card data-testid="card-profitable-days-bar">
+        <CardHeader className="pb-1">
+          <CardTitle className="text-sm">Profitable Trading Days — {latestQuarter}</CardTitle>
+          <p className="text-[11px] text-muted-foreground">Number of profitable vs unprofitable trading days per institution (FFIEC 102 daily P&L)</p>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[260px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={profitableDaysData} layout="horizontal">
+                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} domain={[0, 'auto']} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                  }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div className="rounded-md border bg-card p-2.5 text-xs shadow-md space-y-1">
+                        <p className="font-medium">{d.fullName}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />
+                          <span>Profitable: {d.profitableDays} days ({d.profitableDaysPct}%)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block" />
+                          <span>Unprofitable: {d.unprofitableDays} days</span>
+                        </div>
+                        <p className="text-muted-foreground">Total: {d.tradingDays} trading days</p>
+                      </div>
+                    );
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Bar dataKey="profitableDays" name="Profitable Days" stackId="days" fill="#10b981" radius={[0, 0, 0, 0]}>
+                  {profitableDaysData.map((d, i) => (
+                    <Cell key={i} fill={d.isMizuho ? "hsl(226, 69%, 30%)" : "#10b981"} />
+                  ))}
+                </Bar>
+                <Bar dataKey="unprofitableDays" name="Unprofitable Days" stackId="days" fill="#f87171" radius={[4, 4, 0, 0]}>
+                  {profitableDaysData.map((d, i) => (
+                    <Cell key={i} fill={d.isMizuho ? "hsl(351, 85%, 52%)" : "#f87171"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">Source: FFIEC 102 Market Risk Capital Rule — Daily Trading P&L ({latestQuarter})</p>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <Card data-testid="card-profitable-days-trend">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-sm">Profitable Days Trend (8 Quarters)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} domain={[0, 'auto']} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value: number) => [`${value} days`, ""]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: "10px" }} />
+                  {banksWithData.map((e, idx) => (
+                    <Line
+                      key={e.name}
+                      type="monotone"
+                      dataKey={e.name}
+                      stroke={getBankColor(e.name, idx)}
+                      strokeWidth={e.name === "Mizuho Americas" ? 2.5 : 1.5}
+                      dot={(props: any) => {
+                        const { cx, cy } = props;
+                        if (typeof cx !== 'number' || typeof cy !== 'number') return <circle cx={0} cy={0} r={0} fill="none" />;
+                        return <circle cx={cx} cy={cy} r={e.name === "Mizuho Americas" ? 3 : 2} fill={getBankColor(e.name, idx)} />;
+                      }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">Source: FFIEC 102 — Profitable trading days per quarter</p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-trading-revenue-bar">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-sm">Trading Revenue — {latestQuarter}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                    }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload || payload.length === 0) return null;
+                      const d = payload[0].payload;
+                      return (
+                        <div className="rounded-md border bg-card p-2.5 text-xs shadow-md space-y-1">
+                          <p className="font-medium">{d.fullName}</p>
+                          <p>Total Revenue: ${d.totalRevenue.toFixed(1)}M</p>
+                          <p>Avg Daily P&L: ${d.avgDailyPnL.toFixed(2)}M</p>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="totalRevenue" name="Total Trading Revenue ($M)" radius={[4, 4, 0, 0]}>
+                    {revenueData.map((d, i) => (
+                      <Cell key={i} fill={d.isMizuho ? "hsl(226, 69%, 30%)" : "hsl(var(--chart-3))"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">Source: FFIEC 102 — Quarterly trading revenue ($M)</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card data-testid="card-market-risk-table">
+        <CardHeader className="pb-1">
+          <CardTitle className="text-sm">FFIEC 102 Market Risk Summary — {latestQuarter}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-[11px] font-medium">Institution</TableHead>
+                  <TableHead className="text-[11px] font-medium text-right">Trading Days</TableHead>
+                  <TableHead className="text-[11px] font-medium text-right">Profitable Days</TableHead>
+                  <TableHead className="text-[11px] font-medium text-right">% Profitable</TableHead>
+                  <TableHead className="text-[11px] font-medium text-right">Total Revenue ($M)</TableHead>
+                  <TableHead className="text-[11px] font-medium text-right">Avg Daily P&L ($M)</TableHead>
+                  <TableHead className="text-[11px] font-medium text-right">Max Gain ($M)</TableHead>
+                  <TableHead className="text-[11px] font-medium text-right">Max Loss ($M)</TableHead>
+                  <TableHead className="text-[11px] font-medium text-right">VaR Breaches</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {banksWithData.map((e, idx) => {
+                  const q = e.ffiec102![e.ffiec102!.length - 1];
+                  const isMizuho = e.name === "Mizuho Americas";
+                  return (
+                    <TableRow
+                      key={idx}
+                      className={isMizuho ? "bg-primary/5 font-medium" : ""}
+                      data-testid={`row-market-risk-${idx}`}
+                    >
+                      <TableCell className="text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="w-3 h-3 text-muted-foreground" />
+                          {e.name}
+                          {isMizuho && <Badge variant="outline" className="text-[9px] px-1 py-0">Mizuho</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-right">{q.tradingDays}</TableCell>
+                      <TableCell className="text-xs font-mono text-right">{q.profitableDays}</TableCell>
+                      <TableCell className="text-xs font-mono text-right">
+                        <span className={q.profitableDaysPct >= 70 ? "text-emerald-600 dark:text-emerald-400" : q.profitableDaysPct >= 50 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}>
+                          {q.profitableDaysPct.toFixed(1)}%
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-right">{q.totalTradingRevenue.toFixed(1)}</TableCell>
+                      <TableCell className="text-xs font-mono text-right">{q.averageDailyPnL.toFixed(2)}</TableCell>
+                      <TableCell className="text-xs font-mono text-right text-emerald-600 dark:text-emerald-400">{q.maxDailyGain.toFixed(2)}</TableCell>
+                      <TableCell className="text-xs font-mono text-right text-red-600 dark:text-red-400">{q.maxDailyLoss.toFixed(2)}</TableCell>
+                      <TableCell className="text-xs font-mono text-right">
+                        <Badge variant={q.varBreaches === 0 ? "secondary" : "destructive"} className="text-[10px] px-1.5">
+                          {q.varBreaches}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2">
+            Source: FFIEC 102 Market Risk Capital Rule — Daily trading P&L, VaR backtesting. Revenue figures in millions ($M).
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function PeerComparisonContent() {
   const queryClient = useQueryClient();
   const [selectedGroup, setSelectedGroup] = useState("japanese");
@@ -1150,6 +1432,7 @@ function PeerComparisonContent() {
             <TabsTrigger value="basic" data-testid="tab-basic">Basic Comparison</TabsTrigger>
             <TabsTrigger value="metrics" data-testid="tab-metrics">Standard Metrics</TabsTrigger>
             <TabsTrigger value="trends" data-testid="tab-trends">Trend Analysis</TabsTrigger>
+            <TabsTrigger value="market-risk" data-testid="tab-market-risk">Market Risk (FFIEC 102)</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-3">
@@ -1234,11 +1517,15 @@ function PeerComparisonContent() {
           <TabsContent value="trends" className="space-y-4">
             <TrendCharts trendROE={peerTrendROE} trendNIM={peerTrendNIM} trendCET1={peerTrendCET1} bankNames={bankNames} />
           </TabsContent>
+
+          <TabsContent value="market-risk" className="space-y-4">
+            <MarketRiskComparison entries={liveEntries} bankNames={bankNames} />
+          </TabsContent>
         </Tabs>
 
       <div className="border-t pt-4 pb-2">
         <p className="text-xs text-muted-foreground">
-          Data sourced from FDIC BankFind Suite API (Call Reports FFIEC 031/041) and derived UBPR-equivalent ratios.
+          Data sourced from FDIC BankFind Suite API (Call Reports FFIEC 031/041), FFIEC 102 Market Risk reports, and derived UBPR-equivalent ratios.
           {isLive ? ` Live data as of ${reportDate}.` : " All figures as of latest available filing unless otherwise noted."}
           {" "}Peer group: {activeGroupLabel} — {peerBanks.length} institution{peerBanks.length !== 1 ? "s" : ""}.
           {" "}Additional peers and ratios can be added on demand.
