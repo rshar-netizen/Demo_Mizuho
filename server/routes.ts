@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import express from "express";
+import path from "path";
 import { storage } from "./storage";
 import {
   getFinancialsByCert,
@@ -66,6 +68,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  app.use("/downloads", express.static(path.resolve(process.cwd(), "public", "downloads")));
+
   app.get("/api/data-sources/status", async (_req, res) => {
     try {
       const [fdicCheck, ffiecStatus, fedStatus] = await Promise.all([
