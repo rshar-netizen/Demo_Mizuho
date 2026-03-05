@@ -40,9 +40,6 @@ import {
   Plus,
   Trash2,
   Globe,
-  Landmark,
-  ShieldCheck,
-  Scale,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -191,86 +188,7 @@ const FEDERAL_SYSTEMS = [
   },
 ];
 
-interface SourceSystemConfig {
-  id: string;
-  name: string;
-  url: string;
-  identifier: string;
-  idType: string;
-  description: string;
-  category: string;
-  isBuiltIn: boolean;
-  status: "connected" | "pending" | "not_connected";
-}
 
-const ADDITIONAL_SYSTEMS = [
-  {
-    id: "sec-edgar",
-    name: "SEC EDGAR",
-    defaultUrl: "https://efts.sec.gov/LATEST",
-    description: "Securities filings, 10-K/10-Q, proxy statements",
-    idType: "CIK",
-    defaultId: "",
-    category: "Securities & Exchange",
-    icon: Scale,
-    color: "amber",
-  },
-  {
-    id: "occ",
-    name: "OCC BankNet",
-    defaultUrl: "https://apps.occ.gov/BankData",
-    description: "OCC supervisory data, enforcement actions, CRA ratings",
-    idType: "Charter #",
-    defaultId: "",
-    category: "Prudential Regulation",
-    icon: Landmark,
-    color: "slate",
-  },
-  {
-    id: "frs-chicago",
-    name: "FRB Chicago (BHC DB)",
-    defaultUrl: "https://www.chicagofed.org/api/bhc",
-    description: "BHC performance reports, Y-9C/Y-9LP time series",
-    idType: "RSSD",
-    defaultId: "",
-    category: "BHC Data",
-    icon: Building2,
-    color: "teal",
-  },
-  {
-    id: "treasury-ofac",
-    name: "Treasury OFAC SDN",
-    defaultUrl: "https://sanctionssearch.ofac.treas.gov/api",
-    description: "Sanctions screening, SDN list, entity verification",
-    idType: "Entity ID",
-    defaultId: "",
-    category: "Compliance & AML",
-    icon: ShieldCheck,
-    color: "rose",
-  },
-  {
-    id: "cfpb",
-    name: "CFPB HMDA",
-    defaultUrl: "https://ffiec.cfpb.gov/v2/data-browser-api",
-    description: "Home Mortgage Disclosure Act data, lending analytics",
-    idType: "LEI",
-    defaultId: "",
-    category: "Consumer Compliance",
-    icon: Globe,
-    color: "cyan",
-  },
-  {
-    id: "snl-sp",
-    name: "S&P Capital IQ Pro",
-    defaultUrl: "https://api-ciq.marketintelligence.spglobal.com",
-    description: "Market data, peer analytics, credit ratings, financials",
-    idType: "Entity ID",
-    defaultId: "",
-    category: "Market Intelligence",
-    icon: BarChart3,
-    color: "indigo",
-  },
-];
 
 function ConnectionRow({
   id,
@@ -451,7 +369,6 @@ function ConnectionPanel({
   );
 
   const [showAddPanel, setShowAddPanel] = useState(false);
-  const [selectedSystem, setSelectedSystem] = useState("");
   const [customForm, setCustomForm] = useState({
     name: "",
     url: "",
@@ -479,56 +396,6 @@ function ConnectionPanel({
     );
   };
 
-  const handleAddSystem = () => {
-    if (selectedSystem === "custom") {
-      if (!customForm.name || !customForm.url) return;
-      const id = `custom-${Date.now()}`;
-      setConnections((prev) => [
-        ...prev,
-        {
-          systemId: id,
-          url: customForm.url,
-          identifier: customForm.identifier,
-          idType: customForm.idType,
-          name: customForm.name,
-          description: customForm.description || "Custom data source",
-          color: "slate",
-          icon: Globe,
-          isBuiltIn: false,
-        },
-      ]);
-      setCustomForm({
-        name: "", url: "", identifier: "", idType: "RSSD",
-        description: "", authType: "none", apiKey: "", username: "",
-        password: "", clientId: "",
-      });
-      setSelectedSystem("");
-      setShowAddPanel(false);
-      return;
-    }
-
-    if (!selectedSystem) return;
-    const sys = ADDITIONAL_SYSTEMS.find((s) => s.id === selectedSystem);
-    if (!sys || connections.some((c) => c.systemId === sys.id)) return;
-
-    setConnections((prev) => [
-      ...prev,
-      {
-        systemId: sys.id,
-        url: sys.defaultUrl,
-        identifier: sys.defaultId,
-        idType: sys.idType,
-        name: sys.name,
-        description: sys.description,
-        color: sys.color,
-        icon: sys.icon,
-        isBuiltIn: false,
-      },
-    ]);
-    setSelectedSystem("");
-    setShowAddPanel(false);
-  };
-
   const handleRemoveSystem = (systemId: string) => {
     setConnections((prev) => prev.filter((c) => c.systemId !== systemId));
   };
@@ -546,9 +413,6 @@ function ConnectionPanel({
   };
 
   const allConnected = sources.length > 0 && sources.every((s) => s.status === "connected");
-  const availableToAdd = ADDITIONAL_SYSTEMS.filter(
-    (sys) => !connections.some((c) => c.systemId === sys.id)
-  );
 
   return (
     <Card data-testid="card-connection-panel">
@@ -624,66 +488,14 @@ function ConnectionPanel({
                 size="sm"
                 variant="ghost"
                 className="h-7 text-xs"
-                onClick={() => { setShowAddPanel(false); setSelectedSystem(""); }}
+                onClick={() => setShowAddPanel(false)}
                 data-testid="button-cancel-add"
               >
                 Cancel
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {availableToAdd.map((sys) => {
-                const Icon = sys.icon;
-                const isSelected = selectedSystem === sys.id;
-                return (
-                  <button
-                    key={sys.id}
-                    onClick={() => setSelectedSystem(sys.id)}
-                    className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
-                      isSelected
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/40 hover:bg-muted/50"
-                    }`}
-                    data-testid={`option-source-${sys.id}`}
-                  >
-                    <div className={`w-8 h-8 rounded-md border flex items-center justify-center shrink-0 ${colorClasses[sys.color] || colorClasses.slate}`}>
-                      <Icon className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium">{sys.name}</p>
-                      <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">{sys.description}</p>
-                      <Badge variant="outline" className="text-[9px] mt-1 font-mono">{sys.category}</Badge>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <Separator />
-
-            <div>
-              <button
-                onClick={() => setSelectedSystem(selectedSystem === "custom" ? "" : "custom")}
-                className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
-                  selectedSystem === "custom"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/40 hover:bg-muted/50"
-                }`}
-                data-testid="option-source-custom"
-              >
-                <div className="w-8 h-8 rounded-md border flex items-center justify-center shrink-0 bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400">
-                  <Globe className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-medium">Custom Connection</p>
-                  <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">Connect to any data source by providing URL, credentials, and identifier details</p>
-                  <Badge variant="outline" className="text-[9px] mt-1 font-mono">Custom</Badge>
-                </div>
-              </button>
-            </div>
-
-            {selectedSystem === "custom" && (
-              <div className="rounded-lg border bg-muted/20 p-4 space-y-3" data-testid="form-custom-source">
+            <div className="rounded-lg border bg-muted/20 p-4 space-y-3" data-testid="form-custom-source">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Connection Details</p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -844,18 +656,40 @@ function ConnectionPanel({
                     </div>
                   </div>
                 )}
-              </div>
-            )}
+            </div>
 
             <div className="flex justify-end">
               <Button
                 size="sm"
-                onClick={handleAddSystem}
-                disabled={selectedSystem === "custom" ? (!customForm.name || !customForm.url) : !selectedSystem}
+                onClick={() => {
+                  if (!customForm.name || !customForm.url) return;
+                  const id = `custom-${Date.now()}`;
+                  setConnections((prev) => [
+                    ...prev,
+                    {
+                      systemId: id,
+                      url: customForm.url,
+                      identifier: customForm.identifier,
+                      idType: customForm.idType,
+                      name: customForm.name,
+                      description: customForm.description || "Custom data source",
+                      color: "slate",
+                      icon: Globe,
+                      isBuiltIn: false,
+                    },
+                  ]);
+                  setCustomForm({
+                    name: "", url: "", identifier: "", idType: "RSSD",
+                    description: "", authType: "none", apiKey: "", username: "",
+                    password: "", clientId: "",
+                  });
+                  setShowAddPanel(false);
+                }}
+                disabled={!customForm.name || !customForm.url}
                 data-testid="button-confirm-add"
               >
                 <Plus className="w-3.5 h-3.5 mr-1.5" />
-                {selectedSystem === "custom" ? "Add Custom Source" : "Add Source"}
+                Add Source
               </Button>
             </div>
           </div>
