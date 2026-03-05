@@ -5131,6 +5131,41 @@ function ReviewApprovalTab() {
     setMemoGenerated(false);
     setMemoContent("");
     setMemoStatus("draft");
+    setIsDownloading(false);
+  };
+
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadFiling = async () => {
+    setIsDownloading(true);
+    try {
+      const resp = await fetch("/api/filing/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lines: draftLines,
+          period: draftPeriod,
+          institution: "Mizuho Bank (USA)",
+          reportType: "FFIEC 031 Call Report",
+        }),
+      });
+      if (!resp.ok) throw new Error("Generation failed");
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = resp.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?(.+?)"?$/);
+      a.download = match?.[1] || `FFIEC_031_Mizuho_Bank_USA_${draftPeriod.replace(/\s/g, "_")}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download failed:", err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const highCount = varianceItems.filter(i => i.priority === "high").length;
@@ -5142,7 +5177,7 @@ function ReviewApprovalTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-destructive">Step 5 of 6</p>
+          <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-destructive">Step 5 of 5</p>
           <h2 className="text-xl font-serif font-semibold tracking-tight mt-1">Review & Approval</h2>
           <p className="text-xs text-muted-foreground leading-relaxed mt-1">
             Review the {draftPeriod} draft report, validate variance summaries, make final adjustments, and submit the finalized filing for CFO approval.
@@ -5411,17 +5446,48 @@ function ReviewApprovalTab() {
         </CardContent>
       </Card>
 
-      {memoStatus === "approved" && (
-        <Card className="border-emerald-500/30 bg-emerald-500/5">
+      {draftFinalized && (
+        <Card className={memoStatus === "approved" ? "border-emerald-500/30 bg-emerald-500/5" : ""} data-testid="card-download-filing">
           <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Filing Approved</p>
-                <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">
-                  The {draftPeriod} regulatory filing has been approved by the CFO. The finalized report with all validated variance summaries is ready for submission to FDIC, FFIEC, and Federal Reserve portals.
-                </p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                {memoStatus === "approved" ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                ) : (
+                  <FileText className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                )}
+                <div>
+                  {memoStatus === "approved" ? (
+                    <>
+                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Filing Approved</p>
+                      <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">
+                        The {draftPeriod} regulatory filing has been approved by the CFO. Download the finalized report for submission to FDIC, FFIEC, and Federal Reserve portals.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold">Download Filing Package</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        The finalized {draftPeriod} FFIEC 031 Call Report is available for download. The filing includes all {draftLines.length} line items across {[...new Set(draftLines.map(l => l.schedule))].length} schedules{overrideCount > 0 ? `, with ${overrideCount} manual override${overrideCount !== 1 ? "s" : ""}` : ""}.
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
+              <Button
+                size="sm"
+                className="shrink-0 h-8"
+                onClick={handleDownloadFiling}
+                disabled={isDownloading}
+                data-testid="button-download-filing"
+              >
+                {isDownloading ? (
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
+                )}
+                {isDownloading ? "Generating..." : "Download XLSX"}
+              </Button>
             </div>
           </CardContent>
         </Card>

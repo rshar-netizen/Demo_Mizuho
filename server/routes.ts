@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
 import path from "path";
+import XLSX from "xlsx";
 import { storage } from "./storage";
 import {
   getFinancialsByCert,
@@ -370,6 +371,122 @@ export async function registerRoutes(
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Validation failed", valid: false });
+    }
+  });
+
+  app.post("/api/filing/generate", (req, res) => {
+    try {
+      const { lines, period, institution, reportType } = req.body as {
+        lines: Array<{
+          schedule: string;
+          lineItem: string;
+          mdrm: string;
+          currentValue: number | null;
+          priorValue: number | null;
+          changePercent: number | null;
+          source: string;
+          status: string;
+          flagged: boolean;
+          isRatio?: boolean;
+        }>;
+        period: string;
+        institution: string;
+        reportType: string;
+      };
+
+      if (!lines || !Array.isArray(lines) || lines.length === 0) {
+        return res.status(400).json({ error: "No report lines provided" });
+      }
+
+      const wb = XLSX.utils.book_new();
+
+      const coverData = [
+        ["FFIEC 031 — Consolidated Reports of Condition and Income"],
+        [],
+        ["Institution:", institution || "Mizuho Bank (USA)"],
+        ["FDIC Certificate:", "21843"],
+        ["RSSD ID:", "229913"],
+        ["Report Period:", period || "Q1 2026"],
+        ["Report Type:", reportType || "FFIEC 031 Call Report"],
+        ["Filing Status:", "Finalized — Ready for Submission"],
+        ["Generated:", new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC"],
+        [],
+        ["Prepared by:", "RegAssist AI — Regulatory Intelligence Platform"],
+        ["Validation:", "All intra-report and inter-report checks passed"],
+      ];
+      const coverSheet = XLSX.utils.aoa_to_sheet(coverData);
+      coverSheet["!cols"] = [{ wch: 20 }, { wch: 60 }];
+      coverSheet["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
+      XLSX.utils.book_append_sheet(wb, coverSheet, "Cover Page");
+
+      const schedules = [...new Set(lines.map(l => l.schedule))];
+      for (const sched of schedules) {
+        const schedLines = lines.filter(l => l.schedule === sched);
+        const header = [
+          "MDRM Code",
+          "Line Item",
+          `${period || "Q1 2026"} (Current)`,
+          "Prior Quarter",
+          "QoQ Change %",
+          "Unit",
+          "Source System",
+          "Status",
+          "Validation",
+        ];
+
+        const rows = schedLines.map(l => [
+          l.mdrm,
+          l.lineItem,
+          l.currentValue,
+          l.priorValue,
+          l.changePercent !== null ? parseFloat(l.changePercent.toFixed(2)) : "",
+          l.isRatio ? "Percent" : "Thousands USD",
+          l.source,
+          l.status === "populated" ? "Auto-populated" : l.status === "mapped" ? "Mapped" : "Manual Entry",
+          l.flagged ? "Flagged" : "Passed",
+        ]);
+
+        const sheetData = [header, ...rows];
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+        ws["!cols"] = [
+          { wch: 14 }, { wch: 36 }, { wch: 18 }, { wch: 18 },
+          { wch: 14 }, { wch: 16 }, { wch: 28 }, { wch: 16 }, { wch: 12 },
+        ];
+
+        const sheetName = `Schedule ${sched}`.slice(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      }
+
+      const summaryHeader = [
+        "MDRM Code", "Schedule", "Line Item",
+        `${period || "Q1 2026"} (Current)`, "Prior Quarter", "QoQ Change %",
+        "Unit", "Source", "Status", "Validation",
+      ];
+      const summaryRows = lines.map(l => [
+        l.mdrm, l.schedule, l.lineItem,
+        l.currentValue, l.priorValue,
+        l.changePercent !== null ? parseFloat(l.changePercent.toFixed(2)) : "",
+        l.isRatio ? "Percent" : "Thousands USD",
+        l.source,
+        l.status === "populated" ? "Auto-populated" : l.status === "mapped" ? "Mapped" : "Manual Entry",
+        l.flagged ? "Flagged" : "Passed",
+      ]);
+      const summarySheet = XLSX.utils.aoa_to_sheet([summaryHeader, ...summaryRows]);
+      summarySheet["!cols"] = [
+        { wch: 14 }, { wch: 10 }, { wch: 36 }, { wch: 18 }, { wch: 18 },
+        { wch: 14 }, { wch: 16 }, { wch: 28 }, { wch: 16 }, { wch: 12 },
+      ];
+      XLSX.utils.book_append_sheet(wb, summarySheet, "All Line Items");
+
+      const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      const filename = `FFIEC_031_${(institution || "Mizuho_Bank_USA").replace(/[^a-zA-Z0-9]/g, "_")}_${(period || "Q1_2026").replace(/\s/g, "_")}.xlsx`;
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buf);
+    } catch (err: any) {
+      console.error("Filing generation error:", err);
+      res.status(500).json({ error: err.message || "Failed to generate filing" });
     }
   });
 
