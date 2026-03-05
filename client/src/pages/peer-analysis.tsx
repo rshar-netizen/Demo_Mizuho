@@ -1542,7 +1542,6 @@ export default function PeerAnalysis() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-[1200px] mx-auto p-6 space-y-6">
         <div className="space-y-1">
-          <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Use Case 2</p>
           <h1 className="text-2xl font-serif font-semibold tracking-tight" data-testid="text-peer-title">
             Peer Analysis & Comparison
           </h1>

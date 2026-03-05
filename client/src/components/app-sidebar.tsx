@@ -70,7 +70,6 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="p-3 border-t border-sidebar-border">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs opacity-60 font-mono">CFO Demo</span>
           <Button
             size="icon"
             variant="ghost"
