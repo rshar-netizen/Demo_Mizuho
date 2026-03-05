@@ -20,16 +20,11 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
-  Globe,
-  Server,
-  ArrowRight,
   Clock,
   FileText,
   BarChart3,
   Building2,
   Loader2,
-  Zap,
-  Shield,
   Activity,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -208,83 +203,6 @@ function DataSourceCards({ sources, isLoading }: { sources: DataSourceStatus[]; 
   );
 }
 
-function ArchitectureDiagram() {
-  return (
-    <Card data-testid="card-architecture">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm">Data Ingestion Architecture</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-center gap-3 py-4 flex-wrap">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <Globe className="w-4 h-4 text-blue-500" />
-              <div>
-                <p className="text-xs font-semibold">FDIC BankFind</p>
-                <p className="text-[10px] text-muted-foreground">Call Reports</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20">
-              <Globe className="w-4 h-4 text-purple-500" />
-              <div>
-                <p className="text-xs font-semibold">FFIEC CDR</p>
-                <p className="text-[10px] text-muted-foreground">UBPR Data</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <Globe className="w-4 h-4 text-emerald-500" />
-              <div>
-                <p className="text-xs font-semibold">Federal Reserve</p>
-                <p className="text-[10px] text-muted-foreground">FR Y-9C</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center gap-1">
-            <ArrowRight className="w-5 h-5 text-muted-foreground" />
-            <ArrowRight className="w-5 h-5 text-muted-foreground" />
-            <ArrowRight className="w-5 h-5 text-muted-foreground" />
-          </div>
-
-          <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 text-center">
-            <Server className="w-6 h-6 mx-auto mb-2 text-primary" />
-            <p className="text-xs font-semibold">RegAssist API</p>
-            <p className="text-[10px] text-muted-foreground">Data Normalization</p>
-            <p className="text-[10px] text-muted-foreground">& Caching Layer</p>
-          </div>
-
-          <div className="flex flex-col items-center gap-1">
-            <ArrowRight className="w-5 h-5 text-muted-foreground" />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted border">
-              <Zap className="w-4 h-4 text-primary" />
-              <div>
-                <p className="text-xs font-semibold">Regulatory Reporting</p>
-                <p className="text-[10px] text-muted-foreground">Real-time analysis</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted border">
-              <BarChart3 className="w-4 h-4 text-primary" />
-              <div>
-                <p className="text-xs font-semibold">Peer Analysis</p>
-                <p className="text-[10px] text-muted-foreground">Live benchmarking</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted border">
-              <Shield className="w-4 h-4 text-primary" />
-              <div>
-                <p className="text-xs font-semibold">AI Insights</p>
-                <p className="text-[10px] text-muted-foreground">Pattern detection</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 function CallReportTab() {
   const { data, isLoading, error } = useQuery<CallReportResponse>({
@@ -553,8 +471,6 @@ export function DataIngestionContent() {
       </div>
 
       <DataSourceCards sources={sources} isLoading={statusQuery.isLoading} />
-
-      <ArchitectureDiagram />
 
       {statusQuery.data?.cache && (
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
