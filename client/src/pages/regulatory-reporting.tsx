@@ -2552,9 +2552,24 @@ function AnomaliesTab() {
   const { anomalies, isLive, historicalData } = useLiveAnomalies();
   const [activeMetric, setActiveMetric] = useState(0);
   const [draftExpanded, setDraftExpanded] = useState(false);
+  const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(new Set());
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+
+  const toggleSchedule = (schedule: string) => {
+    setExpandedSchedules(prev => {
+      const next = new Set(prev);
+      if (next.has(schedule)) next.delete(schedule);
+      else next.add(schedule);
+      return next;
+    });
+  };
+  const expandAllSchedules = () => {
+    const all = new Set(draftLines.map(l => l.schedule));
+    setExpandedSchedules(all);
+  };
+  const collapseAllSchedules = () => setExpandedSchedules(new Set());
 
   const draftPeriod = "Q1 2026";
 
@@ -2712,103 +2727,158 @@ function AnomaliesTab() {
                   </Badge>
                 )}
               </div>
-              <div className="rounded-md border border-border/60 overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="text-xs w-[60px]">Schedule</TableHead>
-                      <TableHead className="text-xs">Line Item</TableHead>
-                      <TableHead className="text-xs font-mono w-[90px]">MDRM</TableHead>
-                      <TableHead className="text-xs text-right w-[110px]">{draftPeriod}</TableHead>
-                      <TableHead className="text-xs text-right w-[100px]">Q4 2025</TableHead>
-                      <TableHead className="text-xs text-right w-[70px]">QoQ %</TableHead>
-                      <TableHead className="text-xs w-[140px]">Source File</TableHead>
-                      <TableHead className="text-xs w-[70px] text-center">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {draftLines.map((line, idx) => (
-                      <TableRow key={idx} className={line.status === "unmapped" ? "bg-amber-500/[0.03]" : line.flagged ? "bg-red-500/[0.03]" : ""} data-testid={`draft-line-${idx}`}>
-                        <TableCell className="py-2">
-                          <Badge variant="outline" className="text-[10px] font-mono">{line.schedule}</Badge>
-                        </TableCell>
-                        <TableCell className="py-2">
-                          <div className="flex items-center gap-1.5">
-                            {line.flagged && <Flag className="w-3 h-3 text-red-500 shrink-0" />}
-                            <span className="text-xs text-foreground">{line.lineItem}</span>
+              <div className="flex items-center justify-end gap-2 mb-2">
+                <button onClick={expandAllSchedules} className="text-[10px] text-primary hover:underline" data-testid="button-expand-all-schedules">Expand All</button>
+                <span className="text-[10px] text-muted-foreground">|</span>
+                <button onClick={collapseAllSchedules} className="text-[10px] text-primary hover:underline" data-testid="button-collapse-all-schedules">Collapse All</button>
+              </div>
+              <div className="space-y-2">
+                {(() => {
+                  const SCHEDULE_META: Record<string, string> = {
+                    "RC": "Balance Sheet",
+                    "RC-B": "Securities",
+                    "RC-C": "Loans & Leases",
+                    "RC-E": "Deposit Liabilities",
+                    "RC-N": "Past Due & Nonaccrual",
+                    "RC-R": "Regulatory Capital",
+                    "RC-L": "Derivatives & Off-Balance Sheet",
+                    "RI": "Income Statement",
+                    "RI-B": "Charge-Offs & Recoveries",
+                  };
+                  const scheduleOrder = ["RC", "RC-B", "RC-C", "RC-E", "RI", "RI-B", "RC-N", "RC-R", "RC-L"];
+                  const grouped = new Map<string, DraftReportLine[]>();
+                  draftLines.forEach(line => {
+                    if (!grouped.has(line.schedule)) grouped.set(line.schedule, []);
+                    grouped.get(line.schedule)!.push(line);
+                  });
+                  const orderedKeys = scheduleOrder.filter(s => grouped.has(s));
+                  grouped.forEach((_, key) => { if (!orderedKeys.includes(key)) orderedKeys.push(key); });
+
+                  return orderedKeys.map(schedule => {
+                    const lines = grouped.get(schedule)!;
+                    const isOpen = expandedSchedules.has(schedule);
+                    const schedulePopulated = lines.filter(l => l.status === "populated").length;
+                    const scheduleUnmapped = lines.filter(l => l.status === "unmapped").length;
+                    const scheduleFlagged = lines.filter(l => l.flagged).length;
+                    const desc = SCHEDULE_META[schedule] ?? schedule;
+
+                    return (
+                      <div key={schedule} className="rounded-md border border-border/60 overflow-hidden" data-testid={`schedule-section-${schedule}`}>
+                        <button
+                          className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                          onClick={() => toggleSchedule(schedule)}
+                          data-testid={`button-toggle-schedule-${schedule}`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+                            <Badge variant="outline" className="text-[10px] font-mono px-2">{schedule}</Badge>
+                            <span className="text-xs font-medium text-foreground">{desc}</span>
                           </div>
-                          {line.flagged && line.flagReason && (
-                            <p className="text-[10px] text-red-500/80 mt-0.5 ml-[18px]">{line.flagReason}</p>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-2">
-                          <span className="text-[10px] font-mono text-muted-foreground">{line.mdrm}</span>
-                        </TableCell>
-                        <TableCell className="py-2 text-right">
-                          {editingCell === line.mdrm ? (
-                            <div className="flex items-center gap-1 justify-end">
-                              <Input
-                                className="h-6 w-[80px] text-xs font-mono text-right px-1"
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(line.mdrm); if (e.key === "Escape") { setEditingCell(null); setEditValue(""); } }}
-                                autoFocus
-                                data-testid={`input-edit-${line.mdrm}`}
-                              />
-                              <button onClick={(e) => { e.stopPropagation(); handleSaveEdit(line.mdrm); }} className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 rounded" data-testid={`button-save-${line.mdrm}`}>
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-                              <button onClick={(e) => { e.stopPropagation(); setEditingCell(null); setEditValue(""); }} className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded">
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1 justify-end">
-                              <span className={`text-xs font-mono ${line.currentValue !== null ? "text-foreground" : "text-amber-500"}`}>
-                                {line.currentValue !== null ? (line.isRatio ? `${line.currentValue.toFixed(2)}%` : fmtDollar(line.currentValue)) : "—"}
-                              </span>
-                              {(line.editable || line.status === "unmapped") && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setEditingCell(line.mdrm); setEditValue(line.currentValue !== null ? String(line.currentValue) : ""); }}
-                                  className="text-muted-foreground hover:text-foreground ml-1"
-                                  data-testid={`button-edit-${line.mdrm}`}
-                                >
-                                  <Pencil className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-2 text-right">
-                          <span className="text-xs font-mono text-muted-foreground">
-                            {line.priorValue !== null ? (line.isRatio ? `${line.priorValue.toFixed(2)}%` : fmtDollar(line.priorValue)) : "—"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="py-2 text-right">
-                          {line.changePercent !== null ? (
-                            <span className={`text-xs font-mono ${line.changePercent > 0 ? "text-emerald-600" : line.changePercent < 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                              {line.changePercent >= 0 ? "+" : ""}{line.changePercent.toFixed(1)}%
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-2">
-                          <span className={`text-[10px] ${line.source === "Not mapped" ? "text-amber-500 font-medium" : "font-mono text-muted-foreground"}`}>{line.source}</span>
-                        </TableCell>
-                        <TableCell className="py-2 text-center">
-                          {line.status === "populated" && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[9px]">Auto</Badge>}
-                          {line.status === "mapped" && <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[9px]">Mapped</Badge>}
-                          {line.status === "unmapped" && (
-                            overrides[line.mdrm] !== undefined
-                              ? <Badge variant="secondary" className="bg-violet-500/10 text-violet-600 border-0 text-[9px]">Manual</Badge>
-                              : <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[9px]">Unmapped</Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground">{lines.length} items</span>
+                            {schedulePopulated > 0 && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[9px]">{schedulePopulated} auto</Badge>}
+                            {scheduleUnmapped > 0 && <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[9px]">{scheduleUnmapped} unmapped</Badge>}
+                            {scheduleFlagged > 0 && <Badge variant="secondary" className="bg-red-500/10 text-red-600 border-0 text-[9px]">{scheduleFlagged} flagged</Badge>}
+                          </div>
+                        </button>
+                        {isOpen && (
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/15">
+                                <TableHead className="text-xs">Line Item</TableHead>
+                                <TableHead className="text-xs font-mono w-[90px]">MDRM</TableHead>
+                                <TableHead className="text-xs text-right w-[110px]">{draftPeriod}</TableHead>
+                                <TableHead className="text-xs text-right w-[100px]">Q4 2025</TableHead>
+                                <TableHead className="text-xs text-right w-[70px]">QoQ %</TableHead>
+                                <TableHead className="text-xs w-[140px]">Source File</TableHead>
+                                <TableHead className="text-xs w-[70px] text-center">Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {lines.map((line, idx) => (
+                                <TableRow key={idx} className={line.status === "unmapped" ? "bg-amber-500/[0.03]" : line.flagged ? "bg-red-500/[0.03]" : ""} data-testid={`draft-line-${schedule}-${idx}`}>
+                                  <TableCell className="py-2">
+                                    <div className="flex items-center gap-1.5">
+                                      {line.flagged && <Flag className="w-3 h-3 text-red-500 shrink-0" />}
+                                      <span className="text-xs text-foreground">{line.lineItem}</span>
+                                    </div>
+                                    {line.flagged && line.flagReason && (
+                                      <p className="text-[10px] text-red-500/80 mt-0.5 ml-[18px]">{line.flagReason}</p>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    <span className="text-[10px] font-mono text-muted-foreground">{line.mdrm}</span>
+                                  </TableCell>
+                                  <TableCell className="py-2 text-right">
+                                    {editingCell === line.mdrm ? (
+                                      <div className="flex items-center gap-1 justify-end">
+                                        <Input
+                                          className="h-6 w-[80px] text-xs font-mono text-right px-1"
+                                          value={editValue}
+                                          onChange={(e) => setEditValue(e.target.value)}
+                                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(line.mdrm); if (e.key === "Escape") { setEditingCell(null); setEditValue(""); } }}
+                                          autoFocus
+                                          data-testid={`input-edit-${line.mdrm}`}
+                                        />
+                                        <button onClick={(e) => { e.stopPropagation(); handleSaveEdit(line.mdrm); }} className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 rounded" data-testid={`button-save-${line.mdrm}`}>
+                                          <Check className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button onClick={(e) => { e.stopPropagation(); setEditingCell(null); setEditValue(""); }} className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded">
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-1 justify-end">
+                                        <span className={`text-xs font-mono ${line.currentValue !== null ? "text-foreground" : "text-amber-500"}`}>
+                                          {line.currentValue !== null ? (line.isRatio ? `${line.currentValue.toFixed(2)}%` : fmtDollar(line.currentValue)) : "—"}
+                                        </span>
+                                        {(line.editable || line.status === "unmapped") && (
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); setEditingCell(line.mdrm); setEditValue(line.currentValue !== null ? String(line.currentValue) : ""); }}
+                                            className="text-muted-foreground hover:text-foreground ml-1"
+                                            data-testid={`button-edit-${line.mdrm}`}
+                                          >
+                                            <Pencil className="w-3 h-3" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="py-2 text-right">
+                                    <span className="text-xs font-mono text-muted-foreground">
+                                      {line.priorValue !== null ? (line.isRatio ? `${line.priorValue.toFixed(2)}%` : fmtDollar(line.priorValue)) : "—"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-2 text-right">
+                                    {line.changePercent !== null ? (
+                                      <span className={`text-xs font-mono ${line.changePercent > 0 ? "text-emerald-600" : line.changePercent < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                        {line.changePercent >= 0 ? "+" : ""}{line.changePercent.toFixed(1)}%
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    <span className={`text-[10px] ${line.source === "Not mapped" ? "text-amber-500 font-medium" : "font-mono text-muted-foreground"}`}>{line.source}</span>
+                                  </TableCell>
+                                  <TableCell className="py-2 text-center">
+                                    {line.status === "populated" && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[9px]">Auto</Badge>}
+                                    {line.status === "mapped" && <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[9px]">Mapped</Badge>}
+                                    {line.status === "unmapped" && (
+                                      overrides[line.mdrm] !== undefined
+                                        ? <Badge variant="secondary" className="bg-violet-500/10 text-violet-600 border-0 text-[9px]">Manual</Badge>
+                                        : <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[9px]">Unmapped</Badge>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3">
                 <Info className="w-3.5 h-3.5 shrink-0" />
