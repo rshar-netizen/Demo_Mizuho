@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -2529,14 +2529,14 @@ function buildDraftReport(anomalies: AnomalyRecord[], overrides: Record<string, 
     { schedule: "RC-R", lineItem: "Total capital ratio", mdrm: "RCFD7205", currentValue: get("RCFD7205", "q1"), priorValue: get("RCFD7205", "q4"), changePercent: null, source: src("RCFD7205"), status: "populated", flagged: false, isRatio: true },
     { schedule: "RC-L", lineItem: "IR derivatives notional", mdrm: "RCFDA126", currentValue: get("RCFDA126", "q1"), priorValue: get("RCFDA126", "q4"), changePercent: null, source: src("RCFDA126"), status: "mapped", flagged: false },
     { schedule: "RC-L", lineItem: "FX derivatives notional", mdrm: "RCFDA127", currentValue: get("RCFDA127", "q1"), priorValue: get("RCFDA127", "q4"), changePercent: null, source: src("RCFDA127"), status: "mapped", flagged: false },
-    { schedule: "RC", lineItem: "Federal funds sold", mdrm: "RCON0276", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
-    { schedule: "RC", lineItem: "Federal funds purchased", mdrm: "RCON0277", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
-    { schedule: "RC", lineItem: "Other borrowed money", mdrm: "RCON3190", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
-    { schedule: "RC", lineItem: "Premises and fixed assets", mdrm: "RCON2145", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
-    { schedule: "RC", lineItem: "Other real estate owned", mdrm: "RCON2150", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
-    { schedule: "RC", lineItem: "Goodwill and intangibles", mdrm: "RCFD3163", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
-    { schedule: "RC", lineItem: "Other assets", mdrm: "RCFD2160", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
-    { schedule: "RC", lineItem: "Total liabilities", mdrm: "RCFD2948", currentValue: null, priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: true, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Federal funds sold", mdrm: "RCON0276", currentValue: get("RCON0276", "q1"), priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: overrides["RCON0276"] === undefined, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Federal funds purchased", mdrm: "RCON0277", currentValue: get("RCON0277", "q1"), priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: overrides["RCON0277"] === undefined, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Other borrowed money", mdrm: "RCON3190", currentValue: get("RCON3190", "q1"), priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: overrides["RCON3190"] === undefined, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Premises and fixed assets", mdrm: "RCON2145", currentValue: get("RCON2145", "q1"), priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: overrides["RCON2145"] === undefined, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Other real estate owned", mdrm: "RCON2150", currentValue: get("RCON2150", "q1"), priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: overrides["RCON2150"] === undefined, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Goodwill and intangibles", mdrm: "RCFD3163", currentValue: get("RCFD3163", "q1"), priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: overrides["RCFD3163"] === undefined, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Other assets", mdrm: "RCFD2160", currentValue: get("RCFD2160", "q1"), priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: overrides["RCFD2160"] === undefined, flagReason: "No source file mapping — manual entry required", editable: true },
+    { schedule: "RC", lineItem: "Total liabilities", mdrm: "RCFD2948", currentValue: get("RCFD2948", "q1"), priorValue: null, changePercent: null, source: "Not mapped", status: "unmapped", flagged: overrides["RCFD2948"] === undefined, flagReason: "No source file mapping — manual entry required", editable: true },
   ];
 
   lines.forEach(l => {
@@ -2548,17 +2548,53 @@ function buildDraftReport(anomalies: AnomalyRecord[], overrides: Record<string, 
   return lines;
 }
 
-function AnomaliesTab() {
-  const { anomalies, isLive, historicalData } = useLiveAnomalies();
-  const [activeMetric, setActiveMetric] = useState(0);
+const DRAFT_STORAGE_KEY = "draft-overrides";
+let draftOverridesListeners: Array<() => void> = [];
+function getDraftOverridesSnapshot(): string {
+  return localStorage.getItem(DRAFT_STORAGE_KEY) || "{}";
+}
+function subscribeToDraftOverrides(cb: () => void) {
+  draftOverridesListeners.push(cb);
+  return () => { draftOverridesListeners = draftOverridesListeners.filter(l => l !== cb); };
+}
+function setDraftOverridesStorage(next: Record<string, number>) {
+  try { localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(next)); } catch {}
+  draftOverridesListeners.forEach(cb => cb());
+}
+
+function useDraftOverrides() {
+  const raw = useSyncExternalStore(subscribeToDraftOverrides, getDraftOverridesSnapshot);
+  const overrides: Record<string, number> = JSON.parse(raw);
+  const setOverrides = useCallback((updater: (prev: Record<string, number>) => Record<string, number>) => {
+    const current = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) || "{}");
+    setDraftOverridesStorage(updater(current));
+  }, []);
+  return { overrides, setOverrides };
+}
+
+const SCHEDULE_META: Record<string, string> = {
+  "RC": "Balance Sheet",
+  "RC-B": "Securities",
+  "RC-C": "Loans & Leases",
+  "RC-E": "Deposit Liabilities",
+  "RC-N": "Past Due & Nonaccrual",
+  "RC-R": "Regulatory Capital",
+  "RC-L": "Derivatives & Off-Balance Sheet",
+  "RI": "Income Statement",
+  "RI-B": "Charge-Offs & Recoveries",
+};
+const SCHEDULE_ORDER = ["RC", "RC-B", "RC-C", "RC-E", "RI", "RI-B", "RC-N", "RC-R", "RC-L"];
+
+function DraftReportCard({ draftLines, overrides, setOverrides, draftPeriod, testIdPrefix }: {
+  draftLines: DraftReportLine[];
+  overrides: Record<string, number>;
+  setOverrides: (updater: (prev: Record<string, number>) => Record<string, number>) => void;
+  draftPeriod: string;
+  testIdPrefix?: string;
+}) {
+  const pfx = testIdPrefix ? `${testIdPrefix}-` : "";
   const [draftExpanded, setDraftExpanded] = useState(false);
   const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(new Set());
-  const [overrides, setOverrides] = useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem("draft-overrides");
-      return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
-  });
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
@@ -2575,6 +2611,236 @@ function AnomaliesTab() {
     setExpandedSchedules(all);
   };
   const collapseAllSchedules = () => setExpandedSchedules(new Set());
+
+  const populatedCount = draftLines.filter(l => l.status === "populated").length;
+  const mappedCount = draftLines.filter(l => l.status === "mapped").length;
+  const unmappedCount = draftLines.filter(l => l.status === "unmapped").length;
+  const flaggedCount = draftLines.filter(l => l.flagged).length;
+
+  const handleSaveEdit = (mdrm: string) => {
+    const num = parseFloat(editValue);
+    if (!isNaN(num)) {
+      setOverrides(prev => ({ ...prev, [mdrm]: num }));
+    }
+    setEditingCell(null);
+    setEditValue("");
+  };
+
+  const grouped = new Map<string, DraftReportLine[]>();
+  draftLines.forEach(line => {
+    if (!grouped.has(line.schedule)) grouped.set(line.schedule, []);
+    grouped.get(line.schedule)!.push(line);
+  });
+  const orderedKeys = SCHEDULE_ORDER.filter(s => grouped.has(s));
+  grouped.forEach((_, key) => { if (!orderedKeys.includes(key)) orderedKeys.push(key); });
+
+  return (
+    <Card className="border-primary/20 bg-gradient-to-r from-primary/[0.03] to-transparent" data-testid={`${pfx}card-draft-report`}>
+      <Collapsible.Root open={draftExpanded} onOpenChange={setDraftExpanded}>
+        <Collapsible.Trigger asChild>
+          <CardContent className="p-4 cursor-pointer hover:bg-primary/[0.02] transition-colors">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="rounded-lg bg-primary/10 p-2.5">
+                  <FileText className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-foreground" data-testid={`${pfx}text-draft-title`}>FFIEC 031 Call Report — Draft ({draftPeriod})</p>
+                    <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0 text-[10px]">
+                      Draft
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {populatedCount} auto-populated from ingested files, {mappedCount} mapped, {unmappedCount} unmapped requiring manual entry
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <p className="text-lg font-mono font-normal text-foreground">{draftLines.length}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Line Items</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-mono font-normal text-destructive">{flaggedCount}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Flagged</p>
+                </div>
+                {draftExpanded ? (
+                  <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform" />
+                ) : (
+                  <ChevronRight className="w-5 h-5 text-muted-foreground transition-transform" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Collapsible.Trigger>
+        <Collapsible.Content>
+          <div className="border-t border-border/40 px-4 pt-3 pb-4">
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[10px]">
+                <CheckCircle2 className="w-3 h-3 mr-1" />{populatedCount} Populated
+              </Badge>
+              <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[10px]">
+                <Layers className="w-3 h-3 mr-1" />{mappedCount} Mapped
+              </Badge>
+              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[10px]">
+                <AlertCircle className="w-3 h-3 mr-1" />{unmappedCount} Unmapped
+              </Badge>
+              <Badge variant="secondary" className="bg-red-500/10 text-red-600 border-0 text-[10px]">
+                <Flag className="w-3 h-3 mr-1" />{flaggedCount} Flagged
+              </Badge>
+              {Object.keys(overrides).length > 0 && (
+                <Badge variant="secondary" className="bg-violet-500/10 text-violet-600 border-0 text-[10px]">
+                  <Pencil className="w-3 h-3 mr-1" />{Object.keys(overrides).length} Manual Entries
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 mb-2">
+              <button onClick={expandAllSchedules} className="text-[10px] text-primary hover:underline" data-testid={`${pfx}button-expand-all-schedules`}>Expand All</button>
+              <span className="text-[10px] text-muted-foreground">|</span>
+              <button onClick={collapseAllSchedules} className="text-[10px] text-primary hover:underline" data-testid={`${pfx}button-collapse-all-schedules`}>Collapse All</button>
+            </div>
+            <div className="space-y-2">
+              {orderedKeys.map(schedule => {
+                const lines = grouped.get(schedule)!;
+                const isOpen = expandedSchedules.has(schedule);
+                const schedulePopulated = lines.filter(l => l.status === "populated").length;
+                const scheduleUnmapped = lines.filter(l => l.status === "unmapped").length;
+                const scheduleFlagged = lines.filter(l => l.flagged).length;
+                const desc = SCHEDULE_META[schedule] ?? schedule;
+
+                return (
+                  <div key={schedule} className="rounded-md border border-border/60 overflow-hidden" data-testid={`${pfx}schedule-section-${schedule}`}>
+                    <button
+                      className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                      onClick={() => toggleSchedule(schedule)}
+                      data-testid={`${pfx}button-toggle-schedule-${schedule}`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+                        <Badge variant="outline" className="text-[10px] font-mono px-2">{schedule}</Badge>
+                        <span className="text-xs font-medium text-foreground">{desc}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">{lines.length} items</span>
+                        {schedulePopulated > 0 && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[9px]">{schedulePopulated} auto</Badge>}
+                        {scheduleUnmapped > 0 && <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[9px]">{scheduleUnmapped} unmapped</Badge>}
+                        {scheduleFlagged > 0 && <Badge variant="secondary" className="bg-red-500/10 text-red-600 border-0 text-[9px]">{scheduleFlagged} flagged</Badge>}
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/15">
+                            <TableHead className="text-xs">Line Item</TableHead>
+                            <TableHead className="text-xs font-mono w-[90px]">MDRM</TableHead>
+                            <TableHead className="text-xs text-right w-[110px]">{draftPeriod}</TableHead>
+                            <TableHead className="text-xs text-right w-[100px]">Q4 2025</TableHead>
+                            <TableHead className="text-xs text-right w-[70px]">QoQ %</TableHead>
+                            <TableHead className="text-xs w-[140px]">Source File</TableHead>
+                            <TableHead className="text-xs w-[70px] text-center">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {lines.map((line, idx) => (
+                            <TableRow key={idx} className={line.status === "unmapped" ? "bg-amber-500/[0.03]" : line.flagged ? "bg-red-500/[0.03]" : ""} data-testid={`${pfx}draft-line-${schedule}-${idx}`}>
+                              <TableCell className="py-2">
+                                <div className="flex items-center gap-1.5">
+                                  {line.flagged && <Flag className="w-3 h-3 text-red-500 shrink-0" />}
+                                  <span className="text-xs text-foreground">{line.lineItem}</span>
+                                </div>
+                                {line.flagged && line.flagReason && (
+                                  <p className="text-[10px] text-red-500/80 mt-0.5 ml-[18px]">{line.flagReason}</p>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <span className="text-[10px] font-mono text-muted-foreground">{line.mdrm}</span>
+                              </TableCell>
+                              <TableCell className="py-2 text-right">
+                                {editingCell === line.mdrm ? (
+                                  <div className="flex items-center gap-1 justify-end">
+                                    <Input
+                                      className="h-6 w-[80px] text-xs font-mono text-right px-1"
+                                      value={editValue}
+                                      onChange={(e) => setEditValue(e.target.value)}
+                                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(line.mdrm); if (e.key === "Escape") { setEditingCell(null); setEditValue(""); } }}
+                                      autoFocus
+                                      data-testid={`${pfx}input-edit-${line.mdrm}`}
+                                    />
+                                    <button onClick={(e) => { e.stopPropagation(); handleSaveEdit(line.mdrm); }} className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 rounded" data-testid={`${pfx}button-save-${line.mdrm}`}>
+                                      <Check className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); setEditingCell(null); setEditValue(""); }} className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded">
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 justify-end">
+                                    <span className={`text-xs font-mono ${line.currentValue !== null ? "text-foreground" : "text-amber-500"}`}>
+                                      {line.currentValue !== null ? (line.isRatio ? `${line.currentValue.toFixed(2)}%` : fmtDollar(line.currentValue)) : "—"}
+                                    </span>
+                                    {(line.editable || line.status === "unmapped") && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setEditingCell(line.mdrm); setEditValue(line.currentValue !== null ? String(line.currentValue) : ""); }}
+                                        className="text-muted-foreground hover:text-foreground ml-1"
+                                        data-testid={`${pfx}button-edit-${line.mdrm}`}
+                                      >
+                                        <Pencil className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 text-right">
+                                <span className="text-xs font-mono text-muted-foreground">
+                                  {line.priorValue !== null ? (line.isRatio ? `${line.priorValue.toFixed(2)}%` : fmtDollar(line.priorValue)) : "—"}
+                                </span>
+                              </TableCell>
+                              <TableCell className="py-2 text-right">
+                                {line.changePercent !== null ? (
+                                  <span className={`text-xs font-mono ${line.changePercent > 0 ? "text-emerald-600" : line.changePercent < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                    {line.changePercent >= 0 ? "+" : ""}{line.changePercent.toFixed(1)}%
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <span className={`text-[10px] ${line.source === "Not mapped" ? "text-amber-500 font-medium" : "font-mono text-muted-foreground"}`}>{line.source}</span>
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                {line.status === "populated" && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[9px]">Auto</Badge>}
+                                {line.status === "mapped" && <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[9px]">Mapped</Badge>}
+                                {line.status === "unmapped" && (
+                                  overrides[line.mdrm] !== undefined
+                                    ? <Badge variant="secondary" className="bg-violet-500/10 text-violet-600 border-0 text-[9px]">Manual</Badge>
+                                    : <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[9px]">Unmapped</Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3">
+              <Info className="w-3.5 h-3.5 shrink-0" />
+              Data sourced from 5 ingested files (GL, Trading, Loans, Treasury, Risk). Unmapped fields can be entered manually using the edit icon.
+            </div>
+          </div>
+        </Collapsible.Content>
+      </Collapsible.Root>
+    </Card>
+  );
+}
+
+function AnomaliesTab() {
+  const { anomalies, isLive, historicalData } = useLiveAnomalies();
+  const [activeMetric, setActiveMetric] = useState(0);
+  const { overrides, setOverrides } = useDraftOverrides();
 
   const draftPeriod = "Q1 2026";
 
@@ -2609,23 +2875,6 @@ function AnomaliesTab() {
   const lowCount = anomalyLog.filter(a => a.severity === "low").length;
 
   const draftLines = buildDraftReport(activeAnomalies, overrides);
-  const populatedCount = draftLines.filter(l => l.status === "populated").length;
-  const mappedCount = draftLines.filter(l => l.status === "mapped").length;
-  const unmappedCount = draftLines.filter(l => l.status === "unmapped").length;
-  const flaggedCount = draftLines.filter(l => l.flagged).length;
-
-  const handleSaveEdit = (mdrm: string) => {
-    const num = parseFloat(editValue);
-    if (!isNaN(num)) {
-      setOverrides(prev => {
-        const next = { ...prev, [mdrm]: num };
-        try { localStorage.setItem("draft-overrides", JSON.stringify(next)); } catch {}
-        return next;
-      });
-    }
-    setEditingCell(null);
-    setEditValue("");
-  };
 
   const chartData = historicalWithDraft.map((r, idx) => ({
     period: r.period,
@@ -2676,227 +2925,7 @@ function AnomaliesTab() {
         )}
       </div>
 
-      <Card className="border-primary/20 bg-gradient-to-r from-primary/[0.03] to-transparent" data-testid="card-draft-report">
-        <Collapsible.Root open={draftExpanded} onOpenChange={setDraftExpanded}>
-          <Collapsible.Trigger asChild>
-            <CardContent className="p-4 cursor-pointer hover:bg-primary/[0.02] transition-colors">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-lg bg-primary/10 p-2.5">
-                    <FileText className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground" data-testid="text-draft-title">FFIEC 031 Call Report — Draft ({draftPeriod})</p>
-                      <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0 text-[10px]">
-                        Draft
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {populatedCount} auto-populated from ingested files, {mappedCount} mapped, {unmappedCount} unmapped requiring manual entry
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <p className="text-lg font-mono font-normal text-foreground">{draftLines.length}</p>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Line Items</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-mono font-normal text-destructive">{flaggedCount}</p>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Flagged</p>
-                  </div>
-                  {draftExpanded ? (
-                    <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5 text-muted-foreground transition-transform" />
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Collapsible.Trigger>
-          <Collapsible.Content>
-            <div className="border-t border-border/40 px-4 pt-3 pb-4">
-              <div className="flex items-center gap-3 mb-3 flex-wrap">
-                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[10px]">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />{populatedCount} Populated
-                </Badge>
-                <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[10px]">
-                  <Layers className="w-3 h-3 mr-1" />{mappedCount} Mapped
-                </Badge>
-                <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[10px]">
-                  <AlertCircle className="w-3 h-3 mr-1" />{unmappedCount} Unmapped
-                </Badge>
-                <Badge variant="secondary" className="bg-red-500/10 text-red-600 border-0 text-[10px]">
-                  <Flag className="w-3 h-3 mr-1" />{flaggedCount} Flagged
-                </Badge>
-                {Object.keys(overrides).length > 0 && (
-                  <Badge variant="secondary" className="bg-violet-500/10 text-violet-600 border-0 text-[10px]">
-                    <Pencil className="w-3 h-3 mr-1" />{Object.keys(overrides).length} Manual Entries
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center justify-end gap-2 mb-2">
-                <button onClick={expandAllSchedules} className="text-[10px] text-primary hover:underline" data-testid="button-expand-all-schedules">Expand All</button>
-                <span className="text-[10px] text-muted-foreground">|</span>
-                <button onClick={collapseAllSchedules} className="text-[10px] text-primary hover:underline" data-testid="button-collapse-all-schedules">Collapse All</button>
-              </div>
-              <div className="space-y-2">
-                {(() => {
-                  const SCHEDULE_META: Record<string, string> = {
-                    "RC": "Balance Sheet",
-                    "RC-B": "Securities",
-                    "RC-C": "Loans & Leases",
-                    "RC-E": "Deposit Liabilities",
-                    "RC-N": "Past Due & Nonaccrual",
-                    "RC-R": "Regulatory Capital",
-                    "RC-L": "Derivatives & Off-Balance Sheet",
-                    "RI": "Income Statement",
-                    "RI-B": "Charge-Offs & Recoveries",
-                  };
-                  const scheduleOrder = ["RC", "RC-B", "RC-C", "RC-E", "RI", "RI-B", "RC-N", "RC-R", "RC-L"];
-                  const grouped = new Map<string, DraftReportLine[]>();
-                  draftLines.forEach(line => {
-                    if (!grouped.has(line.schedule)) grouped.set(line.schedule, []);
-                    grouped.get(line.schedule)!.push(line);
-                  });
-                  const orderedKeys = scheduleOrder.filter(s => grouped.has(s));
-                  grouped.forEach((_, key) => { if (!orderedKeys.includes(key)) orderedKeys.push(key); });
-
-                  return orderedKeys.map(schedule => {
-                    const lines = grouped.get(schedule)!;
-                    const isOpen = expandedSchedules.has(schedule);
-                    const schedulePopulated = lines.filter(l => l.status === "populated").length;
-                    const scheduleUnmapped = lines.filter(l => l.status === "unmapped").length;
-                    const scheduleFlagged = lines.filter(l => l.flagged).length;
-                    const desc = SCHEDULE_META[schedule] ?? schedule;
-
-                    return (
-                      <div key={schedule} className="rounded-md border border-border/60 overflow-hidden" data-testid={`schedule-section-${schedule}`}>
-                        <button
-                          className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
-                          onClick={() => toggleSchedule(schedule)}
-                          data-testid={`button-toggle-schedule-${schedule}`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-                            <Badge variant="outline" className="text-[10px] font-mono px-2">{schedule}</Badge>
-                            <span className="text-xs font-medium text-foreground">{desc}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground">{lines.length} items</span>
-                            {schedulePopulated > 0 && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[9px]">{schedulePopulated} auto</Badge>}
-                            {scheduleUnmapped > 0 && <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[9px]">{scheduleUnmapped} unmapped</Badge>}
-                            {scheduleFlagged > 0 && <Badge variant="secondary" className="bg-red-500/10 text-red-600 border-0 text-[9px]">{scheduleFlagged} flagged</Badge>}
-                          </div>
-                        </button>
-                        {isOpen && (
-                          <Table>
-                            <TableHeader>
-                              <TableRow className="bg-muted/15">
-                                <TableHead className="text-xs">Line Item</TableHead>
-                                <TableHead className="text-xs font-mono w-[90px]">MDRM</TableHead>
-                                <TableHead className="text-xs text-right w-[110px]">{draftPeriod}</TableHead>
-                                <TableHead className="text-xs text-right w-[100px]">Q4 2025</TableHead>
-                                <TableHead className="text-xs text-right w-[70px]">QoQ %</TableHead>
-                                <TableHead className="text-xs w-[140px]">Source File</TableHead>
-                                <TableHead className="text-xs w-[70px] text-center">Status</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {lines.map((line, idx) => (
-                                <TableRow key={idx} className={line.status === "unmapped" ? "bg-amber-500/[0.03]" : line.flagged ? "bg-red-500/[0.03]" : ""} data-testid={`draft-line-${schedule}-${idx}`}>
-                                  <TableCell className="py-2">
-                                    <div className="flex items-center gap-1.5">
-                                      {line.flagged && <Flag className="w-3 h-3 text-red-500 shrink-0" />}
-                                      <span className="text-xs text-foreground">{line.lineItem}</span>
-                                    </div>
-                                    {line.flagged && line.flagReason && (
-                                      <p className="text-[10px] text-red-500/80 mt-0.5 ml-[18px]">{line.flagReason}</p>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="py-2">
-                                    <span className="text-[10px] font-mono text-muted-foreground">{line.mdrm}</span>
-                                  </TableCell>
-                                  <TableCell className="py-2 text-right">
-                                    {editingCell === line.mdrm ? (
-                                      <div className="flex items-center gap-1 justify-end">
-                                        <Input
-                                          className="h-6 w-[80px] text-xs font-mono text-right px-1"
-                                          value={editValue}
-                                          onChange={(e) => setEditValue(e.target.value)}
-                                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(line.mdrm); if (e.key === "Escape") { setEditingCell(null); setEditValue(""); } }}
-                                          autoFocus
-                                          data-testid={`input-edit-${line.mdrm}`}
-                                        />
-                                        <button onClick={(e) => { e.stopPropagation(); handleSaveEdit(line.mdrm); }} className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 rounded" data-testid={`button-save-${line.mdrm}`}>
-                                          <Check className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button onClick={(e) => { e.stopPropagation(); setEditingCell(null); setEditValue(""); }} className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded">
-                                          <X className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-1 justify-end">
-                                        <span className={`text-xs font-mono ${line.currentValue !== null ? "text-foreground" : "text-amber-500"}`}>
-                                          {line.currentValue !== null ? (line.isRatio ? `${line.currentValue.toFixed(2)}%` : fmtDollar(line.currentValue)) : "—"}
-                                        </span>
-                                        {(line.editable || line.status === "unmapped") && (
-                                          <button
-                                            onClick={(e) => { e.stopPropagation(); setEditingCell(line.mdrm); setEditValue(line.currentValue !== null ? String(line.currentValue) : ""); }}
-                                            className="text-muted-foreground hover:text-foreground ml-1"
-                                            data-testid={`button-edit-${line.mdrm}`}
-                                          >
-                                            <Pencil className="w-3 h-3" />
-                                          </button>
-                                        )}
-                                      </div>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="py-2 text-right">
-                                    <span className="text-xs font-mono text-muted-foreground">
-                                      {line.priorValue !== null ? (line.isRatio ? `${line.priorValue.toFixed(2)}%` : fmtDollar(line.priorValue)) : "—"}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="py-2 text-right">
-                                    {line.changePercent !== null ? (
-                                      <span className={`text-xs font-mono ${line.changePercent > 0 ? "text-emerald-600" : line.changePercent < 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                                        {line.changePercent >= 0 ? "+" : ""}{line.changePercent.toFixed(1)}%
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">—</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="py-2">
-                                    <span className={`text-[10px] ${line.source === "Not mapped" ? "text-amber-500 font-medium" : "font-mono text-muted-foreground"}`}>{line.source}</span>
-                                  </TableCell>
-                                  <TableCell className="py-2 text-center">
-                                    {line.status === "populated" && <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 text-[9px]">Auto</Badge>}
-                                    {line.status === "mapped" && <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0 text-[9px]">Mapped</Badge>}
-                                    {line.status === "unmapped" && (
-                                      overrides[line.mdrm] !== undefined
-                                        ? <Badge variant="secondary" className="bg-violet-500/10 text-violet-600 border-0 text-[9px]">Manual</Badge>
-                                        : <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0 text-[9px]">Unmapped</Badge>
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3">
-                <Info className="w-3.5 h-3.5 shrink-0" />
-                Data sourced from 5 ingested files (GL, Trading, Loans, Treasury, Risk). Unmapped fields can be entered manually using the edit icon.
-              </div>
-            </div>
-          </Collapsible.Content>
-        </Collapsible.Root>
-      </Card>
+      <DraftReportCard draftLines={draftLines} overrides={overrides} setOverrides={setOverrides} draftPeriod={draftPeriod} />
 
       <div className="grid grid-cols-4 gap-3">
         <Card data-testid="card-anomaly-high">
@@ -3670,7 +3699,7 @@ function computeMateriality(item: ReviewItem): { level: "material" | "notable" |
   return { level: "immaterial", label: dollarInM >= 1 ? `$${dollarInM.toFixed(0)}M` : `$${(dollarInM * 1000).toFixed(0)}K`, color: "text-muted-foreground bg-muted/50" };
 }
 
-const SCHEDULE_META: Record<string, { name: string; description: string }> = {
+const VALIDATION_SCHEDULE_META: Record<string, { name: string; description: string }> = {
   "RC": { name: "Schedule RC", description: "Balance Sheet — Consolidated Statement of Condition" },
   "RC-C": { name: "Schedule RC-C", description: "Loans and Leases — Composition and Concentrations" },
   "RC-E": { name: "Schedule RC-E", description: "Deposit Liabilities — Types and Maturities" },
@@ -3846,6 +3875,7 @@ function ReportReviewTab() {
   const [varianceThreshold, setVarianceThreshold] = useState(10);
   const [scheduleFilter, setScheduleFilter] = useState<string | null>(null);
   const [commentaryMap, setCommentaryMap] = useState<Record<string, string>>({});
+  const { overrides, setOverrides } = useDraftOverrides();
   const handleCommentaryChange = (id: string, text: string) => {
     setCommentaryMap(prev => {
       const next = { ...prev };
@@ -3853,7 +3883,10 @@ function ReportReviewTab() {
       return next;
     });
   };
-  const flaggedCommentaryCount = Object.keys(commentaryMap).filter(k => commentaryMap[k]?.trim() && items.some(i => i.id === k && Math.abs(i.changePercent) >= varianceThreshold)).length;
+
+  const draftPeriod = "Q1 2026";
+  const draftLines = buildDraftReport([], overrides);
+
   const { data, isLoading } = useQuery<{ data: PeerDataEntry[] }>({
     queryKey: ["/api/data-sources/peer-data"],
     staleTime: 5 * 60 * 1000,
@@ -3869,33 +3902,37 @@ function ReportReviewTab() {
   const current = sorted[0];
   const prior = sorted[1];
 
-  const currentLabel = isLive ? rawDateToLabel(current.rawDate) : "Q4 2024";
-  const priorLabel = isLive ? rawDateToLabel(prior.rawDate) : "Q3 2024";
+  const draftRecord: HistoricalRecord = {
+    period: draftPeriod, rawDate: "20260331",
+    totalAssets: overrides["RCFD2170"] ?? INGESTED_Q1_2026["RCFD2170"]?.q1 ?? 5495000,
+    totalDeposits: overrides["RCON2200"] ?? INGESTED_Q1_2026["RCON2200"]?.q1 ?? 3180000,
+    totalLoans: overrides["RCFD2122"] ?? INGESTED_Q1_2026["RCFD2122"]?.q1 ?? 2910000,
+    netIncome: overrides["RIAD4340"] ?? INGESTED_Q1_2026["RIAD4340"]?.q1 ?? 28500,
+    roe: overrides["UBPR-ROE"] ?? 3.46,
+    roa: overrides["UBPR-ROA"] ?? 0.52,
+    nim: overrides["UBPR-NIM"] ?? 2.33,
+    tier1Ratio: overrides["RCFD7206"] ?? INGESTED_Q1_2026["RCFD7206"]?.q1 ?? 19.74,
+    efficiencyRatio: overrides["UBPR-EFF"] ?? 67.83,
+    npaRatio: overrides["UBPR-NPA"] ?? 0.56,
+    securities: overrides["RCFD8641"] ?? INGESTED_Q1_2026["RCFD8641"]?.q1 ?? 1285000,
+    loanLossReserve: overrides["RCFD2107"] ?? INGESTED_Q1_2026["RCFD2107"]?.q1 ?? 65000,
+    loanToDeposit: ((overrides["RCFD2122"] ?? 2910000) / (overrides["RCON2200"] ?? 3180000)) * 100,
+    totalEquity: overrides["RCFD3210"] ?? INGESTED_Q1_2026["RCFD3210"]?.q1 ?? 824000,
+  };
 
-  const items: ReviewItem[] = isLive
-    ? buildLiveReviewItems(current, prior, currentLabel, priorLabel, fry9c)
-    : reportLineItems.map(item => {
-        const parts = item.derivation.split(";").map(s => s.trim());
-        const source = parts[0] || item.derivation;
-        const notes = parts.slice(1).join("; ") || "";
-        const changePct = item.changePercent;
-        const isRatio = item.currentPeriod < 100;
-        const base = { lineItem: item.lineItem, currentVal: item.currentPeriod, priorVal: item.priorPeriod, changePercent: changePct, isRatio, crossCheck: item.crossCheck as "passed" | "warning" | "failed" };
-        return {
-          id: item.id,
-          lineItem: item.lineItem,
-          schedule: item.schedule,
-          currentVal: item.currentPeriod,
-          priorVal: item.priorPeriod,
-          changePercent: changePct,
-          crossCheck: item.crossCheck as "passed" | "warning" | "failed",
-          source,
-          notes,
-          isRatio,
-          crossChecks: [{ source: "FDIC Call Report", field: source.replace("FDIC field ", "").replace("FDIC ", ""), status: item.crossCheck as "passed" | "warning" | "failed", detail: notes || "Verified against primary source" }],
-          movementCommentary: generateMovementCommentary(base, currentLabel, priorLabel),
-        };
-      });
+  const priorRecord = isLive ? current : {
+    period: "Q4 2025", rawDate: "20251231", totalAssets: 5612000, totalDeposits: 3250000,
+    totalLoans: 2980000, netIncome: 31200, roe: 3.80, roa: 0.56, nim: 2.38,
+    tier1Ratio: 19.50, efficiencyRatio: 66.50, npaRatio: 0.47, securities: 1310000,
+    loanLossReserve: 63000, loanToDeposit: 91.69, totalEquity: 810000,
+  };
+
+  const currentLabel = draftPeriod;
+  const priorLabel = isLive ? rawDateToLabel(current.rawDate) : "Q4 2025";
+
+  const items: ReviewItem[] = buildLiveReviewItems(draftRecord, priorRecord, currentLabel, priorLabel, fry9c);
+
+  const flaggedCommentaryCount = Object.keys(commentaryMap).filter(k => commentaryMap[k]?.trim() && items.some(i => i.id === k && Math.abs(i.changePercent) >= varianceThreshold)).length;
 
   const flaggedByThreshold = items.filter(i => Math.abs(i.changePercent) >= varianceThreshold);
   const unflaggedItems = items.filter(i => Math.abs(i.changePercent) < varianceThreshold);
@@ -3905,16 +3942,8 @@ function ReportReviewTab() {
   const failedCount = items.filter(i => i.crossCheck === "failed").length;
   const materialCount = items.filter(i => computeMateriality(i).level === "material").length;
 
-  const fallbackCurrent: HistoricalRecord = {
-    period: "Q4 2025", rawDate: "20251231", totalAssets: 5495218, totalDeposits: 4009422,
-    totalLoans: 1799302, netIncome: 93899, roe: 7.26, roa: 1.36, nim: 2.33,
-    tier1Ratio: 19.74, efficiencyRatio: 67.83, npaRatio: 0, securities: 23011,
-    loanLossReserve: 6437, loanToDeposit: 44.88,
-  };
-  const currentForChecks = isLive ? current : fallbackCurrent;
-
-  const intraChecks = buildIntraReportChecks(currentForChecks);
-  const interChecks = buildInterReportChecks(currentForChecks, fry9c);
+  const intraChecks = buildIntraReportChecks(draftRecord);
+  const interChecks = buildInterReportChecks(draftRecord, fry9c);
 
   const intraPassedCount = intraChecks.filter(c => c.status === "passed").length;
   const intraWarnCount = intraChecks.filter(c => c.status === "warning").length;
@@ -3940,6 +3969,8 @@ function ReportReviewTab() {
 
   return (
     <div className="space-y-4">
+      <DraftReportCard draftLines={draftLines} overrides={overrides} setOverrides={setOverrides} draftPeriod={draftPeriod} testIdPrefix="review" />
+
       <div className="grid grid-cols-5 gap-3">
         <Card>
           <CardContent className="p-4 text-center">
@@ -4061,7 +4092,7 @@ function ReportReviewTab() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {Object.entries(scheduleGroups).map(([sched, schedItems]) => {
-                  const meta = SCHEDULE_META[sched];
+                  const meta = VALIDATION_SCHEDULE_META[sched];
                   const sFlagged = schedItems.filter(i => Math.abs(i.changePercent) >= varianceThreshold).length;
                   const sPassed = schedItems.filter(i => Math.abs(i.changePercent) < varianceThreshold).length;
                   const isActive = scheduleFilter === sched;

@@ -29,7 +29,7 @@ Demo application for Mizuho Financial Group CFO presentation (March 2026). Showc
    - Instructions Analysis (report selector dropdown: FFIEC 031 Call Report, FFIEC 102 Market Risk; QoQ instruction change summary with impact levels; schedule requirements browser; report-specific AI assistant with pre-built and custom queries; out-of-scope redirection)
    - Data & Dictionary
    - Variance Analysis (expandable FFIEC 031 draft populated from ingested Q1 2026 Excel files with unmapped fields for manual entry; deviation analysis comparing draft against historical quarters with ±1.5σ bands; pattern detection log with severity and recommended actions)
-   - Report Review & Validation (three-mode toggle: Variance Analysis with configurable QoQ threshold slider and user-addable management commentary, Intra-Report Checks with 8 Fed-defined validation rules, Inter-Report Checks with 12 Call Report vs FR Y-9C tie-outs)
+   - Report Review & Validation (shared draft report card at top; three-mode toggle: Variance Analysis with configurable QoQ threshold slider and user-addable management commentary, Intra-Report Checks with 8 Fed-defined validation rules, Inter-Report Checks with 12 Call Report vs FR Y-9C tie-outs; variance analysis and checks use draft data with overrides)
    - Review & Approval (QoQ variance summaries, CFO memorandum generation & approval workflow)
    - Trend Analysis (multi-period charts)
 4. **Peer Analysis** (`/peer-analysis`) - Use Case 2 with pre-built peer groups:
