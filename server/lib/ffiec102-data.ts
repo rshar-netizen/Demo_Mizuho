@@ -58,6 +58,7 @@ function generateQuarterDailyPnL(
 }
 
 const QUARTERS_8 = [
+  { period: "Q1 2024", rawDate: "20240331", tradingDays: 61 },
   { period: "Q2 2024", rawDate: "20240630", tradingDays: 64 },
   { period: "Q3 2024", rawDate: "20240930", tradingDays: 64 },
   { period: "Q4 2024", rawDate: "20241231", tradingDays: 62 },
@@ -65,7 +66,6 @@ const QUARTERS_8 = [
   { period: "Q2 2025", rawDate: "20250630", tradingDays: 64 },
   { period: "Q3 2025", rawDate: "20250930", tradingDays: 64 },
   { period: "Q4 2025", rawDate: "20251231", tradingDays: 62 },
-  { period: "Q1 2026", rawDate: "20260331", tradingDays: 61 },
 ];
 
 interface BankProfile {
