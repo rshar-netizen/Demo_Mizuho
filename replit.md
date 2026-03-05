@@ -19,19 +19,20 @@ Demo application for Mizuho Financial Group CFO presentation (March 2026). Showc
 
 ## Pages
 1. **Home** (`/`) - Two-card overview: Regulatory Reporting Lifecycle + Peer Analysis & Comparison
-2. **Data Ingestion** (`/data-ingestion`) - Live API connections to FDIC, FFIEC, Federal Reserve
-   - Connection status for 3 federal portals
-   - Call Report data browser (8 quarterly periods)
-   - Peer institution comparison (6 banks, live data)
-   - Architecture diagram showing data flow
-   - Refresh button for real-time data updates
-3. **Regulatory Reporting** (`/regulatory-reporting`) - Use Case 1 with 5 tabs:
+2. **Regulatory Reporting** (`/regulatory-reporting`) - Use Case 1 with 5 tabs:
    - Instructions Analysis (report selector dropdown: FFIEC 031 Call Report, FFIEC 102 Market Risk; QoQ instruction change summary with impact levels; schedule requirements browser; report-specific AI assistant with pre-built and custom queries; out-of-scope redirection)
    - Data & Dictionary (historical FFIEC data pull with report type selector for 031/041/051/102/101 and 12-quarter period grid; ingested source files with upload; data dictionary browser; field-to-schedule mappings)
    - Variance Analysis (expandable FFIEC 031 draft populated from ingested Q1 2026 Excel files with unmapped fields for manual entry; deviation analysis comparing draft against historical quarters with ±1.5σ bands; historical trend charts for Total Assets, Loans vs Deposits, Net Income with area/bar toggle; pattern detection log with severity and recommended actions)
    - Report Review & Validation (shared draft report card at top; three-mode toggle: Variance Analysis with configurable QoQ threshold slider and user-addable management commentary, Intra-Report Checks with 8 Fed-defined validation rules, Inter-Report Checks with 12 Call Report vs FR Y-9C tie-outs; variance analysis and checks use draft data with overrides)
    - Review & Approval (shared draft report card at top; finalize-then-submit workflow: review draft → finalize with confirmation → generate CFO memorandum from validated variances → submit for approval → simulate approval; downloadable FFIEC 031 XLSX filing available after finalization; draft edits sync across all tabs; variance summaries use Q1 2026 draft vs latest historical quarter; memo card locked until draft finalized; reopening draft resets memo state)
-4. **Peer Analysis** (`/peer-analysis`) - Use Case 2 with pre-built peer groups:
+3. **Peer Analysis** (`/peer-analysis`) - Use Case 2 with two top-level sections:
+   - **Data Ingestion** (first section tab) - Live API connections to FDIC, FFIEC, Federal Reserve
+     - Connection status for 3 federal portals
+     - Call Report data browser (8 quarterly periods)
+     - Peer institution comparison (6 banks, live data)
+     - Architecture diagram showing data flow
+     - Refresh button for real-time data updates
+   - **Peer Comparison** (second section tab) - Peer benchmarking with pre-built peer groups
    - Peer Group Selector: Japanese FBOs, European FBOs, US G-SIBs, US Regional Banks
    - Custom peer addition by CERT number with FDIC validation
    - Overview tab (radar chart, peer summary, profitability/capital bar charts)

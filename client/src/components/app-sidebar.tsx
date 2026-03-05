@@ -17,14 +17,12 @@ import {
   BarChart3,
   Sun,
   Moon,
-  Database,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
   { title: "Overview", url: "/", icon: LayoutDashboard },
-  { title: "Data Ingestion", url: "/data-ingestion", icon: Database },
   { title: "Regulatory Reporting", url: "/regulatory-reporting", icon: FileText },
   { title: "Peer Analysis", url: "/peer-analysis", icon: BarChart3 },
 ];

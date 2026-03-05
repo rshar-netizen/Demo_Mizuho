@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DataIngestionContent } from "@/pages/data-ingestion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ import {
   Info,
   TableIcon,
   BarChart3,
+  Database,
 } from "lucide-react";
 import {
   type PeerBank,
@@ -1002,7 +1004,7 @@ function KeyMetricsBar({ banks }: { banks: PeerBank[] }) {
   );
 }
 
-export default function PeerAnalysis() {
+function PeerComparisonContent() {
   const queryClient = useQueryClient();
   const [selectedGroup, setSelectedGroup] = useState("japanese");
   const [customPeers, setCustomPeers] = useState<PeerConfig[]>([]);
@@ -1076,35 +1078,34 @@ export default function PeerAnalysis() {
   const bankNames = peerBanks.map(b => b.name);
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-[1200px] mx-auto p-6 space-y-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Use Case 2</p>
-            <Badge variant="outline" className="text-[10px] font-mono">Peer Comparison</Badge>
-            {isLive && (
-              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
-                <Wifi className="w-3 h-3 mr-1" />
-                Live Data
-              </Badge>
-            )}
-            {isLoading && (
-              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                Loading live data...
-              </Badge>
-            )}
-          </div>
-          <h1 className="text-2xl font-serif font-semibold tracking-tight" data-testid="text-peer-title">
-            Peer Comparison Analysis
-          </h1>
-          <p className="text-sm text-muted-foreground max-w-[720px]">
-            Benchmarking Mizuho Americas against {activeGroupLabel} using publicly available regulatory data from FDIC Call Reports (FFIEC 031/041) and derived UBPR-equivalent ratios.
-            {isLive && ` Live data as of ${reportDate}.`}
-          </p>
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Peer Comparison</p>
+          <Badge variant="outline" className="text-[10px] font-mono">{activeGroupLabel}</Badge>
+          {isLive && (
+            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
+              <Wifi className="w-3 h-3 mr-1" />
+              Live Data
+            </Badge>
+          )}
+          {isLoading && (
+            <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              Loading live data...
+            </Badge>
+          )}
         </div>
+        <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-peer-comparison-title">
+          Peer Benchmarking
+        </h2>
+        <p className="text-sm text-muted-foreground max-w-[720px]">
+          Benchmarking Mizuho Americas against {activeGroupLabel} using publicly available regulatory data from FDIC Call Reports (FFIEC 031/041) and derived UBPR-equivalent ratios.
+          {isLive && ` Live data as of ${reportDate}.`}
+        </p>
+      </div>
 
-        <PeerGroupSelector
+      <PeerGroupSelector
           selectedGroup={selectedGroup}
           onGroupChange={handleGroupChange}
           peers={activePeers}
@@ -1235,14 +1236,63 @@ export default function PeerAnalysis() {
           </TabsContent>
         </Tabs>
 
-        <div className="border-t pt-4 pb-2">
-          <p className="text-xs text-muted-foreground">
-            Data sourced from FDIC BankFind Suite API (Call Reports FFIEC 031/041) and derived UBPR-equivalent ratios.
-            {isLive ? ` Live data as of ${reportDate}.` : " All figures as of latest available filing unless otherwise noted."}
-            {" "}Peer group: {activeGroupLabel} — {peerBanks.length} institution{peerBanks.length !== 1 ? "s" : ""}.
-            {" "}Additional peers and ratios can be added on demand.
+      <div className="border-t pt-4 pb-2">
+        <p className="text-xs text-muted-foreground">
+          Data sourced from FDIC BankFind Suite API (Call Reports FFIEC 031/041) and derived UBPR-equivalent ratios.
+          {isLive ? ` Live data as of ${reportDate}.` : " All figures as of latest available filing unless otherwise noted."}
+          {" "}Peer group: {activeGroupLabel} — {peerBanks.length} institution{peerBanks.length !== 1 ? "s" : ""}.
+          {" "}Additional peers and ratios can be added on demand.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function PeerAnalysis() {
+  const [activeSection, setActiveSection] = useState<"ingestion" | "comparison">("ingestion");
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-[1200px] mx-auto p-6 space-y-6">
+        <div className="space-y-1">
+          <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Use Case 2</p>
+          <h1 className="text-2xl font-serif font-semibold tracking-tight" data-testid="text-peer-title">
+            Peer Analysis & Comparison
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Real-time data ingestion from federal regulatory portals and peer benchmarking against comparable institutions
           </p>
         </div>
+
+        <div className="flex items-center gap-1 border-b">
+          <button
+            onClick={() => setActiveSection("ingestion")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeSection === "ingestion"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            data-testid="tab-section-ingestion"
+          >
+            <Database className="w-4 h-4" />
+            Data Ingestion
+          </button>
+          <button
+            onClick={() => setActiveSection("comparison")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeSection === "comparison"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            data-testid="tab-section-comparison"
+          >
+            <BarChart3 className="w-4 h-4" />
+            Peer Comparison
+          </button>
+        </div>
+
+        {activeSection === "ingestion" && <DataIngestionContent />}
+        {activeSection === "comparison" && <PeerComparisonContent />}
       </div>
     </div>
   );

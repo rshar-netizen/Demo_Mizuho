@@ -504,7 +504,7 @@ function PeerDataTab() {
   );
 }
 
-export default function DataIngestion() {
+export function DataIngestionContent() {
   const statusQuery = useQuery<StatusResponse>({
     queryKey: ["/api/data-sources/status"],
     refetchInterval: 60000,
@@ -521,82 +521,80 @@ export default function DataIngestion() {
   const connectedCount = sources.filter((s) => s.status === "connected").length;
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-[1200px] mx-auto p-6 space-y-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Data Sources</p>
-              <Badge variant="outline" className="text-[10px] font-mono">
-                {connectedCount}/{sources.length} Active
-              </Badge>
-            </div>
-            <h1 className="text-2xl font-serif font-semibold tracking-tight" data-testid="text-ingestion-title">
-              Federal Data Ingestion
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Real-time API linkages to FDIC, FFIEC CDR, and Federal Reserve portals for Mizuho Americas LLC
-            </p>
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] font-mono font-medium text-destructive tracking-[0.12em] uppercase">Data Sources</p>
+            <Badge variant="outline" className="text-[10px] font-mono">
+              {connectedCount}/{sources.length} Active
+            </Badge>
           </div>
-
-          <Button
-            onClick={() => refreshMutation.mutate()}
-            disabled={refreshMutation.isPending}
-            data-testid="button-refresh-all"
-          >
-            {refreshMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 mr-2" />
-            )}
-            Refresh All Sources
-          </Button>
-        </div>
-
-        <DataSourceCards sources={sources} isLoading={statusQuery.isLoading} />
-
-        <ArchitectureDiagram />
-
-        {statusQuery.data?.cache && (
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Cache: {statusQuery.data.cache.entries} entries</span>
-            </div>
-            {statusQuery.data.cache.oldestEntry && (
-              <span>Oldest: {new Date(statusQuery.data.cache.oldestEntry).toLocaleTimeString()}</span>
-            )}
-            <span>Auto-refresh: 30 min TTL</span>
-          </div>
-        )}
-
-        <Tabs defaultValue="call-reports" className="space-y-4">
-          <TabsList data-testid="tabs-data-ingestion">
-            <TabsTrigger value="call-reports" data-testid="tab-call-reports">
-              <FileText className="w-3.5 h-3.5 mr-1.5" />
-              Call Reports
-            </TabsTrigger>
-            <TabsTrigger value="peer-data" data-testid="tab-peer-data">
-              <BarChart3 className="w-3.5 h-3.5 mr-1.5" />
-              Peer Data
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="call-reports" className="space-y-4">
-            <CallReportTab />
-          </TabsContent>
-
-          <TabsContent value="peer-data" className="space-y-4">
-            <PeerDataTab />
-          </TabsContent>
-        </Tabs>
-
-        <div className="border-t pt-4 pb-2">
-          <p className="text-xs text-muted-foreground">
-            Data sourced in real-time from FDIC BankFind Suite API, FFIEC Central Data Repository, and Federal Reserve National Information Center.
-            All data is publicly available regulatory filing information. Mizuho Bank (USA) (RSSD: 229913, CERT: 21843).
+          <h2 className="text-xl font-serif font-semibold tracking-tight" data-testid="text-ingestion-title">
+            Federal Data Ingestion
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Real-time API linkages to FDIC, FFIEC CDR, and Federal Reserve portals for Mizuho Americas LLC
           </p>
         </div>
+
+        <Button
+          onClick={() => refreshMutation.mutate()}
+          disabled={refreshMutation.isPending}
+          data-testid="button-refresh-all"
+        >
+          {refreshMutation.isPending ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4 mr-2" />
+          )}
+          Refresh All Sources
+        </Button>
+      </div>
+
+      <DataSourceCards sources={sources} isLoading={statusQuery.isLoading} />
+
+      <ArchitectureDiagram />
+
+      {statusQuery.data?.cache && (
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Cache: {statusQuery.data.cache.entries} entries</span>
+          </div>
+          {statusQuery.data.cache.oldestEntry && (
+            <span>Oldest: {new Date(statusQuery.data.cache.oldestEntry).toLocaleTimeString()}</span>
+          )}
+          <span>Auto-refresh: 30 min TTL</span>
+        </div>
+      )}
+
+      <Tabs defaultValue="call-reports" className="space-y-4">
+        <TabsList data-testid="tabs-data-ingestion">
+          <TabsTrigger value="call-reports" data-testid="tab-call-reports">
+            <FileText className="w-3.5 h-3.5 mr-1.5" />
+            Call Reports
+          </TabsTrigger>
+          <TabsTrigger value="peer-data" data-testid="tab-peer-data">
+            <BarChart3 className="w-3.5 h-3.5 mr-1.5" />
+            Peer Data
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="call-reports" className="space-y-4">
+          <CallReportTab />
+        </TabsContent>
+
+        <TabsContent value="peer-data" className="space-y-4">
+          <PeerDataTab />
+        </TabsContent>
+      </Tabs>
+
+      <div className="border-t pt-4 pb-2">
+        <p className="text-xs text-muted-foreground">
+          Data sourced in real-time from FDIC BankFind Suite API, FFIEC Central Data Repository, and Federal Reserve National Information Center.
+          All data is publicly available regulatory filing information. Mizuho Bank (USA) (RSSD: 229913, CERT: 21843).
+        </p>
       </div>
     </div>
   );
