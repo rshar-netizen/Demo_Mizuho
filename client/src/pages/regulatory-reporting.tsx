@@ -3093,6 +3093,201 @@ function DraftReportCard({ draftLines, overrides, setOverrides, draftPeriod, tes
   );
 }
 
+type BalanceSheetMetric = "totalAssets" | "loansDeposits" | "netIncome";
+
+const balanceSheetMetrics: { id: BalanceSheetMetric; label: string }[] = [
+  { id: "totalAssets", label: "Total Assets" },
+  { id: "loansDeposits", label: "Loans vs Deposits" },
+  { id: "netIncome", label: "Net Income" },
+];
+
+function HistoricalTrendCharts({ historicalWithDraft, draftPeriod }: { historicalWithDraft: HistoricalRecord[]; draftPeriod: string }) {
+  const [metric, setMetric] = useState<BalanceSheetMetric>("totalAssets");
+  const [chartType, setChartType] = useState<"area" | "bar">("area");
+
+  const chartData = historicalWithDraft.map((r, idx) => ({
+    period: r.period,
+    totalAssets: Math.round(r.totalAssets / 1000),
+    totalLoans: Math.round(r.totalLoans / 1000),
+    totalDeposits: Math.round(r.totalDeposits / 1000),
+    netIncome: Math.round(r.netIncome / 1000),
+    isCurrent: idx === historicalWithDraft.length - 1,
+  }));
+
+  const tooltipStyle = {
+    backgroundColor: "hsl(var(--card))",
+    border: "1px solid hsl(var(--border))",
+    borderRadius: "6px",
+    fontSize: "12px",
+  };
+
+  const formatVal = (v: number) => `$${v.toLocaleString()}M`;
+
+  const TrendDot = (baseColor: string) => (props: { cx?: number; cy?: number; index?: number }) => {
+    const { cx, cy, index } = props;
+    if (!cx || !cy) return <circle cx={0} cy={0} r={0} fill="none" />;
+    if (index === chartData.length - 1) {
+      return (
+        <g>
+          <circle cx={cx} cy={cy} r={7} fill="hsl(351, 85%, 52%)" fillOpacity={0.15} stroke="none" />
+          <circle cx={cx} cy={cy} r={4.5} fill="hsl(351, 85%, 52%)" stroke="white" strokeWidth={2} />
+        </g>
+      );
+    }
+    return <circle cx={cx} cy={cy} r={3} fill={baseColor} />;
+  };
+
+  const xAxis = (
+    <XAxis
+      dataKey="period"
+      tick={({ x, y, payload }: { x: number; y: number; payload: { value: string; index: number } }) => {
+        const isCurrentQ = payload.value === draftPeriod;
+        return (
+          <text x={x} y={y + 12} textAnchor="end" fontSize={10} fontWeight={isCurrentQ ? 700 : 400} fill={isCurrentQ ? "hsl(351, 85%, 52%)" : "currentColor"} transform={`rotate(-30, ${x}, ${y + 12})`}>
+            {payload.value}
+          </text>
+        );
+      }}
+      height={50}
+    />
+  );
+  const yAxis = <YAxis tick={{ fontSize: 10 }} domain={["dataMin - 500", "dataMax + 500"]} />;
+  const grid = <CartesianGrid strokeDasharray="3 3" opacity={0.1} />;
+  const tooltip = (
+    <Tooltip
+      contentStyle={tooltipStyle}
+      formatter={(value: number) => [formatVal(value), ""]}
+      labelFormatter={(label: string) => label === draftPeriod ? `${label} (Draft)` : label}
+    />
+  );
+
+  const renderChart = () => {
+    if (metric === "loansDeposits") {
+      if (chartType === "bar") {
+        return (
+          <BarChart data={chartData}>
+            {grid}{xAxis}{yAxis}{tooltip}
+            <Legend wrapperStyle={{ fontSize: "11px" }} />
+            <Bar dataKey="totalLoans" radius={[4, 4, 0, 0]} name="Total Loans">
+              {chartData.map((entry, idx) => (
+                <Cell key={idx} fill={entry.isCurrent ? "hsl(351, 85%, 52%)" : "hsl(var(--chart-2))"} fillOpacity={entry.isCurrent ? 1 : 0.85} />
+              ))}
+            </Bar>
+            <Bar dataKey="totalDeposits" radius={[4, 4, 0, 0]} name="Total Deposits">
+              {chartData.map((entry, idx) => (
+                <Cell key={idx} fill={entry.isCurrent ? "hsl(351, 65%, 62%)" : "hsl(var(--chart-3))"} fillOpacity={entry.isCurrent ? 1 : 0.85} />
+              ))}
+            </Bar>
+          </BarChart>
+        );
+      }
+      return (
+        <AreaChart data={chartData}>
+          {grid}{xAxis}{yAxis}{tooltip}
+          <Legend wrapperStyle={{ fontSize: "11px" }} />
+          <Area type="monotone" dataKey="totalLoans" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" fillOpacity={0.1} strokeWidth={2} name="Total Loans" dot={TrendDot("hsl(var(--chart-2))")} />
+          <Area type="monotone" dataKey="totalDeposits" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.1} strokeWidth={2} name="Total Deposits" dot={TrendDot("hsl(var(--chart-3))")} />
+        </AreaChart>
+      );
+    }
+
+    const dataKey = metric === "totalAssets" ? "totalAssets" : "netIncome";
+    const color = metric === "totalAssets" ? "hsl(var(--chart-1))" : "hsl(var(--chart-4))";
+    const name = balanceSheetMetrics.find(m => m.id === metric)?.label ?? "";
+
+    if (chartType === "bar") {
+      return (
+        <BarChart data={chartData}>
+          {grid}{xAxis}{yAxis}{tooltip}
+          <Bar dataKey={dataKey} radius={[4, 4, 0, 0]} name={name}>
+            {chartData.map((entry, idx) => (
+              <Cell key={idx} fill={entry.isCurrent ? "hsl(351, 85%, 52%)" : color} fillOpacity={entry.isCurrent ? 1 : 0.85} />
+            ))}
+          </Bar>
+        </BarChart>
+      );
+    }
+    return (
+      <AreaChart data={chartData}>
+        <defs>
+          <linearGradient id="bsTrendFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={color} stopOpacity={0.15} />
+            <stop offset="95%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        {grid}{xAxis}{yAxis}{tooltip}
+        <Area type="monotone" dataKey={dataKey} stroke={color} fill="url(#bsTrendFill)" strokeWidth={2} name={name} dot={TrendDot(color)} />
+      </AreaChart>
+    );
+  };
+
+  return (
+    <Card data-testid="card-historical-trends">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle className="text-sm">Historical Trends — Balance Sheet & Income</CardTitle>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Multi-period trends across {historicalWithDraft.length} quarters. {draftPeriod} draft data highlighted in red.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
+              {balanceSheetMetrics.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setMetric(m.id)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                    metric === m.id
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`button-bs-trend-${m.id}`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-0.5 rounded-md border p-0.5">
+              <button
+                onClick={() => setChartType("area")}
+                className={`p-1.5 rounded transition-colors ${chartType === "area" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                title="Area"
+                data-testid="button-bs-chart-area"
+              >
+                <AreaChartIcon className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setChartType("bar")}
+                className={`p-1.5 rounded transition-colors ${chartType === "bar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                title="Bar"
+                data-testid="button-bs-chart-bar"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            {renderChart()}
+          </ResponsiveContainer>
+        </div>
+        <div className="flex items-center gap-4 mt-2 px-1">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-[hsl(351,85%,52%)] border-2 border-white shadow-sm" />
+            <span className="text-[10px] text-muted-foreground">Current Quarter — {draftPeriod} (from report draft)</span>
+          </div>
+          <span className="text-[10px] text-muted-foreground/60">|</span>
+          <span className="text-[10px] text-muted-foreground">{historicalWithDraft.length - 1} historical periods from FDIC Call Reports</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AnomaliesTab() {
   const { anomalies, isLive, historicalData } = useLiveAnomalies();
   const [activeMetric, setActiveMetric] = useState(0);
@@ -3324,6 +3519,8 @@ function AnomaliesTab() {
           </div>
         </CardContent>
       </Card>
+
+      <HistoricalTrendCharts historicalWithDraft={historicalWithDraft} draftPeriod={draftPeriod} />
 
       <Card data-testid="card-anomaly-log">
         <CardHeader className="pb-2">
@@ -5289,10 +5486,10 @@ type TrendMetric = "totalAssets" | "loansDeposits" | "netIncome" | "tier1Capital
 type ChartType = "area" | "line" | "bar";
 
 const trendMetrics: { id: TrendMetric; label: string; unit: string }[] = [
+  { id: "tier1Capital", label: "Tier 1 Capital Ratio", unit: "%" },
   { id: "totalAssets", label: "Total Assets", unit: "$M" },
   { id: "loansDeposits", label: "Loans vs Deposits", unit: "$M" },
   { id: "netIncome", label: "Net Income", unit: "$M" },
-  { id: "tier1Capital", label: "Tier 1 Capital Ratio", unit: "%" },
 ];
 
 const chartTypes: { id: ChartType; label: string; icon: typeof AreaChartIcon }[] = [
@@ -5437,7 +5634,7 @@ function getInflectionPoints(data: TrendDataPoint[]): InflectionPoint[] {
 
 function TrendAnalysisTab() {
   const { trendData, isLive, hasPulled } = useLiveTrendData();
-  const [activeMetric, setActiveMetric] = useState<TrendMetric>("totalAssets");
+  const [activeMetric, setActiveMetric] = useState<TrendMetric>("tier1Capital");
   const [chartType, setChartType] = useState<ChartType>("area");
 
   const inflectionPoints = getInflectionPoints(trendData);
